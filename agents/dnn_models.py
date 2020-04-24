@@ -13,7 +13,7 @@ class MLP(torch.nn.Module):
         self.model = torch.nn.Sequential(*layers)
 
     def forward(self, x):
-        x = x.double()
+        # x = x.float()
         x = self.model(x)
         return x
 
@@ -25,11 +25,20 @@ class MLP_softmax(MLP):
         x = super().forward(x)
         x = torch.nn.functional.softmax(x)
         return x
-#
-# class combined_MLP(torch.nn.Module):
-#     def __init__(self, input_dim, output_dim,, ha_1, ha_2, hb_1, hb_2):
-#         self.softmax_mlp = MLP_softmax(input_dim, output_dim, ha_1, ha_2)
-#         self.mlp = MLP_softmax(input_dim, output_dim, hb_1, hb_2)
-#
-#     def forward(self, x):
-#         return self.softmax_mlp(x), self.mlp(x)
+
+
+class ActorCritic(torch.nn.Module):
+    def __init__(self, input_dim, output_dim, hiddent_layer):
+        super(ActorCritic, self).__init__()
+        self.affine = torch.nn.Linear(input_dim, hiddent_layer)
+
+        self.action_layer = torch.nn.Linear(hiddent_layer, output_dim)
+        self.value_layer = torch.nn.Linear(hiddent_layer, 1)
+
+    def forward(self, x):
+        features = torch.nn.functional.relu(self.affine(x))
+
+        probs = torch.nn.functional.softmax(self.action_layer(features))
+        value = self.value_layer(features)
+
+        return probs, value
