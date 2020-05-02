@@ -1,9 +1,8 @@
 import torch
-import random
 import numpy as np
 import os
-from _collections import deque
 from agents.dnn_models import MLP_softmax
+from torch.distributions import Categorical
 
 def get_action_vec(action, dim):
     res = np.zeros((dim, 1))
@@ -18,17 +17,16 @@ class vanila_policy_gradient_agent(object):
         self.max_episodes = max_episodes
         self.train=train
         self.batch_size = 1
-        self.lr = 0.02
+        self.lr = 0.015
         self.discount = 0.99
 
         self.gs_num = 0
         self.completed_episodes = 0
-        self.last_rewards = deque(maxlen = 1000)
 
         self.batch_episodes = []
         self.currently_building_episode = []
         self.device = torch.device("cpu")
-        layers = [10,10]
+        layers = [32,32]
         self.trainable_model = MLP_softmax(self.state_dim, self.action_dim, layers)
 
         self.optimizer = torch.optim.Adam(self.trainable_model.parameters(), lr=self.lr)
@@ -37,17 +35,19 @@ class vanila_policy_gradient_agent(object):
 
         self.last_action_log_prob = None
 
-
     def process_new_state(self, state):
         action_probs = self.trainable_model(torch.from_numpy(state).float())
-        action_index = np.random.choice(self.action_dim, p=action_probs.detach().numpy())
-        self.last_action_log_prob = action_probs[action_index]
+        # action_index = np.random.choice(self.action_dim, p=action_probs.detach().numpy())
+        # self.last_action_log_prob = action_probs[action_index]
+        action_distribution = Categorical(action_probs)
+        action_index = action_distribution.sample()
+        self.last_action_log_prob = action_distribution.log_prob(action_index)
+        action_index = action_index.item()
 
         return action_index
 
     def process_output(self, new_state, reward, is_finale_state):
         self.currently_building_episode += [(self.last_action_log_prob, reward)]
-        self.last_rewards.append(reward)
         if is_finale_state:
             self.batch_episodes += [self.currently_building_episode]
             self.currently_building_episode = []
@@ -59,7 +59,6 @@ class vanila_policy_gradient_agent(object):
 
     def _learn(self):
         loss = 0
-        mean_reward = np.mean(self.last_rewards)
         for rollout in self.batch_episodes:
             Rts = []
             Rt = 0
@@ -69,14 +68,10 @@ class vanila_policy_gradient_agent(object):
 
             Rts = torch.tensor(Rts)
             Rts = (Rts - Rts.mean()) / (Rts.std())
-            Rt = 0
-            bt = 0
             for t in range(len(rollout) - 1, -1, -1):
                 log_prob, r = rollout[t]
                 Rt = Rts[t]
-                # Rt = Rt*self.discount + r
-                # bt = bt*self.discount + mean_reward
-                loss -= (log_prob*(Rt - bt))/len(self.batch_episodes)
+                loss -= log_prob*Rt/len(self.batch_episodes)
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
@@ -90,6 +85,6 @@ class vanila_policy_gradient_agent(object):
         torch.save(self.trainable_model.state_dict(), path)
 
     def get_stats(self):
-        return "Gs: %d; LR: %.5f avg-reward %f"%(self.gs_num, self.optimizer.param_groups[0]['lr'], np.mean(self.last_rewards))
+        return "Gs: %d; LR: %.5f"%(self.gs_num, self.optimizer.param_groups[0]['lr'])
 
 

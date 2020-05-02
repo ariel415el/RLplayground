@@ -12,40 +12,34 @@ def get_action_vec(action, dim):
     return res
 
 class actor_critic_agent(object):
-    def __init__(self, state_dim, action_dim, max_episodes,
-                 train=True,
-                 min_epsilon=0.01,
-                 epsilon_decay=0.998):
+    def __init__(self, state_dim, action_dim, max_episodes, train=True, critic_objective="Monte-Carlo"):
         self.name = 'actor-critic'
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.max_episodes = max_episodes
+        self.critic_objective = critic_objective
         self.train= train
         self.batch_size = 1
         self.discount = 0.99
         self.lr = 0.02
         self.epsilon_decay = 0.995
 
-        self.gs_num = 0
-        self.completed_episodes = 0
-
-        self.batch_episodes = []
-        self.currently_building_episode = []
         self.device = torch.device("cpu")
         hidden_dim=128
         self.actor_critic = ActorCritic(state_dim, action_dim, hidden_dim)
 
         self.optimizer = torch.optim.Adam(self.actor_critic.parameters(), lr=self.lr, betas = (0.9, 0.999))
         self.optimizer.zero_grad()
-        self.name += "_%d_lr[%.4f]_b[%d]"%(hidden_dim, self.lr, self.batch_size)
-        self.last_action_log_prob = None
-        self.last_state_value = None
+        self.gs_num = 0
+        self.completed_episodes = 0
+
+        self.batch_episodes = []
+        self.currently_building_episode = []
+        self.name += "_%d_lr[%.4f]_b[%d]_CO-%s"%(hidden_dim, self.lr, self.batch_size, self.critic_objective)
+
 
     def get_action(self, state):
         action_probs, state_value = self.actor_critic(torch.from_numpy(state).float())
-        # action_probs, state_value = action_probs[0], state_value[0]
-        # action = np.random.choice(self.action_dim, p=action_logits.detach().numpy())
-        # log_prob = torch.log(action_probs[action])
         action_distribution = Categorical(action_probs)
         action = action_distribution.sample()
         log_prob = action_distribution.log_prob(action)
@@ -70,21 +64,25 @@ class actor_critic_agent(object):
     def _learn(self):
         loss = 0
         for rollout in self.batch_episodes:
-            Rts = []
-            Rt = 0
-            for t in range(len(rollout) - 1, -1, -1):
-                Rt = rollout[t][2] + self.discount * Rt
-                Rts.insert(0, Rt)
-
-            Rts = torch.tensor(Rts)
-            Rts = (Rts - Rts.mean()) / (Rts.std())
+            qsa_estimates = []
+            if self.critic_objective=="Monte-Carlo":
+                qsa = 0
+                for t in range(len(rollout) - 1, -1, -1):
+                    qsa = rollout[t][2] + self.discount * qsa
+                    qsa_estimates.insert(0, qsa)
+                qsa_estimates = torch.tensor(qsa_estimates)
+                qsa_estimates = (qsa_estimates - qsa_estimates.mean()) / (qsa_estimates.std())
+            elif self.critic_objective=="TD":
+                with torch.no_grad():
+                    torch_rollout = torch.tensor(rollout)
+                    qsa_estimates = torch_rollout[:, 2]
+                    qsa_estimates[:-1] += torch_rollout[1:, 1]
             for t in range(len(rollout)):
                 log_prob, s_value, r = rollout[t]
-                Rt = Rts[t]
                 with torch.no_grad():
-                    At = Rt - s_value.item()
+                    At = qsa_estimates[t] - s_value.item()
                 actor_obj = -log_prob*At / len(self.batch_episodes)
-                critic_obj = torch.nn.functional.smooth_l1_loss(s_value, Rt)
+                critic_obj = torch.nn.functional.smooth_l1_loss(s_value, qsa_estimates[t])
 
                 loss += actor_obj + critic_obj
         loss.backward()
