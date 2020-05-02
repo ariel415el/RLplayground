@@ -1,10 +1,8 @@
-import torch
-import random
 import numpy as np
 import os
-from descrete_agents.dnn_models import *
+from dnn_models import *
 torch.manual_seed(0)
-from torch.distributions import Categorical
+import torch.distributions as D
 
 def get_action_vec(action, dim):
     res = np.zeros((dim, 1))
@@ -12,10 +10,11 @@ def get_action_vec(action, dim):
     return res
 
 class actor_critic_agent(object):
-    def __init__(self, state_dim, action_dim, max_episodes, train=True, critic_objective="Monte-Carlo"):
-        self.name = 'actor-critic'
+    def __init__(self, state_dim, action_bounderies, max_episodes, train=True, critic_objective="Monte-Carlo"):
+        self.name = 'c-actor-critic'
         self.state_dim = state_dim
-        self.action_dim = action_dim
+        self.action_bounderies = action_bounderies
+        self.action_dim = len(action_bounderies)
         self.max_episodes = max_episodes
         self.critic_objective = critic_objective
         self.train= train
@@ -25,8 +24,8 @@ class actor_critic_agent(object):
         self.epsilon_decay = 0.995
 
         self.device = torch.device("cpu")
-        hidden_dim=128
-        self.actor_critic = ActorCritic(state_dim, action_dim, hidden_dim)
+        hidden_dims=[32]
+        self.actor_critic = ContinousActorCritic(state_dim, self.action_dim, hidden_dims)
 
         self.optimizer = torch.optim.Adam(self.actor_critic.parameters(), lr=self.lr, betas = (0.9, 0.999))
         self.optimizer.zero_grad()
@@ -35,15 +34,18 @@ class actor_critic_agent(object):
 
         self.batch_episodes = []
         self.currently_building_episode = []
-        self.name += "_%d_lr[%.4f]_b[%d]_CO-%s"%(hidden_dim, self.lr, self.batch_size, self.critic_objective)
+        self.name += "_%s_lr[%.4f]_b[%d]_CO-%s"%(str(hidden_dims), self.lr, self.batch_size, self.critic_objective)
 
+
+    def clip_action(self, action):
+        return  np.clip(action, self.action_bounderies[0], self.action_bounderies[0])
 
     def get_action(self, state):
-        action_probs, state_value = self.actor_critic(torch.from_numpy(state).float())
-        action_distribution = Categorical(action_probs)
+        mu, sigma, state_value = self.actor_critic(torch.from_numpy(state).float())
+        action_distribution = D.multivariate_normal.MultivariateNormal(mu, torch.diag(sigma))
         action = action_distribution.sample()
         log_prob = action_distribution.log_prob(action)
-        action= action.item()
+        action = self.clip_action(action.numpy())
         return action, log_prob, state_value
 
     def process_new_state(self, state):

@@ -1,7 +1,9 @@
 import gym
-from agents.DQN_agent import *
-from agents.vanila_policy_gradient import *
-from agents.actor_critic import *
+from descrete_agents.DQN_agent import *
+from descrete_agents.vanila_policy_gradient import *
+from descrete_agents.actor_critic import *
+from continous_agents.actor_critic import actor_critic_agent
+from continous_agents.DDPG import DDPG_agent
 import numpy as np
 from time import time, sleep
 from torch.utils.tensorboard import SummaryWriter
@@ -34,12 +36,12 @@ def train(env, actor, train_episodes):
         cur_time = max(1,int(time() - train_start))
         writer_1.add_scalar('5.episode_score_time_scaled', torch.tensor(episode_score), global_step=cur_time)
         print('Episode',i)
-        print("\t# Step %d, time %d mins:"%(num_steps, cur_time/60))
+        print("\t# Step %d, time %d mins; avg-100 %.2f:"%(num_steps, cur_time/60, last_100_score))
         print("\t# steps/sec", num_steps/cur_time)
         print("\t# Agent stats: ", actor.get_stats())
 
         if last_100_score >= 200:
-            print("Solved..", last_100_score)
+            print("Solved whithin %d episodes, score of last 100 episodes is %f"%(i, last_100_score))
             break
     actor.save_state(os.path.join(TRAIN_DIR, actor.name + "_trained_weights.pt"))
 
@@ -62,21 +64,26 @@ def test(env,  actor):
     env.close()
 
 if  __name__ == '__main__':
-    random.seed(0)
-    torch.manual_seed(0)
-    ENV_NAME="CartPole-v1"; s=4; a=2
+    # SEED=2
+    # random.seed(SEED)
+    # torch.manual_seed(SEED)
+    # ENV_NAME="CartPole-v1"; s=4; a=2
     # ENV_NAME="LunarLander-v2"; s=8; a=4
-    # ENV_NAME="BipedalWalker-v3"; s=24; a=4
+    ENV_NAME="LunarLanderContinuous-v2";s=8;bounderies=[[-1,-1],[1,1]]
+    # ENV_NAME="Pendulum-v0";s=3;bounderies=[[-2],[2]]
+    # ENV_NAME="BipedalWalker-v3"; s=24;bounderies=[[-1,-1,-1,-1],[1,1,1,1]]
     os.makedirs("Training", exist_ok=True)
     TRAIN_DIR = os.path.join("Training", ENV_NAME)
     os.makedirs(TRAIN_DIR, exist_ok=True)
 
     env = gym.make(ENV_NAME)
-    env.seed(0)
+    # env.seed(SEED)
     NUM_EPISODES = 1000
-    actor = DQN_agent(s, a, NUM_EPISODES, train=True)
-    # actor = policy_gradient_agent(s, a, NUM_EPISODES, train=True)
-    # actor = actor_critic_agent(s, a, NUM_EPISODES, train=True)
+    # actor = DQN_agent(s, a, NUM_EPISODES, train=True)
+    # actor = vanila_policy_gradient_agent(s, a, NUM_EPISODES, train=True)
+    # actor = actor_critic_agent(s, a, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
+    # actor = actor_critic_agent(s, bounderies, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
+    actor = DDPG_agent(s, bounderies, NUM_EPISODES, train=True)
 
     train(env, actor, NUM_EPISODES)
 

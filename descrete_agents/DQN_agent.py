@@ -3,7 +3,7 @@ import random
 from collections import deque
 import numpy as np
 import os
-from agents.dnn_models import MLP
+from dnn_models import MLP
 
 def get_action_vec(action, dim):
     res = np.zeros((dim, 1))
@@ -39,11 +39,16 @@ class DQN_agent(object):
         self.trainable_model = MLP(self.state_dim, self.action_dim, layers)
         with torch.no_grad():
             self.periodic_model = MLP(self.state_dim, self.action_dim, layers)
+        self.update_net()
 
         self.optimizer = torch.optim.Adam(self.trainable_model.parameters(), lr=self.lr)
         self.optimizer.zero_grad()
 
         self.name = "DQN_%s_lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]"%(str(layers), self.lr, self.batch_size, self.tau, self.update_freq)
+
+    def update_net(self):
+        for target_param, local_param in zip(self.periodic_model.parameters(), self.trainable_model.parameters()):
+            target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data)
 
     def process_new_state(self, state):
         self.action_counter += 1
@@ -65,13 +70,11 @@ class DQN_agent(object):
 
         self._learn()
         if self.action_counter % self.update_freq == 0:
-            for target_param, local_param in zip(self.periodic_model.parameters(), self.trainable_model.parameters()):
-                target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data)
+            self.update_net()
 
     def _learn(self):
         if len(self.playback_deque) >= self.batch_size:
-            batch_indices = random.sample(range(len(self.playback_deque)), self.batch_size)
-            batch_arrays = np.array(self.playback_deque)[batch_indices]
+            batch_arrays = np.array(random.sample(self.playback_deque, k=self.batch_size))
             prev_states = np.stack(batch_arrays[:, 0], axis=0)
             prev_actions = np.stack(batch_arrays[:, 1], axis=0)
             next_states = np.stack(batch_arrays[:, 2], axis=0)

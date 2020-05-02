@@ -1,8 +1,6 @@
-import torch
-import random
 import numpy as np
 import os
-from agents.dnn_models import *
+from dnn_models import *
 torch.manual_seed(0)
 from torch.distributions import Categorical
 
@@ -19,10 +17,9 @@ class actor_critic_agent(object):
         self.max_episodes = max_episodes
         self.critic_objective = critic_objective
         self.train= train
-        self.batch_size = 1
+        self.batch_size = 16
         self.discount = 0.99
         self.lr = 0.02
-        self.epsilon_decay = 0.995
 
         self.device = torch.device("cpu")
         hidden_dim=128

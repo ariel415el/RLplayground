@@ -3,30 +3,80 @@ import random
 from collections import deque
 import numpy as np
 import os
-from dnn_models import MLP
+from dnn_models import D_Actor, D_Critic
+import copy
+
+# class OUNoise:
+#     """Ornstein-Uhlenbeck process."""
+#
+#     def __init__(self, size, mu=0., theta=0.2, sigma=0.15):
+#         """Initialize parameters and noise process."""
+#         self.mu = mu * np.ones(size)
+#         self.theta = theta
+#         self.sigma = sigma
+#         self.reset()
+#
+#     def reset(self):
+#         """Reset the internal state (= noise) to mean (mu)."""
+#         self.state = copy.copy(self.mu)
+#
+#     def sample(self):
+#         """Update internal state and return it as a noise sample."""
+#         x = self.state
+#         dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random() for i in range(len(x))])
+#         self.state = x + dx
+#         return self.state
+
+
+class OUNoise:
+    def __init__(self, size, mu=0, theta=.2, sigma=0.15, dt=1e-2, x0=None):
+        self.theta = theta
+        self.mu = mu * np.ones(size)
+        self.sigma = sigma
+        self.dt = dt
+        self.x0 = x0
+        self.reset()
+
+    def sample(self):
+        x = self.x_prev + self.theta * (self.mu - self.x_prev) * self.dt + \
+            self.sigma * np.sqrt(self.dt) * np.random.normal(size=self.mu.shape)
+        self.x_prev = x
+        return x
+
+    def reset(self):
+        self.x_prev = self.x0 if self.x0 is not None else np.zeros_like(self.mu)
+
+    def __repr__(self):
+        return 'OrnsteinUhlenbeckActionNoise(mu={}, sigma={})'.format(self.mu, self.sigma)
 
 def get_action_vec(action, dim):
     res = np.zeros((dim, 1))
     res[action, 0] = 1
     return res
 
+def update_net(model_to_change, reference_model, tau):
+    for target_param, local_param in zip(model_to_change.parameters(), reference_model.parameters()):
+        target_param.data.copy_(tau * local_param.data + (1.0 - tau) * target_param.data)
 
-class DQN_agent(object):
-    def __init__(self, state_dim, action_dim, max_episodes, train = True):
+class DDPG_agent(object):
+    def __init__(self, state_dim, bounderies, max_episodes, train = True):
 
         self.state_dim = state_dim
-        self.action_dim = action_dim
+        self.bounderies = bounderies
+        self.action_dim = len(bounderies[0])
         self.max_episodes = max_episodes
         self.train = train
-        self.tau=1.
-        self.lr = 0.001
-        self.epsilon = 1.0
+        self.tau=0.001
+        self.actor_lr = 0.00005
+        self.critic_lr = 0.0005
         self.min_epsilon = 0.01
         self.discount = 0.99
-        self.update_freq = 2
-        self.batch_size = 32
-        self.max_playback = 100000
-        self.epsilon_decay = 0.996
+        self.update_freq = 1
+        self.batch_size = 64
+        self.max_playback = 1000000
+        # self.epsilon = 1.0
+        # self.epsilon_decay = 0.9995
+        self.random_process = OUNoise(self.action_dim)
 
         self.action_counter = 0
         self.completed_episodes = 0
@@ -35,85 +85,95 @@ class DQN_agent(object):
 
         self.device = torch.device("cpu")
 
-        layers = [10,10]
-        self.trainable_model = MLP(self.state_dim, self.action_dim, layers)
-        with torch.no_grad():
-            self.periodic_model = MLP(self.state_dim, self.action_dim, layers)
-        self.update_net()
+        self.trainable_actor = D_Actor(self.state_dim, self.action_dim)
+        self.target_actor = D_Actor(self.state_dim, self.action_dim)
 
-        self.optimizer = torch.optim.Adam(self.trainable_model.parameters(), lr=self.lr)
-        self.optimizer.zero_grad()
+        self.trainable_critic = D_Critic(self.state_dim, self.action_dim)
+        self.target_critic = D_Critic(self.state_dim, self.action_dim)
 
-        self.name = "DQN_%s_lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]"%(str(layers), self.lr, self.batch_size, self.tau, self.update_freq)
+        update_net(self.target_actor, self.trainable_actor, 1)
+        update_net(self.target_critic, self.trainable_critic, 1)
 
-    def update_net(self):
-        for target_param, local_param in zip(self.periodic_model.parameters(), self.trainable_model.parameters()):
-            target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data)
+        self.actor_optimizer = torch.optim.Adam(self.trainable_actor.parameters(), lr=self.actor_lr)
+        self.critic_optimizer = torch.optim.Adam(self.trainable_critic.parameters(), lr=self.critic_lr)
+
+        self.name = "DDPG_lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]"%(self.actor_lr, self.batch_size, self.tau, self.update_freq)
 
     def process_new_state(self, state):
         self.action_counter += 1
-        if random.uniform(0,1) < self.epsilon:
-            action_index =  random.randint(0, self.action_dim - 1)
-        else:
-            q_vals = self.trainable_model(torch.from_numpy(state).float())
-            action_index = np.argmax(q_vals.detach().cpu().numpy())
+        self.trainable_actor.eval()
+        with torch.no_grad():
+            action = self.trainable_actor(torch.from_numpy(state).float().view(1,-1)).cpu().data.numpy()[0]
+        self.trainable_actor.train()
+        if self.train:
+            # action += self.epsilon * self.random_process.sample()
+            action += self.random_process.sample()
 
         self.last_state = state
-        self.last_action = action_index
+        self.last_action = action
 
-        return action_index
+        # action = action.detach().cpu().numpy()
+        action = np.clip(action, self.bounderies[0], self.bounderies[1])
+        return action
 
     def process_output(self, new_state, reward, is_finale_state):
-        self.playback_deque.append((self.last_state, self.last_action, new_state, reward, is_finale_state))
+        if self.train:
+            self.playback_deque.append((self.last_state, self.last_action, new_state, reward, is_finale_state))
+            self._learn()
+            if self.action_counter % self.update_freq == 0:
+                update_net(self.target_actor, self.trainable_actor, self.tau)
+                update_net(self.target_critic, self.trainable_critic, self.tau)
+                # self.epsilon =max(self.min_epsilon, self.epsilon*self.epsilon_decay)
         if is_finale_state:
-            self.epsilon = max(self.min_epsilon, self.epsilon*self.epsilon_decay)
-
-        self._learn()
-        if self.action_counter % self.update_freq == 0:
-            self.update_net()
+            self.random_process.reset()
 
     def _learn(self):
-        if len(self.playback_deque) >= self.batch_size:
-            batch_indices = random.sample(range(len(self.playback_deque)), self.batch_size)
-            batch_arrays = np.array(self.playback_deque)[batch_indices]
-            prev_states = np.stack(batch_arrays[:, 0], axis=0)
-            prev_actions = np.stack(batch_arrays[:, 1], axis=0)
-            next_states = np.stack(batch_arrays[:, 2], axis=0)
-            rewards = np.stack(batch_arrays[:, 3], axis=0)
+        if len(self.playback_deque) > self.batch_size:
+            batch_arrays = np.array(random.sample(self.playback_deque, k=self.batch_size))
+            states = torch.from_numpy(np.stack(batch_arrays[:, 0], axis=0)).float()
+            actions = torch.from_numpy(np.stack(batch_arrays[:, 1], axis=0)).float()
+            next_states = torch.from_numpy(np.stack(batch_arrays[:, 2], axis=0)).float()
+            rewards = torch.from_numpy(np.stack(batch_arrays[:, 3], axis=0)).float()
             is_finale_states = np.stack(batch_arrays[:, 4], axis=0)
 
+            # update critic
             with torch.no_grad():
-                net_outs = self.periodic_model(torch.from_numpy(next_states).float())
-                # net_outs = self.trainable_model(torch.tensor(next_states))
+                next_target_action = self.target_actor(next_states)
+                next_target_q_values = self.target_critic(next_states, next_target_action).view(-1)
 
-            target_values = torch.from_numpy(rewards)
-            target_values[np.logical_not(is_finale_states)] += self.discount*net_outs.max(axis=1)[0][np.logical_not(is_finale_states)]
-            # target_values = torch.tensor(rewards) + net_outs.max(axis=1)[0] * (torch.tensor(1 - is_finale_states))
+                target_values = rewards
+                mask = np.logical_not(is_finale_states)
+                target_values[mask] += self.discount*next_target_q_values[mask]
 
-            self.trainable_model.train()
-            prev_net_outs = self.trainable_model(torch.from_numpy(prev_states).float())
-            curr_q_vals = prev_net_outs[np.arange(prev_net_outs.shape[0]), prev_actions]
-            # curr_q_vals = torch.matmul(prev_net_outs.view(-1,1, self.action_dim).float(), torch.tensor(prev_actions).float()).view(-1,1)
-            # curr_q_vals = self.trainable_model.forward(torch.tensor(prev_states)).gather(1, torch.tensor(prev_actions))
-
-            # loss = torch.nn.functional.mse_loss(curr_q_vals.double(), target_values.view(-1,1).double())
-            loss = torch.nn.functional.mse_loss(curr_q_vals.double(), target_values.double())
+            self.trainable_critic.train()
+            self.critic_optimizer.zero_grad()
+            q_values = self.trainable_critic(states,actions)
+            loss = torch.nn.functional.mse_loss(q_values.view(-1), target_values)
             loss.backward()
-            self.optimizer.step()
-            self.optimizer.zero_grad()
+            self.critic_optimizer.step()
+
+            # update actor
+            self.actor_optimizer.zero_grad()
+            actions = self.trainable_actor(states)
+            actor_obj = -self.trainable_critic(states, actions).mean()
+            actor_obj.backward()
+            self.actor_optimizer.step()
+
             self.gs_num += 1
 
     def load_state(self, path):
         if os.path.exists(path):
-            self.periodic_model.load_state_dict(torch.load(path))
-            self.trainable_model.load_state_dict(torch.load(path))
+            dict = torch.load(path)
+            self.trainable_actor.load_state_dict(dict['actor'])
+            self.trainable_critic.load_state_dict(dict['critic'])
         else:
             print("Couldn't find weights file")
 
     def save_state(self, path):
-        torch.save(self.trainable_model.state_dict(), path)
+        dict = {'actor':self.trainable_actor.state_dict(), 'critic': self.trainable_critic.state_dict()}
+        torch.save(dict, path)
 
     def get_stats(self):
-        return "GS: %d, Epsilon: %.5f; LR: %.5f"%(self.gs_num, self.epsilon, self.optimizer.param_groups[0]['lr'])
+        return "GS: %d; LR: a-%.5f\c-%.5f"%(self.gs_num, self.actor_optimizer.param_groups[0]['lr'],self.critic_optimizer.param_groups[0]['lr'])
 
 

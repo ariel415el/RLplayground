@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import os
-from agents.dnn_models import MLP_softmax
+from dnn_models import MLP_softmax
 from torch.distributions import Categorical
 
 def get_action_vec(action, dim):
@@ -37,8 +37,6 @@ class vanila_policy_gradient_agent(object):
 
     def process_new_state(self, state):
         action_probs = self.trainable_model(torch.from_numpy(state).float())
-        # action_index = np.random.choice(self.action_dim, p=action_probs.detach().numpy())
-        # self.last_action_log_prob = action_probs[action_index]
         action_distribution = Categorical(action_probs)
         action_index = action_distribution.sample()
         self.last_action_log_prob = action_distribution.log_prob(action_index)
