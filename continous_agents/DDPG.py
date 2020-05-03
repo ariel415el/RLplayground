@@ -6,6 +6,8 @@ import os
 from dnn_models import D_Actor, D_Critic
 import copy
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 # class OUNoise:
 #     """Ornstein-Uhlenbeck process."""
 #
@@ -83,13 +85,11 @@ class DDPG_agent(object):
         self.gs_num=0
         self.playback_deque = deque(maxlen=self.max_playback)
 
-        self.device = torch.device("cpu")
+        self.trainable_actor = D_Actor(self.state_dim, self.action_dim).to(device)
+        self.target_actor = D_Actor(self.state_dim, self.action_dim).to(device)
 
-        self.trainable_actor = D_Actor(self.state_dim, self.action_dim)
-        self.target_actor = D_Actor(self.state_dim, self.action_dim)
-
-        self.trainable_critic = D_Critic(self.state_dim, self.action_dim)
-        self.target_critic = D_Critic(self.state_dim, self.action_dim)
+        self.trainable_critic = D_Critic(self.state_dim, self.action_dim).to(device)
+        self.target_critic = D_Critic(self.state_dim, self.action_dim).to(device)
 
         update_net(self.target_actor, self.trainable_actor, 1)
         update_net(self.target_critic, self.trainable_critic, 1)
@@ -103,7 +103,8 @@ class DDPG_agent(object):
         self.action_counter += 1
         self.trainable_actor.eval()
         with torch.no_grad():
-            action = self.trainable_actor(torch.from_numpy(state).float().view(1,-1)).cpu().data.numpy()[0]
+            state_torch = torch.from_numpy(state).to(device).float().view(1,-1)
+            action = self.trainable_actor(state_torch).cpu().data.numpy()[0]
         self.trainable_actor.train()
         if self.train:
             # action += self.epsilon * self.random_process.sample()
@@ -130,10 +131,10 @@ class DDPG_agent(object):
     def _learn(self):
         if len(self.playback_deque) > self.batch_size:
             batch_arrays = np.array(random.sample(self.playback_deque, k=self.batch_size))
-            states = torch.from_numpy(np.stack(batch_arrays[:, 0], axis=0)).float()
-            actions = torch.from_numpy(np.stack(batch_arrays[:, 1], axis=0)).float()
-            next_states = torch.from_numpy(np.stack(batch_arrays[:, 2], axis=0)).float()
-            rewards = torch.from_numpy(np.stack(batch_arrays[:, 3], axis=0)).float()
+            states = torch.from_numpy(np.stack(batch_arrays[:, 0], axis=0)).to(device).float()
+            actions = torch.from_numpy(np.stack(batch_arrays[:, 1], axis=0)).to(device).float()
+            next_states = torch.from_numpy(np.stack(batch_arrays[:, 2], axis=0)).to(device).float()
+            rewards = torch.from_numpy(np.stack(batch_arrays[:, 3], axis=0)).to(device).float()
             is_finale_states = np.stack(batch_arrays[:, 4], axis=0)
 
             # update critic
@@ -147,7 +148,7 @@ class DDPG_agent(object):
 
             self.trainable_critic.train()
             self.critic_optimizer.zero_grad()
-            q_values = self.trainable_critic(states,actions)
+            q_values = self.trainable_critic(states, actions)
             loss = torch.nn.functional.mse_loss(q_values.view(-1), target_values)
             loss.backward()
             self.critic_optimizer.step()
