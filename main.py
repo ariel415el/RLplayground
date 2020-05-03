@@ -9,12 +9,75 @@ from time import time, sleep
 from torch.utils.tensorboard import SummaryWriter
 from _collections import deque
 import random
+from matplotlib import pyplot as plt
+
+class logger(object):
+    def __init__(self, k):
+        self.total_rewards = deque(maxlen=k)
+
+    def log(self, episode_number, episode_rewards, num_steps, time_passed, actor_stats):
+        self.total_rewards.append(np.sum(episode_rewards))
+        last_k_scores = np.mean(self.total_rewards)
+        print('Episode: ', episode_number)
+        print("\t# Step %d, time %d mins; avg-100 %.2f:" % (num_steps, time_passed / 60, last_k_scores))
+        print("\t# steps/sec", num_steps / time_passed)
+        print("\t# Agent stats: ", actor.get_stats())
+
+class TB_logger(logger):
+    def __init__(self, k, tb_writer):
+        super(TB_logger, self).__init__(k)
+        self.tb_writer = tb_writer
+
+    def log(self, episode_number, episode_rewards, num_steps, time_passed, actor_stats):
+        super(TB_logger, self).log(episode_number, episode_rewards, num_steps, time_passed, actor_stats)
+        last_k_scores = np.mean(self.total_rewards)
+        self.tb_writer.add_scalar('1.last_100_episodes_avg', torch.tensor(last_k_scores), global_step=episode_number)
+        self.tb_writer.add_scalar('2.episode_score', torch.tensor(np.sum(episode_rewards)), global_step=episode_number)
+        self.tb_writer.add_scalar('3.episode_length', len(episode_rewards), global_step=episode_number)
+        self.tb_writer.add_scalar('4.avg_rewards', torch.tensor(np.mean(episode_rewards)), global_step=episode_number)
+        # cur_time = max(1, int(time() - train_start))
+        # self.tb_writer.add_scalar('5.episode_score_time_scaled', torch.tensor(episode_score), global_step=cur_time)
+
+class plt_logger(logger):
+    def __init__(self, k, logdir):
+        super(plt_logger, self).__init__(k)
+        self.k = k
+        self.logdir=logdir
+        self.all_episode_lengths = []
+        self.all_episode_total_scores = []
+        self.all_avg_last_k = []
+
+    def log(self, episode_number, episode_rewards, num_steps, time_passed, actor_stats):
+        super(plt_logger, self).log(episode_number, episode_rewards, num_steps, time_passed, actor_stats)
+        last_k_scores = np.mean(self.total_rewards)
+        self.all_episode_lengths += [len(episode_rewards)]
+        self.all_episode_total_scores += [np.sum(episode_rewards)]
+        self.all_avg_last_k += [last_k_scores]
+
+        plt.plot(np.arange(1, len(self.all_episode_lengths) + 1), self.all_episode_lengths)
+        plt.ylabel('Length')
+        plt.xlabel('Episode #')
+        plt.savefig(os.path.join(self.logdir,"Episode-lengths.png"))
+        plt.clf()
+
+        plt.plot(np.arange(1, len(self.all_episode_total_scores) + 1), self.all_episode_total_scores)
+        plt.ylabel('Score')
+        plt.xlabel('Episode #')
+        plt.savefig(os.path.join(self.logdir,"Episode-scores.png"))
+        plt.clf()
+
+        plt.plot(np.arange(1, len(self.all_avg_last_k) + 1), self.all_avg_last_k)
+        plt.ylabel('Score-last %d'%self.k)
+        plt.xlabel('Episode #')
+        plt.savefig(os.path.join(self.logdir,"Episode-avg-last-%d.png"%self.k))
+        plt.clf()
+
 
 def train(env, actor, train_episodes):
     train_start = time()
-    writer_1 = SummaryWriter(log_dir=os.path.join(TRAIN_DIR, "tensorboard_outputs",  actor.name))
+    # logger = TB_logger(200, SummaryWriter(log_dir=os.path.join(TRAIN_DIR, "tensorboard_outputs",  actor.name)))
+    logger = plt_logger(200, os.path.join(TRAIN_DIR, "tensorboard_outputs",  actor.name))
     num_steps = 0
-    total_rewards = deque(maxlen=100)
     for i in range(train_episodes):
         done = False
         state = env.reset()
@@ -26,23 +89,8 @@ def train(env, actor, train_episodes):
             num_steps+=1
             episode_rewards += [reward]
 
-        episode_score = np.sum(episode_rewards)
-        total_rewards.append(episode_score)
-        last_100_score = np.mean(total_rewards)
-        writer_1.add_scalar('1.last_100_episodes_avg', torch.tensor(last_100_score), global_step=i)
-        writer_1.add_scalar('2.episode_score', torch.tensor(episode_score), global_step=i)
-        writer_1.add_scalar('3.episode_length', len(episode_rewards), global_step=i)
-        writer_1.add_scalar('4.avg_rewards', torch.tensor(np.mean(episode_rewards)), global_step=i)
-        cur_time = max(1,int(time() - train_start))
-        writer_1.add_scalar('5.episode_score_time_scaled', torch.tensor(episode_score), global_step=cur_time)
-        print('Episode',i)
-        print("\t# Step %d, time %d mins; avg-100 %.2f:"%(num_steps, cur_time/60, last_100_score))
-        print("\t# steps/sec", num_steps/cur_time)
-        print("\t# Agent stats: ", actor.get_stats())
+        logger.log(i, episode_rewards, num_steps, max(1, int(time() - train_start)), actor.get_stats())
 
-        if last_100_score >= 200:
-            print("Solved whithin %d episodes, score of last 100 episodes is %f"%(i, last_100_score))
-            break
     actor.save_state(os.path.join(TRAIN_DIR, actor.name + "_trained_weights.pt"))
 
     env.close()
