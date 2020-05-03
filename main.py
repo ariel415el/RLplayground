@@ -41,6 +41,7 @@ class TB_logger(logger):
 class plt_logger(logger):
     def __init__(self, k, logdir):
         super(plt_logger, self).__init__(k)
+        os.makedirs(logdir, exist_ok=True)
         self.k = k
         self.logdir=logdir
         self.all_episode_lengths = []
@@ -76,7 +77,7 @@ class plt_logger(logger):
 def train(env, actor, train_episodes):
     train_start = time()
     # logger = TB_logger(200, SummaryWriter(log_dir=os.path.join(TRAIN_DIR, "tensorboard_outputs",  actor.name)))
-    logger = plt_logger(200, os.path.join(TRAIN_DIR, "tensorboard_outputs",  actor.name))
+    logger = plt_logger(200, os.path.join(TRAIN_DIR,  actor.name))
     num_steps = 0
     for i in range(train_episodes):
         done = False

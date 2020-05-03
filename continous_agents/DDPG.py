@@ -7,6 +7,7 @@ from dnn_models import D_Actor, D_Critic
 import copy
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print("using device: ", device)
 
 # class OUNoise:
 #     """Ornstein-Uhlenbeck process."""
