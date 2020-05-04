@@ -1,9 +1,10 @@
-import numpy as np
+##############################################
+### Credits to nikhilbarhate99/PPO-PyTorch ###
+##############################################
 import os
 from dnn_models import *
 torch.manual_seed(0)
 import torch.distributions as D
-
 
 class Memory:
     def __init__(self):
@@ -77,7 +78,7 @@ class PPO(object):
         return dist
 
     def process_new_state(self, state):
-        state = torch.from_numpy(state)
+        state = torch.from_numpy(state).to(device)
         dist = self.get_action_dist(self.policy_old, state)
 
         action = dist.sample()
