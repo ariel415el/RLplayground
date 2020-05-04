@@ -4,10 +4,6 @@ from dnn_models import *
 torch.manual_seed(0)
 import torch.distributions as D
 
-def get_action_vec(action, dim):
-    res = np.zeros((dim, 1))
-    res[action, 0] = 1
-    return res
 
 class actor_critic_agent(object):
     def __init__(self, state_dim, action_bounderies, max_episodes, train=True, critic_objective="Monte-Carlo"):

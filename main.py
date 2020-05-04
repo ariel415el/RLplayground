@@ -4,6 +4,7 @@ from descrete_agents.vanila_policy_gradient import *
 from descrete_agents.actor_critic import *
 from continous_agents.actor_critic import actor_critic_agent
 from continous_agents.DDPG import DDPG_agent
+from continous_agents.PPO import PPO
 import numpy as np
 from time import time, sleep
 from torch.utils.tensorboard import SummaryWriter
@@ -127,12 +128,13 @@ if  __name__ == '__main__':
 
     env = gym.make(ENV_NAME)
     # env.seed(SEED)
-    NUM_EPISODES = 1000
+    NUM_EPISODES = 10000
     # actor = DQN_agent(s, a, NUM_EPISODES, train=True)
     # actor = vanila_policy_gradient_agent(s, a, NUM_EPISODES, train=True)
     # actor = actor_critic_agent(s, a, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
     # actor = actor_critic_agent(s, bounderies, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
-    actor = DDPG_agent(s, bounderies, NUM_EPISODES, train=True)
+    # actor = DDPG_agent(s, bounderies, NUM_EPISODES, train=True)
+    actor = PPO(s, bounderies, NUM_EPISODES, train=True)
 
     train(env, actor, NUM_EPISODES)
 

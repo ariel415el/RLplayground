@@ -53,6 +53,37 @@ class ContinousActorCritic(torch.nn.Module):
 
         return mu, sigma, value
 
+class ContinousActorCritic_2(nn.Module):
+    def __init__(self, state_dim, action_dim):
+        super(ContinousActorCritic_2, self).__init__()
+        # action mean range -1 to 1
+        self.actor =  nn.Sequential(
+                nn.Linear(state_dim, 64),
+                nn.Tanh(),
+                nn.Linear(64, 32),
+                nn.Tanh(),
+                nn.Linear(32, action_dim),
+                nn.Tanh()
+                )
+        # critic
+        self.critic = nn.Sequential(
+                nn.Linear(state_dim, 64),
+                nn.Tanh(),
+                nn.Linear(64, 32),
+                nn.Tanh(),
+                nn.Linear(32, 1)
+                )
+
+    def get_value(self, state):
+        return self.critic(state)
+
+    def get_mu(self, state):
+        return self.actor(state)
+
+    def forward(self, x):
+        raise NotImplementedError
+
+
 # DPG
 class DeterministicActorCritic(torch.nn.Module):
     def __init__(self, input_dim, output_dim, hidden_dims):
@@ -73,25 +104,6 @@ class DeterministicActorCritic(torch.nn.Module):
         value = self.value_layer(features)
 
         return mu, sigma, value
-
-
-class deterministic_actor(torch.nn.Module):
-    def __init__(self, input_dim, num_outputs,  hidden_dims):
-        super(deterministic_actor, self).__init__()
-        layers = [torch.nn.Linear(input_dim, hidden_dims[0]), torch.nn.ReLU()]
-        for i in range(1, len(hidden_dims)):
-            layers += [torch.nn.Linear(hidden_dims[i - 1], hidden_dims[i]), torch.nn.ReLU()]
-        self.features = torch.nn.Sequential(*layers)
-
-        self.mu_layer = torch.nn.Linear(hidden_dims[-1], num_outputs)
-
-    def forward(self, x):
-        features = self.features(x)
-
-        mu = torch.nn.functional.tanh(self.mu_layer(features))
-
-        return mu
-
 
 def hidden_init(layer):
     fan_in = layer.weight.data.size()[0]
