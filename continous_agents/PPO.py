@@ -56,8 +56,8 @@ class PPO(object):
         self.steps_per_iteration=80
         self.epsilon_clip = 0.2
 
-        self.lr = 0.02
-
+        self.lr = 0.0003
+        self.lr_decay = 0.995
         self.policy = ContinousActorCritic_2(state_dim, self.action_dim).to(device)
         self.policy_old = ContinousActorCritic_2(state_dim, self.action_dim).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
@@ -65,7 +65,7 @@ class PPO(object):
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr)
         self.optimizer.zero_grad()
         self.MseLoss = nn.MSELoss()
-        self.learn_seps = 0
+        self.learn_steps = 0
         self.completed_episodes = 0
 
         self.name += "_lr[%.4f]_b[%d]"%(self.lr, self.batch_size)
@@ -97,7 +97,11 @@ class PPO(object):
         if len(self.samples) == self.batch_size:
             self._learn()
             self.samples.clear_memory()
-            self.learn_seps += 1
+            self.learn_steps += 1
+
+            if (self.learn_steps+1) % 10 == 0:
+                for param_group in self.optimizer.param_groups:
+                    param_group['lr'] *= self.lr_decay
 
 
     def _learn(self):
@@ -131,7 +135,7 @@ class PPO(object):
             advantages = rewards - state_values.detach()
             surr1 = ratios * advantages
             surr2 = torch.clamp(ratios, 1 - self.epsilon_clip, 1 + self.epsilon_clip) * advantages
-            loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values, rewards) - 0.01 * dist_entropies
+            loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values.float(), rewards.float()) - 0.01 * dist_entropies
             loss = loss.double()
             # take gradient step
             self.optimizer.zero_grad()
@@ -149,7 +153,7 @@ class PPO(object):
         torch.save(self.policy.state_dict(), path)
 
     def get_stats(self):
-        return "Gs: %d; LR: %.5f"%(self.learn_seps, self.optimizer.param_groups[0]['lr'])
+        return "Gs: %d; LR: %.5f"%(self.learn_steps, self.optimizer.param_groups[0]['lr'])
 
 
 

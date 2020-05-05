@@ -11,6 +11,7 @@ from torch.utils.tensorboard import SummaryWriter
 from _collections import deque
 import random
 from matplotlib import pyplot as plt
+from gym import wrappers
 
 class logger(object):
     def __init__(self, k):
@@ -75,12 +76,15 @@ class plt_logger(logger):
         plt.clf()
 
 
-def train(env, actor, train_episodes):
+def train(env, actor, train_episodes, score_scope):
     train_start = time()
     # logger = TB_logger(200, SummaryWriter(log_dir=os.path.join(TRAIN_DIR, "tensorboard_outputs",  actor.name)))
-    logger = plt_logger(200, os.path.join(TRAIN_DIR,  actor.name))
+    logger = plt_logger(score_scope, os.path.join(TRAIN_DIR,  actor.name))
     num_steps = 0
     for i in range(train_episodes):
+        # if i % 500 ==0:
+        #     env = wrappers.Monitor(env, './videos/' + str(time()) + '/')
+
         done = False
         state = env.reset()
         episode_rewards = []
@@ -114,12 +118,12 @@ def test(env,  actor):
     env.close()
 
 if  __name__ == '__main__':
-    # SEED=2
-    # random.seed(SEED)
-    # torch.manual_seed(SEED)
+    SEED=2
+    random.seed(SEED)
+    torch.manual_seed(SEED)
     # ENV_NAME="CartPole-v1"; s=4; a=2
     # ENV_NAME="LunarLander-v2"; s=8; a=4
-    ENV_NAME="LunarLanderContinuous-v2";s=8;bounderies=[[-1,-1],[1,1]]
+    ENV_NAME="LunarLanderContinuous-v2";s=8;bounderies=[[-1,-1],[1,1]]; score_scope=20
     # ENV_NAME="Pendulum-v0";s=3;bounderies=[[-2],[2]]
     # ENV_NAME="BipedalWalker-v3"; s=24;bounderies=[[-1,-1,-1,-1],[1,1,1,1]]
     os.makedirs("Training", exist_ok=True)
@@ -127,7 +131,7 @@ if  __name__ == '__main__':
     os.makedirs(TRAIN_DIR, exist_ok=True)
 
     env = gym.make(ENV_NAME)
-    # env.seed(SEED)
+    env.seed(SEED)
     NUM_EPISODES = 10000
     # actor = DQN_agent(s, a, NUM_EPISODES, train=True)
     # actor = vanila_policy_gradient_agent(s, a, NUM_EPISODES, train=True)
@@ -136,7 +140,7 @@ if  __name__ == '__main__':
     # actor = DDPG_agent(s, bounderies, NUM_EPISODES, train=True)
     actor = PPO(s, bounderies, NUM_EPISODES, train=True)
 
-    train(env, actor, NUM_EPISODES)
+    train(env, actor, NUM_EPISODES, score_scope)
 
     # actor.train = False
     # actor.epsilon = 0.0
