@@ -5,6 +5,7 @@ from descrete_agents.actor_critic import *
 from continous_agents.actor_critic import actor_critic_agent
 from continous_agents.DDPG import DDPG_agent
 from continous_agents.PPO import PPO
+from continous_agents.TD3 import TD3
 import numpy as np
 from time import time, sleep
 from torch.utils.tensorboard import SummaryWriter
@@ -75,6 +76,7 @@ class plt_logger(logger):
         plt.savefig(os.path.join(self.logdir,"Episode-avg-last-%d.png"%self.k))
         plt.clf()
 
+        return last_k_scores
 
 def train(env, actor, train_episodes, score_scope):
     train_start = time()
@@ -94,7 +96,10 @@ def train(env, actor, train_episodes, score_scope):
             num_steps+=1
             episode_rewards += [reward]
 
-        logger.log(i, episode_rewards, num_steps, max(1, int(time() - train_start)), actor.get_stats())
+        last_k_scores = logger.log(i, episode_rewards, num_steps, max(1, int(time() - train_start)), actor.get_stats())
+
+        if last_k_scores > 200:
+            print("Solved in %d episodes",%i)
 
     actor.save_state(os.path.join(TRAIN_DIR, actor.name + "_trained_weights.pt"))
 
@@ -102,16 +107,20 @@ def train(env, actor, train_episodes, score_scope):
 
 def test(env,  actor):
     actor.load_state(os.path.join(TRAIN_DIR, actor.name + "_trained_weights.pt"))
-    done = False
-    state = env.reset()
-    all_rewards = []
-    while not done:
-        env.render()
-        action = actor.process_new_state(state)
-        state, reward, done, info = env.step(action)
-        all_rewards += [reward]
-    print("total reward: %f, # steps %d"%(np.sum(all_rewards),len(all_rewards)))
-    env.close()
+    i = 0
+    while True:
+        i+=1
+        done = False
+        state = env.reset()
+        all_rewards = []
+        while not done:
+            if i ==12:
+                env.render()
+            action = actor.process_new_state(state)
+            state, reward, done, info = env.step(action)
+            all_rewards += [reward]
+        print("total reward: %f, # steps %d"%(np.sum(all_rewards),len(all_rewards)))
+        env.close()
 
 if  __name__ == '__main__':
     SEED=0
@@ -134,10 +143,10 @@ if  __name__ == '__main__':
     # actor = actor_critic_agent(s, a, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
     # actor = actor_critic_agent(s, bounderies, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
     # actor = DDPG_agent(s, bounderies, NUM_EPISODES, train=True)
-    actor = PPO(s, bounderies, NUM_EPISODES, train=True)
+    actor = TD3(s, bounderies, NUM_EPISODES, train=True)
+    # actor = PPO(s, bounderies, NUM_EPISODES, train=True)
 
     train(env, actor, NUM_EPISODES, score_scope)
-
     # actor.train = False
     # actor.epsilon = 0.0
     # test(env, actor)

@@ -9,28 +9,6 @@ import copy
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)
 
-# class OUNoise:
-#     """Ornstein-Uhlenbeck process."""
-#
-#     def __init__(self, size, mu=0., theta=0.2, sigma=0.15):
-#         """Initialize parameters and noise process."""
-#         self.mu = mu * np.ones(size)
-#         self.theta = theta
-#         self.sigma = sigma
-#         self.reset()
-#
-#     def reset(self):
-#         """Reset the internal state (= noise) to mean (mu)."""
-#         self.state = copy.copy(self.mu)
-#
-#     def sample(self):
-#         """Update internal state and return it as a noise sample."""
-#         x = self.state
-#         dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random() for i in range(len(x))])
-#         self.state = x + dx
-#         return self.state
-
-
 class OUNoise:
     def __init__(self, size, mu=0, theta=.2, sigma=0.15, dt=1e-2, x0=None):
         self.theta = theta
@@ -63,7 +41,6 @@ def update_net(model_to_change, reference_model, tau):
 
 class DDPG_agent(object):
     def __init__(self, state_dim, bounderies, max_episodes, train = True):
-
         self.state_dim = state_dim
         self.bounderies = bounderies
         self.action_dim = len(bounderies[0])
