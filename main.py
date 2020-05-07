@@ -22,7 +22,7 @@ class logger(object):
         self.total_rewards.append(np.sum(episode_rewards))
         last_k_scores = np.mean(self.total_rewards)
         print('Episode: ', episode_number)
-        print("\t# Step %d, time %d mins; avg-100 %.2f:" % (num_steps, time_passed / 60, last_k_scores))
+        print("\t# Step %d, time %d mins; avg-%d %.2f:" % (num_steps, time_passed / 60, len(self.total_rewards),  last_k_scores))
         print("\t# steps/sec", num_steps / time_passed)
         print("\t# Agent stats: ", actor.get_stats())
 
@@ -34,7 +34,7 @@ class TB_logger(logger):
     def log(self, episode_number, episode_rewards, num_steps, time_passed, actor_stats):
         super(TB_logger, self).log(episode_number, episode_rewards, num_steps, time_passed, actor_stats)
         last_k_scores = np.mean(self.total_rewards)
-        self.tb_writer.add_scalar('1.last_100_episodes_avg', torch.tensor(last_k_scores), global_step=episode_number)
+        self.tb_writer.add_scalar('1.last_%s_episodes_avg'%len(self.total_rewards), torch.tensor(last_k_scores), global_step=episode_number)
         self.tb_writer.add_scalar('2.episode_score', torch.tensor(np.sum(episode_rewards)), global_step=episode_number)
         self.tb_writer.add_scalar('3.episode_length', len(episode_rewards), global_step=episode_number)
         self.tb_writer.add_scalar('4.avg_rewards', torch.tensor(np.mean(episode_rewards)), global_step=episode_number)
@@ -78,7 +78,7 @@ class plt_logger(logger):
 
         return last_k_scores
 
-def train(env, actor, train_episodes, score_scope):
+def train(env, actor, train_episodes, score_scope, solved_score):
     train_start = time()
     # logger = TB_logger(200, SummaryWriter(log_dir=os.path.join(TRAIN_DIR, "tensorboard_outputs",  actor.name)))
     logger = plt_logger(score_scope, os.path.join(TRAIN_DIR,  actor.name))
@@ -98,8 +98,9 @@ def train(env, actor, train_episodes, score_scope):
 
         last_k_scores = logger.log(i, episode_rewards, num_steps, max(1, int(time() - train_start)), actor.get_stats())
 
-        if last_k_scores > 200:
-            print("Solved in %d episodes",%i)
+        if last_k_scores > solved_score:
+            print("Solved in %d episodes"%i)
+            break
 
     actor.save_state(os.path.join(TRAIN_DIR, actor.name + "_trained_weights.pt"))
 
@@ -128,7 +129,7 @@ if  __name__ == '__main__':
     torch.manual_seed(SEED)
     # ENV_NAME="CartPole-v1"; s=4; a=2
     # ENV_NAME="LunarLander-v2"; s=8; a=4
-    ENV_NAME="LunarLanderContinuous-v2";s=8;bounderies=[[-1,-1],[1,1]]; score_scope=20
+    ENV_NAME="LunarLanderContinuous-v2";s=8;bounderies=[[-1,-1],[1,1]]; score_scope=99; solved_score=200
     # ENV_NAME="Pendulum-v0";s=3;bounderies=[[-2],[2]]
     # ENV_NAME="BipedalWalker-v3"; s=24;bounderies=[[-1,-1,-1,-1],[1,1,1,1]]
     os.makedirs("Training", exist_ok=True)
@@ -146,7 +147,7 @@ if  __name__ == '__main__':
     actor = TD3(s, bounderies, NUM_EPISODES, train=True)
     # actor = PPO(s, bounderies, NUM_EPISODES, train=True)
 
-    train(env, actor, NUM_EPISODES, score_scope)
+    train(env, actor, NUM_EPISODES, score_scope, solved_score)
     # actor.train = False
     # actor.epsilon = 0.0
     # test(env, actor)
