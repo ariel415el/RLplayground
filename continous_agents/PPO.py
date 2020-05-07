@@ -58,8 +58,9 @@ class PPO(object):
 
         self.lr = 0.0003
         self.lr_decay = 0.995
-        self.policy = ContinousActorCritic_2(state_dim, self.action_dim).to(device)
-        self.policy_old = ContinousActorCritic_2(state_dim, self.action_dim).to(device)
+        layers = [150, 120]
+        self.policy = ContinousActorCritic_2(state_dim, self.action_dim, layers).to(device)
+        self.policy_old = ContinousActorCritic_2(state_dim, self.action_dim, layers).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
 
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr)
@@ -147,7 +148,9 @@ class PPO(object):
 
     def load_state(self, path):
         if os.path.exists(path):
-            self.policy.load_state_dict(torch.load(path))
+            # self.policy_old.load_state_dict(torch.load(path))
+            # if trained on gpu but test on cpu use:
+            self.policy_old.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage))
 
     def save_state(self, path):
         torch.save(self.policy.state_dict(), path)

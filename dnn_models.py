@@ -54,24 +54,24 @@ class ContinousActorCritic(torch.nn.Module):
         return mu, sigma, value
 
 class ContinousActorCritic_2(nn.Module):
-    def __init__(self, state_dim, action_dim):
+    def __init__(self, state_dim, action_dim, layers_dims):
         super(ContinousActorCritic_2, self).__init__()
         # action mean range -1 to 1
         self.actor =  nn.Sequential(
-                nn.Linear(state_dim, 64),
+                nn.Linear(state_dim, layers_dims[0]),
                 nn.Tanh(),
-                nn.Linear(64, 32),
+                nn.Linear(layers_dims[0], layers_dims[1]),
                 nn.Tanh(),
-                nn.Linear(32, action_dim),
+                nn.Linear(layers_dims[1], action_dim),
                 nn.Tanh()
                 )
         # critic
         self.critic = nn.Sequential(
-                nn.Linear(state_dim, 64),
+                nn.Linear(state_dim, layers_dims[0]),
                 nn.Tanh(),
-                nn.Linear(64, 32),
+                nn.Linear(layers_dims[0], layers_dims[1]),
                 nn.Tanh(),
-                nn.Linear(32, 1)
+                nn.Linear(layers_dims[1], 1)
                 )
 
     def get_value(self, state):

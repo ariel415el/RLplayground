@@ -82,13 +82,12 @@ def train(env, actor, train_episodes, score_scope):
     logger = plt_logger(score_scope, os.path.join(TRAIN_DIR,  actor.name))
     num_steps = 0
     for i in range(train_episodes):
-        # if i % 500 ==0:
-        #     env = wrappers.Monitor(env, './videos/' + str(time()) + '/')
 
         done = False
         state = env.reset()
         episode_rewards = []
         while not done:
+
             action = actor.process_new_state(state)
             state, reward, done, info = env.step(action)
             actor.process_output(state, reward, done)
@@ -105,20 +104,17 @@ def test(env,  actor):
     actor.load_state(os.path.join(TRAIN_DIR, actor.name + "_trained_weights.pt"))
     done = False
     state = env.reset()
-    total_reward = 0
-    i = 0
+    all_rewards = []
     while not done:
-        i+=1
         env.render()
-        # sleep(0.1)
         action = actor.process_new_state(state)
         state, reward, done, info = env.step(action)
-        total_reward += reward
-    print("total reward: %f, # steps %d"%(total_reward,i))
+        all_rewards += [reward]
+    print("total reward: %f, # steps %d"%(np.sum(all_rewards),len(all_rewards)))
     env.close()
 
 if  __name__ == '__main__':
-    SEED=2
+    SEED=0
     random.seed(SEED)
     torch.manual_seed(SEED)
     # ENV_NAME="CartPole-v1"; s=4; a=2
