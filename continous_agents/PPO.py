@@ -44,7 +44,7 @@ class PPO(object):
         self.name = 'PPO'
         self.state_dim = state_dim
         self.action_bounderies = action_bounderies
-        self.action_dim = len(action_bounderies)
+        self.action_dim = len(action_bounderies[0])
         self.max_episodes = max_episodes
         self.train= train
         self.batch_size = 4000
@@ -79,7 +79,7 @@ class PPO(object):
         return dist
 
     def process_new_state(self, state):
-        state = torch.from_numpy(state).to(device)
+        state = torch.from_numpy(state).to(device).float()
         dist = self.get_action_dist(self.policy_old, state)
 
         action = dist.sample()

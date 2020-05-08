@@ -52,7 +52,7 @@ class DDPG_agent(object):
         self.min_epsilon = 0.01
         self.discount = 0.99
         self.update_freq = 1
-        self.batch_size = 64
+        self.batch_size = 1096
         self.max_playback = 1000000
         # self.epsilon = 1.0
         # self.epsilon_decay = 0.9995
@@ -142,7 +142,9 @@ class DDPG_agent(object):
 
     def load_state(self, path):
         if os.path.exists(path):
-            dict = torch.load(path)
+            # dict = torch.load(path)
+            dict = torch.load(path, map_location=lambda storage, loc: storage)
+
             self.trainable_actor.load_state_dict(dict['actor'])
             self.trainable_critic.load_state_dict(dict['critic'])
         else:

@@ -108,30 +108,27 @@ def train(env, actor, train_episodes, score_scope, solved_score):
 
 def test(env,  actor):
     actor.load_state(os.path.join(TRAIN_DIR, actor.name + "_trained_weights.pt"))
-    i = 0
-    while True:
-        i+=1
-        done = False
-        state = env.reset()
-        all_rewards = []
-        while not done:
-            if i ==12:
-                env.render()
-            action = actor.process_new_state(state)
-            state, reward, done, info = env.step(action)
-            all_rewards += [reward]
-        print("total reward: %f, # steps %d"%(np.sum(all_rewards),len(all_rewards)))
-        env.close()
+
+    done = False
+    state = env.reset()
+    all_rewards = []
+    while not done:
+        env.render()
+        action = actor.process_new_state(state)
+        state, reward, done, info = env.step(action)
+        all_rewards += [reward]
+    print("total reward: %f, # steps %d"%(np.sum(all_rewards),len(all_rewards)))
+    env.close()
 
 if  __name__ == '__main__':
-    SEED=0
+    SEED=13333
     random.seed(SEED)
     torch.manual_seed(SEED)
     # ENV_NAME="CartPole-v1"; s=4; a=2
     # ENV_NAME="LunarLander-v2"; s=8; a=4
-    ENV_NAME="LunarLanderContinuous-v2";s=8;bounderies=[[-1,-1],[1,1]]; score_scope=99; solved_score=200
+    # ENV_NAME="LunarLanderContinuous-v2";s=8;bounderies=[[-1,-1],[1,1]]; score_scope=99; solved_score=200
     # ENV_NAME="Pendulum-v0";s=3;bounderies=[[-2],[2]]
-    # ENV_NAME="BipedalWalker-v3"; s=24;bounderies=[[-1,-1,-1,-1],[1,1,1,1]]
+    ENV_NAME="BipedalWalker-v3"; s=24;bounderies=[[-1,-1,-1,-1],[1,1,1,1]]; score_scope=99; solved_score=300
     os.makedirs("Training", exist_ok=True)
     TRAIN_DIR = os.path.join("Training", ENV_NAME)
     os.makedirs(TRAIN_DIR, exist_ok=True)
@@ -144,8 +141,8 @@ if  __name__ == '__main__':
     # actor = actor_critic_agent(s, a, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
     # actor = actor_critic_agent(s, bounderies, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
     # actor = DDPG_agent(s, bounderies, NUM_EPISODES, train=True)
-    actor = TD3(s, bounderies, NUM_EPISODES, train=True)
-    # actor = PPO(s, bounderies, NUM_EPISODES, train=True)
+    # actor = TD3(s, bounderies, NUM_EPISODES, train=True)
+    actor = PPO(s, bounderies, NUM_EPISODES, train=True)
 
     train(env, actor, NUM_EPISODES, score_scope, solved_score)
     # actor.train = False
