@@ -5,7 +5,7 @@ torch.manual_seed(0)
 import torch.distributions as D
 
 
-class actor_critic_agent(object):
+class A2C(object):
     def __init__(self, state_dim, action_bounderies, max_episodes, train=True, critic_objective="Monte-Carlo"):
         self.name = 'c-actor-critic'
         self.state_dim = state_dim

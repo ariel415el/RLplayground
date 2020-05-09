@@ -111,13 +111,16 @@ def hidden_init(layer):
     return (-lim, lim)
 
 class D_Actor(nn.Module):
-    def __init__(self, nb_states, nb_actions, hidden1=400, hidden2=200, init_w=3e-3):
+    def __init__(self, nb_states, nb_actions, layer_dims=[400,200], init_w=3e-3, batch_norm=True):
         super(D_Actor, self).__init__()
-        self.fc1 = nn.Linear(nb_states, hidden1)
-        self.bn1 = torch.nn.BatchNorm1d(hidden1)
-        self.fc2 = nn.Linear(hidden1, hidden2)
-        self.bn2 = torch.nn.BatchNorm1d(hidden2)
-        self.fc3 = nn.Linear(hidden2, nb_actions)
+        self.batch_norm = batch_norm
+        self.fc1 = nn.Linear(nb_states, layer_dims[0])
+        self.fc2 = nn.Linear(layer_dims[0], layer_dims[1])
+        self.fc3 = nn.Linear(layer_dims[1], nb_actions)
+        if batch_norm:
+            self.bn1 = torch.nn.BatchNorm1d(layer_dims[0])
+            self.bn2 = torch.nn.BatchNorm1d(layer_dims[1])
+
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
         self.init_weights(init_w)
@@ -129,10 +132,12 @@ class D_Actor(nn.Module):
 
     def forward(self, x):
         out = self.fc1(x)
-        out = self.bn1(out)
+        if self.batch_norm:
+            out = self.bn1(out)
         out = self.relu(out)
         out = self.fc2(out)
-        out = self.bn2(out)
+        if self.batch_norm:
+            out = self.bn2(out)
         out = self.relu(out)
         out = self.fc3(out)
         out = self.tanh(out)
@@ -140,12 +145,14 @@ class D_Actor(nn.Module):
 
 
 class D_Critic(nn.Module):
-    def __init__(self, nb_states, nb_actions, hidden1=400, hidden2=200, init_w=3e-3):
+    def __init__(self, nb_states, nb_actions, layer_dims=[400,200], init_w=3e-3, batch_norm=True):
         super(D_Critic, self).__init__()
-        self.fc1 = nn.Linear(nb_states, hidden1)
-        self.bn1 = torch.nn.BatchNorm1d(hidden1)
-        self.fc2 = nn.Linear(hidden1 + nb_actions, hidden2)
-        self.fc3 = nn.Linear(hidden2, 1)
+        self.batch_norm = batch_norm
+        self.fc1 = nn.Linear(nb_states, layer_dims[0])
+        self.fc2 = nn.Linear(layer_dims[0] + nb_actions, layer_dims[1])
+        self.fc3 = nn.Linear(layer_dims[1], 1)
+        if batch_norm:
+            self.bn1 = torch.nn.BatchNorm1d(layer_dims[0])
         self.relu = nn.ReLU()
         self.init_weights(init_w)
 
@@ -156,7 +163,8 @@ class D_Critic(nn.Module):
 
     def forward(self, s, a):
         out = self.fc1(s)
-        out = self.bn1(out)
+        if self.batch_norm:
+            out = self.bn1(out)
         out = self.relu(out)
         out = self.fc2(torch.cat([out, a], 1))
         out = self.relu(out)

@@ -39,7 +39,7 @@ def update_net(model_to_change, reference_model, tau):
     for target_param, local_param in zip(model_to_change.parameters(), reference_model.parameters()):
         target_param.data.copy_(tau * local_param.data + (1.0 - tau) * target_param.data)
 
-class DDPG_agent(object):
+class DDPG(object):
     def __init__(self, state_dim, bounderies, max_episodes, train = True):
         self.state_dim = state_dim
         self.bounderies = bounderies
@@ -47,15 +47,14 @@ class DDPG_agent(object):
         self.max_episodes = max_episodes
         self.train = train
         self.tau=0.001
-        self.actor_lr = 0.00005
-        self.critic_lr = 0.0005
+        self.actor_lr = 0.0001
+        self.critic_lr = 0.001
+        self.critic_weight_decay=0.001
         self.min_epsilon = 0.01
         self.discount = 0.99
         self.update_freq = 1
         self.batch_size = 1096
         self.max_playback = 1000000
-        # self.epsilon = 1.0
-        # self.epsilon_decay = 0.9995
         self.random_process = OUNoise(self.action_dim)
 
         self.action_counter = 0
@@ -63,18 +62,23 @@ class DDPG_agent(object):
         self.gs_num=0
         self.playback_deque = deque(maxlen=self.max_playback)
 
-        self.trainable_actor = D_Actor(self.state_dim, self.action_dim).to(device)
-        self.target_actor = D_Actor(self.state_dim, self.action_dim).to(device)
+        layer_dims = [400,200]
+        batch_norm=False
+        self.trainable_actor = D_Actor(self.state_dim, self.action_dim, layer_dims, batch_norm).to(device)
+        self.target_actor = D_Actor(self.state_dim, self.action_dim, layer_dims, batch_norm).to(device)
 
-        self.trainable_critic = D_Critic(self.state_dim, self.action_dim).to(device)
-        self.target_critic = D_Critic(self.state_dim, self.action_dim).to(device)
+        self.trainable_critic = D_Critic(self.state_dim, self.action_dim, layer_dims, batch_norm).to(device)
+        self.target_critic = D_Critic(self.state_dim, self.action_dim, layer_dims, batch_norm).to(device)
 
         update_net(self.target_actor, self.trainable_actor, 1)
         update_net(self.target_critic, self.trainable_critic, 1)
 
         self.actor_optimizer = torch.optim.Adam(self.trainable_actor.parameters(), lr=self.actor_lr)
-        self.critic_optimizer = torch.optim.Adam(self.trainable_critic.parameters(), lr=self.critic_lr)
+        self.critic_optimizer = torch.optim.Adam(self.trainable_critic.parameters(), lr=self.critic_lr, weight_decay=self.critic_weight_decay)
 
+        # self.name = "DDPG_%s_"%str(layer_dims)
+        # if batch_norm:
+        #     self.name += "_BN_"
         self.name = "DDPG_lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]"%(self.actor_lr, self.batch_size, self.tau, self.update_freq)
 
     def process_new_state(self, state):
