@@ -72,8 +72,8 @@ if  __name__ == '__main__':
     # actor = vanila_policy_gradient_agent(s, a, NUM_EPISODES, train=True)
     # actor = actor_critic_agent(s, a, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
     # actor = actor_critic_agent(s, bounderies, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
-    actor = DDPG.DDPG(s, bounderies, NUM_EPISODES, train=True)
-    # actor = TD3.TD3(s, bounderies, NUM_EPISODES, train=True)
+    # actor = DDPG.DDPG(s, bounderies, NUM_EPISODES, train=True)
+    actor = TD3.TD3(s, bounderies, NUM_EPISODES, train=True)
     # actor = PPO.PPO(s, bounderies, NUM_EPISODES, train=True)
 
     env = gym.make(ENV_NAME)

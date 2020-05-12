@@ -3,7 +3,7 @@ import random
 from collections import deque
 import numpy as np
 import os
-from dnn_models import D_Actor, D_Critic
+from dnn_models import *
 import copy
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -17,7 +17,7 @@ class TD3(object):
     def __init__(self, state_dim, bounderies, max_episodes, train = True):
 
         self.state_dim = state_dim
-        self.bounderies = bounderies
+        self.bounderies = torch.tensor(bounderies).float().to(device)
         self.action_dim = len(bounderies[0])
         self.max_episodes = max_episodes
         self.train = train
@@ -37,16 +37,16 @@ class TD3(object):
         self.gs_num=0
         self.playback_deque = deque(maxlen=self.max_playback)
 
-        self.trainable_actor = D_Actor(self.state_dim, self.action_dim).to(device)
-        self.target_actor = D_Actor(self.state_dim, self.action_dim).to(device)
+        self.trainable_actor = TD3_paper_actor(self.state_dim, self.action_dim).to(device)
+        self.target_actor = TD3_paper_actor(self.state_dim, self.action_dim).to(device)
         self.actor_optimizer = torch.optim.Adam(self.trainable_actor.parameters(), lr=self.actor_lr)
 
-        self.trainable_critic_1 = D_Critic(self.state_dim, self.action_dim).to(device)
-        self.target_critic_1 = D_Critic(self.state_dim, self.action_dim).to(device)
+        self.trainable_critic_1 = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
+        self.target_critic_1 = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
         self.critic_optimizer_1 = torch.optim.Adam(self.trainable_critic_1.parameters(), lr=self.critic_lr)
 
-        self.trainable_critic_2 = D_Critic(self.state_dim, self.action_dim).to(device)
-        self.target_critic_2 = D_Critic(self.state_dim, self.action_dim).to(device)
+        self.trainable_critic_2 = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
+        self.target_critic_2 = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
         self.critic_optimizer_2 = torch.optim.Adam(self.trainable_critic_2.parameters(), lr=self.critic_lr)
 
         update_net(self.target_actor, self.trainable_actor, 1)
@@ -70,7 +70,7 @@ class TD3(object):
         self.last_action = action
 
         # action = action.detach().cpu().numpy()
-        action = np.clip(action, self.bounderies[0], self.bounderies[1])
+        action = np.clip(action, self.bounderies[0].cpu().numpy(), self.bounderies[1].cpu().numpy())
         return action
 
     def process_output(self, new_state, reward, is_finale_state):
@@ -95,11 +95,12 @@ class TD3(object):
             # update critics
 
             with torch.no_grad():
-                noisy_action = self.target_actor(states)
-                noisy_action += np.clip(np.random.normal(0, self.noise_sigma, size=noisy_action.shape), -self.noise_clip, self.noise_clip)
-                noisy_action = np.clip(noisy_action, self.bounderies[0], self.bounderies[1])
-                next_target_q_values_1 = self.target_critic_1(next_states, noisy_action.float()).view(-1)
-                next_target_q_values_2 = self.target_critic_2(next_states, noisy_action.float()).view(-1)
+                next_action = self.target_actor(next_states)
+                noise = torch.empty(next_action.shape).normal_(mean=0,std=self.noise_sigma).clamp(-self.noise_clip, self.noise_clip).to(device)
+                next_noisy_action = next_action + noise
+                next_noisy_action = torch.max(torch.min(next_noisy_action, self.bounderies[0]), self.bounderies[1])
+                next_target_q_values_1 = self.target_critic_1(next_states, next_noisy_action.float()).view(-1)
+                next_target_q_values_2 = self.target_critic_2(next_states, next_noisy_action.float()).view(-1)
                 next_target_q_values = torch.min(next_target_q_values_1, next_target_q_values_2)
                 target_values = rewards
                 mask = np.logical_not(is_finale_states)
