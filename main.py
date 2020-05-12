@@ -23,7 +23,8 @@ def train(env, actor, train_episodes, score_scope, solved_score):
         while not done:
             action = actor.process_new_state(state)
             state, reward, done, info = env.step(action)
-            actor.process_output(state, reward, done)
+            is_terminal = done and len(episode_rewards) < env._max_episode_steps
+            actor.process_output(state, reward, is_terminal)
             num_steps+=1
             episode_rewards += [reward]
 
@@ -87,9 +88,9 @@ if  __name__ == '__main__':
     os.makedirs("Training", exist_ok=True)
     TRAIN_DIR = os.path.join("Training", ENV_NAME)
     os.makedirs(TRAIN_DIR, exist_ok=True)
-    # train(env, actor, NUM_EPISODES, score_scope, solved_score)
+    train(env, actor, NUM_EPISODES, score_scope, solved_score)
 
     # Test
-    actor.train = False
+    # actor.train = False
     # actor.epsilon = 0.0
-    test(env, actor)
+    # test(env, actor)
