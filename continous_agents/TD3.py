@@ -97,6 +97,7 @@ class TD3(object):
             with torch.no_grad():
                 noisy_action = self.target_actor(states)
                 noisy_action += np.clip(np.random.normal(0, self.noise_sigma, size=noisy_action.shape), -self.noise_clip, self.noise_clip)
+                noisy_action = np.clip(noisy_action, self.bounderies[0], self.bounderies[1])
                 next_target_q_values_1 = self.target_critic_1(next_states, noisy_action.float()).view(-1)
                 next_target_q_values_2 = self.target_critic_2(next_states, noisy_action.float()).view(-1)
                 next_target_q_values = torch.min(next_target_q_values_1, next_target_q_values_2)

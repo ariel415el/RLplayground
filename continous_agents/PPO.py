@@ -3,8 +3,9 @@
 ##############################################
 import os
 from dnn_models import *
-torch.manual_seed(0)
 import torch.distributions as D
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 
 class Memory:
     def __init__(self):
@@ -37,7 +38,6 @@ class Memory:
         del self.rewards[:]
         del self.is_terminals[:]
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class PPO(object):
     def __init__(self, state_dim, action_bounderies, max_episodes, train=True):

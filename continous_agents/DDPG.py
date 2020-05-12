@@ -4,7 +4,6 @@ from collections import deque
 import numpy as np
 import os
 from dnn_models import D_Actor, D_Critic
-import copy
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)
@@ -41,9 +40,9 @@ class DDPG(object):
         self.action_dim = len(bounderies[0])
         self.max_episodes = max_episodes
         self.train = train
-        self.tau=0.001
-        self.actor_lr = 0.0001
-        self.critic_lr = 0.001
+        self.tau=0.005
+        self.actor_lr = 0.0005
+        self.critic_lr = 0.005
         self.critic_weight_decay=0.001
         self.min_epsilon = 0.01
         self.discount = 0.99
@@ -57,7 +56,7 @@ class DDPG(object):
         self.gs_num=0
         self.playback_deque = deque(maxlen=self.max_playback)
 
-        layer_dims = [600,300]
+        layer_dims = [128,64]
         batch_norm=True
         self.trainable_actor = D_Actor(self.state_dim, self.action_dim, layer_dims, batch_norm).to(device)
         self.target_actor = D_Actor(self.state_dim, self.action_dim, layer_dims, batch_norm).to(device)
@@ -73,7 +72,7 @@ class DDPG(object):
 
         self.name = "DDPG_%s_"%str(layer_dims)
         if batch_norm:
-            self.name += "_BN_"
+            self.name += "BN_"
         self.name += "lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]"%(self.actor_lr, self.batch_size, self.tau, self.update_freq)
 
     def process_new_state(self, state):

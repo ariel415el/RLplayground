@@ -3,11 +3,12 @@ import os
 from time import time, sleep
 import random
 import gym
-from  descrete_agents import *
+from descrete_agents import *
 from continous_agents import *
 import train_logger
 import torch
 
+from gym.wrappers.pixel_observation import PixelObservationWrapper
 
 def train(env, actor, train_episodes, score_scope, solved_score):
     next_progress_checkpoint = 1
@@ -61,9 +62,9 @@ if  __name__ == '__main__':
     # Choose enviroment
     # ENV_NAME="CartPole-v1"; s=4; a=2
     # ENV_NAME="LunarLander-v2"; s=8; a=4
-    # ENV_NAME="LunarLanderContinuous-v2";s=8;bounderies=[[-1,-1],[1,1]]; score_scope=99; solved_score=200
-    # ENV_NAME="Pendulum-v0";s=3;bounderies=[[-2],[2]]
-    ENV_NAME="BipedalWalker-v3"; s=24;bounderies=[[-1,-1,-1,-1],[1,1,1,1]]; score_scope=99; solved_score=300
+    ENV_NAME="LunarLanderContinuous-v2";s=8;bounderies=[[-1,-1],[1,1]]; score_scope=99; solved_score=200
+    # ENV_NAME="Pendulum-v0";s=3;bounderies=[[-2],[2]]; score_scope=99; solved_score=-200
+    # ENV_NAME="BipedalWalker-v3"; s=24;bounderies=[[-1,-1,-1,-1],[1,1,1,1]]; score_scope=99; solved_score=300
 
     # Create agent
     NUM_EPISODES = 10000
@@ -76,6 +77,7 @@ if  __name__ == '__main__':
     # actor = PPO.PPO(s, bounderies, NUM_EPISODES, train=True)
 
     env = gym.make(ENV_NAME)
+    # env = PixelObservationWrapper(env)
 
     # set seeds
     SEED=13333
