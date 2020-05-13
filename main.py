@@ -14,8 +14,6 @@ def train(env, actor, train_episodes, score_scope, solved_score):
     next_progress_checkpoint = 1
     # logger = TB_logger(score_scope, SummaryWriter(log_dir=os.path.join(TRAIN_DIR, "tensorboard_outputs",  actor.name)))
     logger = train_logger.plt_logger(score_scope, os.path.join(TRAIN_DIR,  actor.name))
-    num_steps = 0
-    train_start = time()
     for i in range(train_episodes):
 
         done = False
@@ -26,10 +24,9 @@ def train(env, actor, train_episodes, score_scope, solved_score):
             state, reward, done, info = env.step(action)
             is_terminal = done and len(episode_rewards) < env._max_episode_steps
             actor.process_output(state, reward, is_terminal)
-            num_steps+=1
             episode_rewards += [reward]
 
-        last_k_scores = logger.log(i, episode_rewards, num_steps, max(1, int(time() - train_start)), actor.get_stats())
+        last_k_scores = logger.log(i, episode_rewards, actor.get_stats())
 
         if last_k_scores >= next_progress_checkpoint*0.2*solved_score:
             actor.save_state(os.path.join(TRAIN_DIR, actor.name + "_%.5f_weights.pt"%last_k_scores))

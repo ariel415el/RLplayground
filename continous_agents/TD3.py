@@ -1,3 +1,7 @@
+###############################################
+# Credit to https://github.com/sfujim/TD3.git #
+###############################################
+
 import torch
 import random
 from collections import deque
@@ -38,20 +42,12 @@ class TD3(object):
         self.playback_deque = deque(maxlen=self.max_playback)
 
         self.trainable_actor = TD3_paper_actor(self.state_dim, self.action_dim).to(device)
-        # self.target_actor = TD3_paper_actor(self.state_dim, self.action_dim).to(device)
         self.target_actor = copy.deepcopy(self.trainable_actor)
         self.actor_optimizer = torch.optim.Adam(self.trainable_actor.parameters(), lr=self.actor_lr)
 
-        self.trainable_critic_1 = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
-        # self.target_critic_1 = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
-        self.target_critic_1 = copy.deepcopy(self.trainable_critic_1)
-
-        self.trainable_critic_2 = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
-        # self.target_critic_2 = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
-        self.target_critic_2 = copy.deepcopy(self.trainable_critic_2)
-
-        self.critic_optimizer_1 = torch.optim.Adam(self.trainable_critic_1.parameters(), lr=self.critic_lr)
-        self.critic_optimizer_2 = torch.optim.Adam(self.trainable_critic_2.parameters(), lr=self.critic_lr)
+        self.trainable_critics = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
+        self.target_critics = copy.deepcopy(self.trainable_critics)
+        self.critics_optimizer = torch.optim.Adam(self.trainable_critics.parameters(), lr=self.critic_lr)
 
 
         self.name = "TD3_lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]"%(self.actor_lr, self.batch_size, self.tau, self.policy_update_freq)
@@ -83,8 +79,7 @@ class TD3(object):
                 self._learn()
                 if self.steps % self.policy_update_freq == 0:
                     update_net(self.target_actor, self.trainable_actor, self.tau)
-                    update_net(self.target_critic_1, self.trainable_critic_1, self.tau)
-                    update_net(self.target_critic_2, self.trainable_critic_2, self.tau)
+                    update_net(self.target_critics, self.trainable_critics, self.tau)
 
     def _learn(self):
         if len(self.playback_deque) > self.batch_size:
@@ -105,52 +100,46 @@ class TD3(object):
                 noise = (torch.randn_like(actions) * self.policy_noise_sigma).clamp(-self.noise_clip, self.noise_clip).to(device)
                 next_noisy_action = next_action + noise
                 next_noisy_action = torch.max(torch.min(next_noisy_action, self.bounderies[1]), self.bounderies[0])
-                next_target_q_values_1 = self.target_critic_1(next_states, next_noisy_action.float()).view(-1)
-                next_target_q_values_2 = self.target_critic_2(next_states, next_noisy_action.float()).view(-1)
-                next_target_q_values = torch.min(next_target_q_values_1, next_target_q_values_2)
+                next_target_q_values_1, next_target_q_values_2 = self.target_critics(next_states, next_noisy_action.float())
+                next_target_q_values = torch.min(next_target_q_values_1.view(-1) , next_target_q_values_2.view(-1))
                 target_values = rewards
                 mask = np.logical_not(is_finale_states)
                 target_values[mask] += self.discount*next_target_q_values[mask]
 
-            # update critic 1
-            self.trainable_critic_1.train()
-            self.critic_optimizer_1.zero_grad()
-            q_values_1 = self.trainable_critic_1(states, actions)
-            loss_1 = torch.nn.functional.mse_loss(q_values_1.view(-1), target_values)
-            loss_1.backward()
-            self.critic_optimizer_1.step()
+            # update critics
+            self.trainable_critics.train()
+            self.critics_optimizer.zero_grad()
+            q_values_1, q_values_2 = self.trainable_critics(states, actions)
+            critic_loss = torch.nn.functional.mse_loss(q_values_1.view(-1), target_values) + \
+                          torch.nn.functional.mse_loss(q_values_2.view(-1), target_values)
+            critic_loss.backward()
+            self.critics_optimizer.step()
 
-            # update critic 2
-            self.trainable_critic_2.train()
-            self.critic_optimizer_2.zero_grad()
-            q_values_2 = self.trainable_critic_2(states, actions)
-            loss_2 = torch.nn.functional.mse_loss(q_values_2.view(-1), target_values)
-            loss_2.backward()
-            self.critic_optimizer_2.step()
 
             # update  policy only each few steps (delayed update)
             if self.steps % self.policy_update_freq == 0:
                 # update actor
                 self.actor_optimizer.zero_grad()
-                actor_obj = -self.trainable_critic_1(states, self.trainable_actor(states)).mean() # paper suggest using critic_1 ?
+                actor_obj = -self.trainable_critics.Q1(states, self.trainable_actor(states)).mean() # paper suggest using critic_1 ?
                 actor_obj.backward()
                 self.actor_optimizer.step()
 
 
     def load_state(self, path):
         if os.path.exists(path):
-            dict = torch.load(path)
+            dict = torch.load(path, map_location=lambda storage, loc: storage)
+
             self.trainable_actor.load_state_dict(dict['actor'])
-            self.trainable_critic_1.load_state_dict(dict['critic_1'])
-            self.trainable_critic_2.load_state_dict(dict['critic_2'])
+            self.trainable_critic.load_state_dict(dict['critic'])
         else:
             print("Couldn't find weights file")
 
     def save_state(self, path):
-        dict = {'actor':self.trainable_actor.state_dict(), 'critic_1': self.trainable_critic_1.state_dict(), 'critic_2': self.trainable_critic_2.state_dict()}
+
+        dict = {'actor':self.trainable_actor.state_dict(), 'critic': self.trainable_critics.state_dict()}
         torch.save(dict, path)
 
     def get_stats(self):
-        return "GS: %d; LR: a-%.5f\c-%.5f"%(self.steps, self.actor_optimizer.param_groups[0]['lr'],self.critic_optimizer_1.param_groups[0]['lr'])
+        return "GS: %d; LR: a-%.5f\c-%.5f"%(self.steps, self.actor_optimizer.param_groups[0]['lr'],self.critics_optimizer.param_groups[0]['lr'])
 
 
