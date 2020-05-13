@@ -29,31 +29,29 @@ class TD3(object):
         self.batch_size = 256
         self.max_playback = 1000000
         self.exploration_steps = 25000
-        self.exploration_steps = -1
 
         self.policy_noise_sigma = 0.2
         self.noise_clip = 0.5
         self.exploration_noise_sigma = 0.1
 
-        self.completed_episodes = 0
         self.steps=0
         self.playback_deque = deque(maxlen=self.max_playback)
 
         self.trainable_actor = TD3_paper_actor(self.state_dim, self.action_dim).to(device)
-        self.target_actor = TD3_paper_actor(self.state_dim, self.action_dim).to(device)
+        # self.target_actor = TD3_paper_actor(self.state_dim, self.action_dim).to(device)
+        self.target_actor = copy.deepcopy(self.trainable_actor)
         self.actor_optimizer = torch.optim.Adam(self.trainable_actor.parameters(), lr=self.actor_lr)
 
         self.trainable_critic_1 = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
-        self.target_critic_1 = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
-        self.critic_optimizer_1 = torch.optim.Adam(self.trainable_critic_1.parameters(), lr=self.critic_lr)
+        # self.target_critic_1 = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
+        self.target_critic_1 = copy.deepcopy(self.trainable_critic_1)
 
         self.trainable_critic_2 = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
-        self.target_critic_2 = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
-        self.critic_optimizer_2 = torch.optim.Adam(self.trainable_critic_2.parameters(), lr=self.critic_lr)
+        # self.target_critic_2 = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
+        self.target_critic_2 = copy.deepcopy(self.trainable_critic_2)
 
-        update_net(self.target_actor, self.trainable_actor, 1)
-        update_net(self.target_critic_1, self.trainable_critic_2, 1)
-        update_net(self.target_critic_2, self.trainable_critic_2, 1)
+        self.critic_optimizer_1 = torch.optim.Adam(self.trainable_critic_1.parameters(), lr=self.critic_lr)
+        self.critic_optimizer_2 = torch.optim.Adam(self.trainable_critic_2.parameters(), lr=self.critic_lr)
 
 
         self.name = "TD3_lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]"%(self.actor_lr, self.batch_size, self.tau, self.policy_update_freq)
@@ -66,7 +64,7 @@ class TD3(object):
         self.trainable_actor.train()
         if self.train:
             if self.steps < self.exploration_steps:
-                action = np.random.uniform(-1, 1,size=action.shape) # TODO: use self.bounderies
+                # action = np.random.uniform(-1, 1,size=action.shape) # TODO: use self.bounderies
                 action = self.action_space.sample()
             else:
                 action += np.random.normal(0, self.exploration_noise_sigma, size=action.shape)
@@ -74,11 +72,11 @@ class TD3(object):
         self.last_state = state
         self.last_action = action
 
-        # action = action.detach().cpu().numpy()
         action = np.clip(action, self.bounderies[0].cpu().numpy(), self.bounderies[1].cpu().numpy())
         return action
 
     def process_output(self, new_state, reward, is_finale_state):
+        self.steps += 1
         if self.train:
             self.playback_deque.append((self.last_state, self.last_action, new_state, reward, is_finale_state))
             if self.steps > self.exploration_steps:
@@ -87,10 +85,11 @@ class TD3(object):
                     update_net(self.target_actor, self.trainable_actor, self.tau)
                     update_net(self.target_critic_1, self.trainable_critic_1, self.tau)
                     update_net(self.target_critic_2, self.trainable_critic_2, self.tau)
-        self.steps += 1
 
     def _learn(self):
         if len(self.playback_deque) > self.batch_size:
+            #     ind = np.random.randint(0, len(self.playback_deque), size=self.batch_size)
+            #     batch_arrays = np.array(self.playback_deque)[ind]
             batch_arrays = np.array(random.sample(self.playback_deque, k=self.batch_size))
             states = torch.from_numpy(np.stack(batch_arrays[:, 0], axis=0)).to(device).float()
             actions = torch.from_numpy(np.stack(batch_arrays[:, 1], axis=0)).to(device).float()
@@ -102,9 +101,10 @@ class TD3(object):
 
             with torch.no_grad():
                 next_action = self.target_actor(next_states)
-                noise = torch.empty(next_action.shape).normal_(mean=0,std=self.policy_noise_sigma).clamp(-self.noise_clip, self.noise_clip).to(device)
+                # noise = torch.empty(next_action.shape).normal_(mean=0,std=self.policy_noise_sigma).clamp(-self.noise_clip, self.noise_clip).to(device)
+                noise = (torch.randn_like(actions) * self.policy_noise_sigma).clamp(-self.noise_clip, self.noise_clip).to(device)
                 next_noisy_action = next_action + noise
-                next_noisy_action = torch.max(torch.min(next_noisy_action, self.bounderies[0]), self.bounderies[1])
+                next_noisy_action = torch.max(torch.min(next_noisy_action, self.bounderies[1]), self.bounderies[0])
                 next_target_q_values_1 = self.target_critic_1(next_states, next_noisy_action.float()).view(-1)
                 next_target_q_values_2 = self.target_critic_2(next_states, next_noisy_action.float()).view(-1)
                 next_target_q_values = torch.min(next_target_q_values_1, next_target_q_values_2)
@@ -132,8 +132,7 @@ class TD3(object):
             if self.steps % self.policy_update_freq == 0:
                 # update actor
                 self.actor_optimizer.zero_grad()
-                actions = self.trainable_actor(states)
-                actor_obj = -self.trainable_critic_1(states, actions).mean() # paper suggest using critic_1 ?
+                actor_obj = -self.trainable_critic_1(states, self.trainable_actor(states)).mean() # paper suggest using critic_1 ?
                 actor_obj.backward()
                 self.actor_optimizer.step()
 

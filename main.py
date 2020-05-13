@@ -59,6 +59,8 @@ def test(env,  actor):
 
 
 if  __name__ == '__main__':
+
+
     # Choose enviroment
     # ENV_NAME="CartPole-v1"; s=4; a=2
     # ENV_NAME="LunarLander-v2"; s=8; a=4
@@ -67,6 +69,13 @@ if  __name__ == '__main__':
     ENV_NAME="BipedalWalker-v3"; s=24; score_scope=99; solved_score=300
 
     env = gym.make(ENV_NAME)
+
+    # set seeds
+    SEED=0
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+    env.seed(SEED)
 
     # Create agent
     NUM_EPISODES = 10000
@@ -79,12 +88,6 @@ if  __name__ == '__main__':
     # actor = PPO.PPO(s, bounderies, NUM_EPISODES, train=True)
 
     # env = PixelObservationWrapper(env)
-
-    # set seeds
-    SEED=0
-    random.seed(SEED)
-    torch.manual_seed(SEED)
-    env.seed(SEED)
 
 
     # Train
