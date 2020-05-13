@@ -62,9 +62,11 @@ if  __name__ == '__main__':
     # Choose enviroment
     # ENV_NAME="CartPole-v1"; s=4; a=2
     # ENV_NAME="LunarLander-v2"; s=8; a=4
-    ENV_NAME="LunarLanderContinuous-v2";s=8;bounderies=[[-1,-1],[1,1]]; score_scope=99; solved_score=200
-    # ENV_NAME="Pendulum-v0";s=3;bounderies=[[-2],[2]]; score_scope=99; solved_score=-200
-    # ENV_NAME="BipedalWalker-v3"; s=24;bounderies=[[-1,-1,-1,-1],[1,1,1,1]]; score_scope=99; solved_score=300
+    # ENV_NAME="LunarLanderContinuous-v2";s=8; score_scope=99; solved_score=200
+    # ENV_NAME="Pendulum-v0";s=3; score_scope=99; solved_score=-200
+    ENV_NAME="BipedalWalker-v3"; s=24; score_scope=99; solved_score=300
+
+    env = gym.make(ENV_NAME)
 
     # Create agent
     NUM_EPISODES = 10000
@@ -73,14 +75,13 @@ if  __name__ == '__main__':
     # actor = actor_critic_agent(s, a, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
     # actor = actor_critic_agent(s, bounderies, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
     # actor = DDPG.DDPG(s, bounderies, NUM_EPISODES, train=True)
-    actor = TD3.TD3(s, bounderies, NUM_EPISODES, train=True)
+    actor = TD3.TD3(s, [env.action_space.low, env.action_space.high], NUM_EPISODES, train=True, action_space=env.action_space)
     # actor = PPO.PPO(s, bounderies, NUM_EPISODES, train=True)
 
-    env = gym.make(ENV_NAME)
     # env = PixelObservationWrapper(env)
 
     # set seeds
-    SEED=13333
+    SEED=0
     random.seed(SEED)
     torch.manual_seed(SEED)
     env.seed(SEED)
