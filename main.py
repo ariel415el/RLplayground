@@ -39,8 +39,9 @@ def train(env, actor, train_episodes, score_scope, solved_score):
 
     env.close()
 
-def test(env,  actor):
-    actor.load_state(os.path.join(TRAIN_DIR, actor.name + "_trained_weights.pt"))
+def test(env,  actor, trained_wetights):
+    actor.train = False
+    actor.load_state(trained_wetights)
 
     done = False
     state = env.reset()
@@ -62,7 +63,8 @@ if  __name__ == '__main__':
     # ENV_NAME="LunarLander-v2"; s=8; a=4
     # ENV_NAME="LunarLanderContinuous-v2";s=8; score_scope=99; solved_score=200
     # ENV_NAME="Pendulum-v0";s=3; score_scope=99; solved_score=-200
-    ENV_NAME="BipedalWalker-v3"; s=24; score_scope=99; solved_score=300
+    # ENV_NAME="BipedalWalker-v3"; s=24; score_scope=99; solved_score=300
+    ENV_NAME="BipedalWalkerHardcore-v3"; s=24; score_scope=99; solved_score=300
 
     env = gym.make(ENV_NAME)
 
@@ -85,14 +87,16 @@ if  __name__ == '__main__':
 
     # env = PixelObservationWrapper(env)
 
-
     # Train
+
     os.makedirs("Training", exist_ok=True)
     TRAIN_DIR = os.path.join("Training", ENV_NAME)
     os.makedirs(TRAIN_DIR, exist_ok=True)
+    # trained_weights = os.path.join(TRAIN_DIR, actor.name + "_trained_weights.pt")
+    trained_weights = '/projects/RL/RL_implementations/Training/BipedalWalker-v3/TD3_lr[0.0003]_b[256]_tau[0.0050]_uf[2]_final_weights.pt'
+    actor.load_state(trained_weights)
+
     train(env, actor, NUM_EPISODES, score_scope, solved_score)
 
     # Test
-    # actor.train = False
-    # actor.epsilon = 0.0
-    # test(env, actor)
+    # test(env, actor, trained_weights)

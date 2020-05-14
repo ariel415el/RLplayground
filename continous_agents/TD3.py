@@ -13,6 +13,42 @@ import copy
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)
 
+
+class FastMemory:
+    def __init__(self, max_size, state_size, action_size):
+        self.max_size = max_size
+        self.states = np.zeros((0, state_size))
+        self.actions = np.zeros((0, action_size))
+        self.next_states = np.zeros((0, state_size))
+        self.rewards = np.array([])
+        self.is_terminals = np.array([], dtype=bool)
+
+    def __len__(self):
+        return len(self.states)
+
+    def add_sample(self, state, action, next_state, reward, is_terminals):
+        self.actions = np.append(self.actions, action.reshape(1,-1), axis=0)
+        self.states = np.append(self.states, state.reshape(1,-1), axis=0)
+        self.next_states = np.append(self.next_states, next_state.reshape(1,-1), axis=0)
+        self.rewards = np.append(self.rewards, [reward])
+        self.is_terminals = np.append(self.is_terminals, [is_terminals])
+        if len(self.states) > self.max_size:
+            self.actions = self.actions[1:]
+            self.states = self.states[1:]
+            self.next_states = self.next_states[1:]
+            self.rewards = self.rewards[1:]
+            self.is_terminals = self.is_terminals[1:]
+
+
+    def sample(self, device, batch_size) :
+        ind = np.random.randint(0, len(self.states), size=batch_size)
+        states = torch.from_numpy(self.states[ind]).to(device).float()
+        actions = torch.from_numpy(self.actions[ind]).to(device).float()
+        next_states = torch.from_numpy(self.next_states[ind]).to(device).float()
+        rewards = torch.from_numpy(self.rewards[ind]).to(device).float()
+        is_terminals = self.is_terminals[ind]
+        return states, actions, next_states, rewards, is_terminals
+
 def update_net(model_to_change, reference_model, tau):
     for target_param, local_param in zip(model_to_change.parameters(), reference_model.parameters()):
         target_param.data.copy_(tau * local_param.data + (1.0 - tau) * target_param.data)
@@ -32,14 +68,15 @@ class TD3(object):
         self.policy_update_freq = 2
         self.batch_size = 256
         self.max_playback = 1000000
-        self.exploration_steps = 25000
+        self.exploration_steps = -1
 
         self.policy_noise_sigma = 0.2
         self.noise_clip = 0.5
         self.exploration_noise_sigma = 0.1
 
         self.steps=0
-        self.playback_deque = deque(maxlen=self.max_playback)
+        # self.playback_deque = deque(maxlen=self.max_playback)
+        self.playback_memory = FastMemory(self.max_playback, state_dim, self.action_dim)
 
         self.trainable_actor = TD3_paper_actor(self.state_dim, self.action_dim).to(device)
         self.target_actor = copy.deepcopy(self.trainable_actor)
@@ -74,7 +111,7 @@ class TD3(object):
     def process_output(self, new_state, reward, is_finale_state):
         self.steps += 1
         if self.train:
-            self.playback_deque.append((self.last_state, self.last_action, new_state, reward, is_finale_state))
+            self.playback_memory.add_sample(self.last_state, self.last_action, new_state, reward, is_finale_state)
             if self.steps > self.exploration_steps:
                 self._learn()
                 if self.steps % self.policy_update_freq == 0:
@@ -82,18 +119,9 @@ class TD3(object):
                     update_net(self.target_critics, self.trainable_critics, self.tau)
 
     def _learn(self):
-        if len(self.playback_deque) > self.batch_size:
-            ind = np.random.randint(0, len(self.playback_deque), size=self.batch_size)
-            batch_arrays = np.array(self.playback_deque)[ind]
-            # batch_arrays = np.array(random.sample(self.playback_deque, k=self.batch_size))
-            states = torch.from_numpy(np.stack(batch_arrays[:, 0], axis=0)).to(device).float()
-            actions = torch.from_numpy(np.stack(batch_arrays[:, 1], axis=0)).to(device).float()
-            next_states = torch.from_numpy(np.stack(batch_arrays[:, 2], axis=0)).to(device).float()
-            rewards = torch.from_numpy(np.stack(batch_arrays[:, 3], axis=0)).to(device).float()
-            is_finale_states = np.stack(batch_arrays[:, 4], axis=0)
-
+        if len(self.playback_memory) > self.batch_size:
+            states, actions, next_states, rewards, is_finale_states = self.playback_memory.sample(device, self.batch_size)
             # update critics
-
             with torch.no_grad():
                 next_action = self.target_actor(next_states)
                 # noise = torch.empty(next_action.shape).normal_(mean=0,std=self.policy_noise_sigma).clamp(-self.noise_clip, self.noise_clip).to(device)
@@ -130,7 +158,7 @@ class TD3(object):
             dict = torch.load(path, map_location=lambda storage, loc: storage)
 
             self.trainable_actor.load_state_dict(dict['actor'])
-            self.trainable_critic.load_state_dict(dict['critic'])
+            self.trainable_critics.load_state_dict(dict['critic'])
         else:
             print("Couldn't find weights file")
 
