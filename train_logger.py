@@ -12,8 +12,9 @@ class logger(object):
         self.total_steps  = 0
         self.train_start = time()
         self.last_time = 0
+        self.test_scores = []
 
-    def log(self, episode_number, episode_rewards, actor_stats):
+    def log_train_episode(self, episode_number, episode_rewards, actor_stats):
         time_passed = time() - self.train_start
         self.total_steps += len(episode_rewards)
         self.last_episodes_total_rewards.append(np.sum(episode_rewards))
@@ -26,14 +27,19 @@ class logger(object):
         print("\t# Agent stats: ", actor_stats)
         self.last_time = time_passed
 
+        return last_k_scores
+
+    def log_test(self, score):
+        print("Test score: %.3f "%score)
+        self.test_scores += [score]
+
 class TB_logger(logger):
     def __init__(self, k, tb_writer):
         super(TB_logger, self).__init__(k)
         self.tb_writer = tb_writer
 
-    def log(self, episode_number, episode_rewards, actor_stats):
-        super(TB_logger, self).log(episode_number, episode_rewards, actor_stats)
-        last_k_scores = np.mean(self.last_episodes_total_rewards)
+    def log_traine_episode(self, episode_number, episode_rewards, actor_stats):
+        last_k_scores = super(TB_logger, self).log_train_episode(episode_number, episode_rewards, actor_stats)
         self.tb_writer.add_scalar('1.last_%s_episodes_avg'%len(self.last_episodes_total_rewards), torch.tensor(last_k_scores), global_step=episode_number)
         self.tb_writer.add_scalar('2.episode_score', torch.tensor(np.sum(episode_rewards)), global_step=episode_number)
         self.tb_writer.add_scalar('3.episode_length', len(episode_rewards), global_step=episode_number)
@@ -51,9 +57,8 @@ class plt_logger(logger):
         self.all_episode_total_scores = []
         self.all_avg_last_k = []
 
-    def log(self, episode_number, episode_rewards, actor_stats):
-        super(plt_logger, self).log(episode_number, episode_rewards, actor_stats)
-        last_k_scores = np.mean(self.last_episodes_total_rewards)
+    def log_train_episode(self, episode_number, episode_rewards, actor_stats):
+        last_k_scores = super(plt_logger, self).log_train_episode(episode_number, episode_rewards, actor_stats)
         self.all_episode_lengths += [len(episode_rewards)]
         self.all_episode_total_scores += [np.sum(episode_rewards)]
         self.all_avg_last_k += [last_k_scores]
@@ -77,3 +82,11 @@ class plt_logger(logger):
         plt.clf()
 
         return last_k_scores
+
+    def log_test(self, score):
+        super(plt_logger, self).log_test(score)
+        plt.plot( np.linspace(start=1, stop=max(2,len(self.all_avg_last_k)), num=len(self.test_scores)), self.test_scores)
+        plt.ylabel('test_score-last %d'%self.k)
+        plt.xlabel('Episode #')
+        plt.savefig(os.path.join(self.logdir, "Test_scores.png"))
+        plt.clf()

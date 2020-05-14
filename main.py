@@ -10,10 +10,11 @@ import torch
 
 from gym.wrappers.pixel_observation import PixelObservationWrapper
 
-def train(env, actor, train_episodes, score_scope, solved_score):
+def train(env, actor, train_episodes, score_scope, solved_score, test_frequency=25):
     next_progress_checkpoint = 1
     # logger = TB_logger(score_scope, SummaryWriter(log_dir=os.path.join(TRAIN_DIR, "tensorboard_outputs",  actor.name)))
     logger = train_logger.plt_logger(score_scope, os.path.join(TRAIN_DIR,  actor.name))
+    logger.log_test(test(env, actor, 3))
     for i in range(train_episodes):
         done = False
         state = env.reset()
@@ -25,8 +26,10 @@ def train(env, actor, train_episodes, score_scope, solved_score):
             actor.process_output(state, reward, is_terminal)
             episode_rewards += [reward]
 
-        last_k_scores = logger.log(i, episode_rewards, actor.get_stats())
-
+        if (i+1) % test_frequency == 0:
+            last_test_score = test(env, actor, 3)
+            logger.log_test(last_test_score)
+        last_k_scores = logger.log_train_episode(i, episode_rewards, actor.get_stats())
         if last_k_scores >= next_progress_checkpoint*0.2*solved_score:
             actor.save_state(os.path.join(TRAIN_DIR, actor.name + "_%.5f_weights.pt"%last_k_scores))
             next_progress_checkpoint += 1
@@ -39,32 +42,34 @@ def train(env, actor, train_episodes, score_scope, solved_score):
 
     env.close()
 
-def test(env,  actor, trained_wetights):
+def test(env,  actor, test_episodes=1, render=False):
     actor.train = False
-    actor.load_state(trained_wetights)
-
     done = False
-    state = env.reset()
-    all_rewards = []
-    while not done:
-        env.render()
-        action = actor.process_new_state(state)
-        state, reward, done, info = env.step(action)
-        all_rewards += [reward]
-    print("total reward: %f, # steps %d"%(np.sum(all_rewards),len(all_rewards)))
+    episodes_total_rewards = []
+    for i in range(test_episodes):
+        state = env.reset()
+        all_rewards = []
+        while not done:
+            if render:
+                env.render()
+            action = actor.process_new_state(state)
+            state, reward, done, info = env.step(action)
+            all_rewards += [reward]
+        episodes_total_rewards += [np.sum(all_rewards)]
+    score = np.mean(episodes_total_rewards)
     env.close()
+    actor.train=True
+    return score
 
 
 if  __name__ == '__main__':
-
-
     # Choose enviroment
     # ENV_NAME="CartPole-v1"; s=4; a=2
     # ENV_NAME="LunarLander-v2"; s=8; a=4
-    # ENV_NAME="LunarLanderContinuous-v2";s=8; score_scope=99; solved_score=200
+    ENV_NAME="LunarLanderContinuous-v2";s=8; score_scope=99; solved_score=200
     # ENV_NAME="Pendulum-v0";s=3; score_scope=99; solved_score=-200
-    # ENV_NAME="BipedalWalker-v3"; s=24; score_scope=99; solved_score=300
-    ENV_NAME="BipedalWalkerHardcore-v3"; s=24; score_scope=99; solved_score=300
+    # ENV_NAME="BipedalWalker-v3"; s=24; score_scope=99; solved_score=500
+    # ENV_NAME="BipedalWalkerHardcore-v3"; s=24; score_scope=99; solved_score=300
 
     env = gym.make(ENV_NAME)
 
@@ -88,15 +93,17 @@ if  __name__ == '__main__':
     # env = PixelObservationWrapper(env)
 
     # Train
-
     os.makedirs("Training", exist_ok=True)
     TRAIN_DIR = os.path.join("Training", ENV_NAME)
     os.makedirs(TRAIN_DIR, exist_ok=True)
+    trained_weights = None
     # trained_weights = os.path.join(TRAIN_DIR, actor.name + "_trained_weights.pt")
-    trained_weights = '/projects/RL/RL_implementations/Training/BipedalWalker-v3/TD3_lr[0.0003]_b[256]_tau[0.0050]_uf[2]_final_weights.pt'
+    # trained_weights = '/projects/RL/RL_implementations/Training/BipedalWalker-v3/TD3_lr[0.0003]_b[256]_tau[0.0050]_uf[2]_final_weights.pt'
     actor.load_state(trained_weights)
 
+    actor.hyper_parameters['exploration_steps'] = -1
     train(env, actor, NUM_EPISODES, score_scope, solved_score)
 
     # Test
-    # test(env, actor, trained_weights)
+    # score = test(env, actor, 1)
+    # print("Reward over %d episodes: %f"%(1, score))

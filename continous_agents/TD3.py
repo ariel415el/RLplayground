@@ -61,33 +61,37 @@ class TD3(object):
         self.action_dim = len(bounderies[0])
         self.max_episodes = max_episodes
         self.train = train
-        self.tau=0.005
-        self.actor_lr = 0.0003
-        self.critic_lr = 0.0003
-        self.discount = 0.99
-        self.policy_update_freq = 2
-        self.batch_size = 256
-        self.max_playback = 1000000
-        self.exploration_steps = -1
-
-        self.policy_noise_sigma = 0.2
-        self.noise_clip = 0.5
-        self.exploration_noise_sigma = 0.1
-
         self.steps=0
-        # self.playback_deque = deque(maxlen=self.max_playback)
-        self.playback_memory = FastMemory(self.max_playback, state_dim, self.action_dim)
+
+        self.hyper_parameters = {
+            'tau':0.005,
+            'actor_lr':0.0003,
+            'critic_lr':0.0003,
+            'discount':0.99,
+            'policy_update_freq':2,
+            'batch_size':256,
+            'max_playback':1000000,
+            'exploration_steps':10000,
+            'policy_noise_sigma':0.2,
+            'noise_clip':0.5,
+            'exploration_noise_sigma':0.1
+        }
+
+        self.playback_memory = FastMemory(self.hyper_parameters['max_playback'], state_dim, self.action_dim)
+
 
         self.trainable_actor = TD3_paper_actor(self.state_dim, self.action_dim).to(device)
         self.target_actor = copy.deepcopy(self.trainable_actor)
-        self.actor_optimizer = torch.optim.Adam(self.trainable_actor.parameters(), lr=self.actor_lr)
+        self.actor_optimizer = torch.optim.Adam(self.trainable_actor.parameters(), lr=self.hyper_parameters['actor_lr'])
 
         self.trainable_critics = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
         self.target_critics = copy.deepcopy(self.trainable_critics)
-        self.critics_optimizer = torch.optim.Adam(self.trainable_critics.parameters(), lr=self.critic_lr)
+        self.critics_optimizer = torch.optim.Adam(self.trainable_critics.parameters(), lr=self.hyper_parameters['critic_lr'])
 
 
-        self.name = "TD3_lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]"%(self.actor_lr, self.batch_size, self.tau, self.policy_update_freq)
+        self.name = "TD3_lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]"%(
+            self.hyper_parameters['actor_lr'], self.hyper_parameters['batch_size'],
+            self.hyper_parameters['tau'], self.hyper_parameters['policy_update_freq'])
 
     def process_new_state(self, state):
         self.trainable_actor.eval()
@@ -96,11 +100,11 @@ class TD3(object):
             action = self.trainable_actor(state_torch).cpu().data.numpy()[0]
         self.trainable_actor.train()
         if self.train:
-            if self.steps < self.exploration_steps:
+            if self.steps < self.hyper_parameters['exploration_steps']:
                 # action = np.random.uniform(-1, 1,size=action.shape) # TODO: use self.bounderies
                 action = self.action_space.sample()
             else:
-                action += np.random.normal(0, self.exploration_noise_sigma, size=action.shape)
+                action += np.random.normal(0, self.hyper_parameters['exploration_noise_sigma'], size=action.shape)
 
         self.last_state = state
         self.last_action = action
@@ -112,27 +116,27 @@ class TD3(object):
         self.steps += 1
         if self.train:
             self.playback_memory.add_sample(self.last_state, self.last_action, new_state, reward, is_finale_state)
-            if self.steps > self.exploration_steps:
+            if self.steps > self.hyper_parameters['exploration_steps']:
                 self._learn()
-                if self.steps % self.policy_update_freq == 0:
-                    update_net(self.target_actor, self.trainable_actor, self.tau)
-                    update_net(self.target_critics, self.trainable_critics, self.tau)
+                if self.steps % self.hyper_parameters['policy_update_freq'] == 0:
+                    update_net(self.target_actor, self.trainable_actor, self.hyper_parameters['tau'])
+                    update_net(self.target_critics, self.trainable_critics, self.hyper_parameters['tau'])
 
     def _learn(self):
-        if len(self.playback_memory) > self.batch_size:
-            states, actions, next_states, rewards, is_finale_states = self.playback_memory.sample(device, self.batch_size)
+        if len(self.playback_memory) > self.hyper_parameters['batch_size']:
+            states, actions, next_states, rewards, is_finale_states = self.playback_memory.sample(device, self.hyper_parameters['batch_size'])
             # update critics
             with torch.no_grad():
                 next_action = self.target_actor(next_states)
-                # noise = torch.empty(next_action.shape).normal_(mean=0,std=self.policy_noise_sigma).clamp(-self.noise_clip, self.noise_clip).to(device)
-                noise = (torch.randn_like(actions) * self.policy_noise_sigma).clamp(-self.noise_clip, self.noise_clip).to(device)
+                # noise = torch.empty(next_action.shape).normal_(mean=0,std=self.hyper_parameters['policy_noise_sigma']).clamp(-self.hyper_parameters['noise_clip'], self.hyper_parameters['noise_clip']).to(device)
+                noise = (torch.randn_like(actions) * self.hyper_parameters['policy_noise_sigma']).clamp(-self.hyper_parameters['noise_clip'], self.hyper_parameters['noise_clip']).to(device)
                 next_noisy_action = next_action + noise
                 next_noisy_action = torch.max(torch.min(next_noisy_action, self.bounderies[1]), self.bounderies[0])
                 next_target_q_values_1, next_target_q_values_2 = self.target_critics(next_states, next_noisy_action.float())
                 next_target_q_values = torch.min(next_target_q_values_1.view(-1) , next_target_q_values_2.view(-1))
                 target_values = rewards
                 mask = np.logical_not(is_finale_states)
-                target_values[mask] += self.discount*next_target_q_values[mask]
+                target_values[mask] += self.hyper_parameters['discount']*next_target_q_values[mask]
 
             # update critics
             self.trainable_critics.train()
@@ -145,7 +149,7 @@ class TD3(object):
 
 
             # update  policy only each few steps (delayed update)
-            if self.steps % self.policy_update_freq == 0:
+            if self.steps % self.hyper_parameters['policy_update_freq'] == 0:
                 # update actor
                 self.actor_optimizer.zero_grad()
                 actor_obj = -self.trainable_critics.Q1(states, self.trainable_actor(states)).mean() # paper suggest using critic_1 ?
@@ -154,7 +158,7 @@ class TD3(object):
 
 
     def load_state(self, path):
-        if os.path.exists(path):
+        if path is not None and os.path.exists(path):
             dict = torch.load(path, map_location=lambda storage, loc: storage)
 
             self.trainable_actor.load_state_dict(dict['actor'])
