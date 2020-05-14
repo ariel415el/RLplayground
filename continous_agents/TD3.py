@@ -83,9 +83,9 @@ class TD3(object):
 
     def _learn(self):
         if len(self.playback_deque) > self.batch_size:
-            #     ind = np.random.randint(0, len(self.playback_deque), size=self.batch_size)
-            #     batch_arrays = np.array(self.playback_deque)[ind]
-            batch_arrays = np.array(random.sample(self.playback_deque, k=self.batch_size))
+            ind = np.random.randint(0, len(self.playback_deque), size=self.batch_size)
+            batch_arrays = np.array(self.playback_deque)[ind]
+            # batch_arrays = np.array(random.sample(self.playback_deque, k=self.batch_size))
             states = torch.from_numpy(np.stack(batch_arrays[:, 0], axis=0)).to(device).float()
             actions = torch.from_numpy(np.stack(batch_arrays[:, 1], axis=0)).to(device).float()
             next_states = torch.from_numpy(np.stack(batch_arrays[:, 2], axis=0)).to(device).float()

@@ -15,7 +15,6 @@ def train(env, actor, train_episodes, score_scope, solved_score):
     # logger = TB_logger(score_scope, SummaryWriter(log_dir=os.path.join(TRAIN_DIR, "tensorboard_outputs",  actor.name)))
     logger = train_logger.plt_logger(score_scope, os.path.join(TRAIN_DIR,  actor.name))
     for i in range(train_episodes):
-
         done = False
         state = env.reset()
         episode_rewards = []
