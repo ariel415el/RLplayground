@@ -17,31 +17,29 @@ print("using device: ", device)
 class FastMemory:
     def __init__(self, max_size, state_size, action_size):
         self.max_size = max_size
-        self.states = np.zeros((0, state_size))
-        self.actions = np.zeros((0, action_size))
-        self.next_states = np.zeros((0, state_size))
-        self.rewards = np.array([])
-        self.is_terminals = np.array([], dtype=bool)
+        self.states = np.zeros((max_size, state_size))
+        self.actions = np.zeros((max_size, action_size))
+        self.next_states = np.zeros((max_size, state_size))
+        self.rewards = np.zeros(max_size)
+        self.is_terminals = np.array([False]*max_size, dtype=bool)
+        self.next_index = 0
+        self.size = 0
 
     def __len__(self):
-        return len(self.states)
+        return self.size
 
-    def add_sample(self, state, action, next_state, reward, is_terminals):
-        self.actions = np.append(self.actions, action.reshape(1,-1), axis=0)
-        self.states = np.append(self.states, state.reshape(1,-1), axis=0)
-        self.next_states = np.append(self.next_states, next_state.reshape(1,-1), axis=0)
-        self.rewards = np.append(self.rewards, [reward])
-        self.is_terminals = np.append(self.is_terminals, [is_terminals])
-        if len(self.states) > self.max_size:
-            self.actions = self.actions[1:]
-            self.states = self.states[1:]
-            self.next_states = self.next_states[1:]
-            self.rewards = self.rewards[1:]
-            self.is_terminals = self.is_terminals[1:]
+    def add_sample(self, state, action, next_state, reward, is_terminal):
+        self.actions[self.next_index] = action.reshape(1,-1)
+        self.states[self.next_index] = state.reshape(1,-1)
+        self.next_states[self.next_index] = next_state.reshape(1,-1)
+        self.rewards[self.next_index]  = reward
+        self.is_terminals[self.next_index] = is_terminal
 
+        self.next_index = (self.next_index + 1) % self.max_size
+        self.size = min(self.max_size, self.size+1)
 
     def sample(self, device, batch_size) :
-        ind = np.random.randint(0, len(self.states), size=batch_size)
+        ind = np.random.randint(0, self.size, size=batch_size)
         states = torch.from_numpy(self.states[ind]).to(device).float()
         actions = torch.from_numpy(self.actions[ind]).to(device).float()
         next_states = torch.from_numpy(self.next_states[ind]).to(device).float()
