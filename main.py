@@ -44,9 +44,9 @@ def train(env, actor, train_episodes, score_scope, solved_score, test_frequency=
 
 def test(env,  actor, test_episodes=1, render=False):
     actor.train = False
-    done = False
     episodes_total_rewards = []
     for i in range(test_episodes):
+        done = False
         state = env.reset()
         all_rewards = []
         while not done:
@@ -98,12 +98,11 @@ if  __name__ == '__main__':
     os.makedirs(TRAIN_DIR, exist_ok=True)
     trained_weights = None
     # trained_weights = os.path.join(TRAIN_DIR, actor.name + "_trained_weights.pt")
-    # trained_weights = '/projects/RL/RL_implementations/Training/BipedalWalker-v3/TD3_lr[0.0003]_b[256]_tau[0.0050]_uf[2]_final_weights.pt'
     actor.load_state(trained_weights)
 
-    actor.hyper_parameters['exploration_steps'] = -1
+    # actor.hyper_parameters['exploration_steps'] = -1
     train(env, actor, NUM_EPISODES, score_scope, solved_score)
 
     # Test
-    # score = test(env, actor, 1)
-    # print("Reward over %d episodes: %f"%(1, score))
+    # score = test(env, actor, 3, render=True)
+    # print("Reward over %d episodes: %f"%(3, score))
