@@ -20,6 +20,7 @@ def train(env, actor, train_episodes, score_scope, solved_score, test_frequency=
         state = env.reset()
         episode_rewards = []
         while not done:
+            # env.render()
             action = actor.process_new_state(state)
             state, reward, done, info = env.step(action)
             is_terminal = done and len(episode_rewards) < env._max_episode_steps
@@ -66,10 +67,10 @@ if  __name__ == '__main__':
     # Choose enviroment
     # ENV_NAME="CartPole-v1"; s=4; a=2
     # ENV_NAME="LunarLander-v2"; s=8; a=4
-    ENV_NAME="LunarLanderContinuous-v2";s=8; score_scope=99; solved_score=200
+    # ENV_NAME="LunarLanderContinuous-v2";s=8; score_scope=99; solved_score=200
     # ENV_NAME="Pendulum-v0";s=3; score_scope=99; solved_score=-200
     # ENV_NAME="BipedalWalker-v3"; s=24; score_scope=99; solved_score=500
-    # ENV_NAME="BipedalWalkerHardcore-v3"; s=24; score_scope=99; solved_score=300
+    ENV_NAME="BipedalWalkerHardcore-v3"; s=24; score_scope=99; solved_score=300
 
     env = gym.make(ENV_NAME)
 
@@ -97,10 +98,12 @@ if  __name__ == '__main__':
     TRAIN_DIR = os.path.join("Training", ENV_NAME)
     os.makedirs(TRAIN_DIR, exist_ok=True)
     trained_weights = None
-    # trained_weights = os.path.join(TRAIN_DIR, actor.name + "_trained_weights.pt")
+    trained_weights = os.path.join(TRAIN_DIR, actor.name + "_trained_weights.pt")
+    trained_weights = '/projects/RL/RL_implementations/Training/BipedalWalker-v3/TD3_lr[0.0003]_b[256]_tau[0.0050]_uf[2]_trained_weights.pt'
     actor.load_state(trained_weights)
 
-    # actor.hyper_parameters['exploration_steps'] = -1
+    actor.hyper_parameters['exploration_steps'] = -1
+    actor.hyper_parameters['min_memory_for_learning'] = 10000
     train(env, actor, NUM_EPISODES, score_scope, solved_score)
 
     # Test

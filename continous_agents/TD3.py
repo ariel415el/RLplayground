@@ -70,6 +70,7 @@ class TD3(object):
             'batch_size':256,
             'max_playback':1000000,
             'exploration_steps':10000,
+            'min_memory_for_learning':10000,
             'policy_noise_sigma':0.2,
             'noise_clip':0.5,
             'exploration_noise_sigma':0.1
@@ -121,7 +122,7 @@ class TD3(object):
                     update_net(self.target_critics, self.trainable_critics, self.hyper_parameters['tau'])
 
     def _learn(self):
-        if len(self.playback_memory) > self.hyper_parameters['batch_size']:
+        if len(self.playback_memory) > self.hyper_parameters['min_memory_for_learning']:
             states, actions, next_states, rewards, is_finale_states = self.playback_memory.sample(device, self.hyper_parameters['batch_size'])
             # update critics
             with torch.no_grad():
