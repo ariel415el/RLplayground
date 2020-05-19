@@ -17,7 +17,6 @@ class MLP(torch.nn.Module):
         self.model = torch.nn.Sequential(*layers)
 
     def forward(self, x):
-        # x = x.float()
         x = self.model(x)
         return x
 

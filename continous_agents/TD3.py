@@ -1,55 +1,14 @@
 ###############################################
 # Credit to https://github.com/sfujim/TD3.git #
 ###############################################
-
-import torch
-import random
-from collections import deque
-import numpy as np
 import os
 from dnn_models import *
 import copy
+from utils import update_net, FastMemory
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)
 
-
-class FastMemory:
-    def __init__(self, max_size, state_size, action_size):
-        self.max_size = max_size
-        self.states = np.zeros((max_size, state_size))
-        self.actions = np.zeros((max_size, action_size))
-        self.next_states = np.zeros((max_size, state_size))
-        self.rewards = np.zeros(max_size)
-        self.is_terminals = np.array([False]*max_size, dtype=bool)
-        self.next_index = 0
-        self.size = 0
-
-    def __len__(self):
-        return self.size
-
-    def add_sample(self, state, action, next_state, reward, is_terminal):
-        self.actions[self.next_index] = action.reshape(1,-1)
-        self.states[self.next_index] = state.reshape(1,-1)
-        self.next_states[self.next_index] = next_state.reshape(1,-1)
-        self.rewards[self.next_index]  = reward
-        self.is_terminals[self.next_index] = is_terminal
-
-        self.next_index = (self.next_index + 1) % self.max_size
-        self.size = min(self.max_size, self.size+1)
-
-    def sample(self, device, batch_size) :
-        ind = np.random.randint(0, self.size, size=batch_size)
-        states = torch.from_numpy(self.states[ind]).to(device).float()
-        actions = torch.from_numpy(self.actions[ind]).to(device).float()
-        next_states = torch.from_numpy(self.next_states[ind]).to(device).float()
-        rewards = torch.from_numpy(self.rewards[ind]).to(device).float()
-        is_terminals = self.is_terminals[ind]
-        return states, actions, next_states, rewards, is_terminals
-
-def update_net(model_to_change, reference_model, tau):
-    for target_param, local_param in zip(model_to_change.parameters(), reference_model.parameters()):
-        target_param.data.copy_(tau * local_param.data + (1.0 - tau) * target_param.data)
 
 class TD3(object):
     def __init__(self, state_dim, bounderies, max_episodes, train = True, action_space = None):
@@ -75,9 +34,8 @@ class TD3(object):
             'noise_clip':0.5,
             'exploration_noise_sigma':0.1
         }
-
-        self.playback_memory = FastMemory(self.hyper_parameters['max_playback'], state_dim, self.action_dim)
-
+        storage_sizes_and_types = [self.state_dim, self.action_dim, self.state_dim, 1, (1, bool)]
+        self.playback_memory = FastMemory(self.hyper_parameters['max_playback'], storage_sizes_and_types)
 
         self.trainable_actor = TD3_paper_actor(self.state_dim, self.action_dim).to(device)
         self.target_actor = copy.deepcopy(self.trainable_actor)
@@ -114,7 +72,7 @@ class TD3(object):
     def process_output(self, new_state, reward, is_finale_state):
         self.steps += 1
         if self.train:
-            self.playback_memory.add_sample(self.last_state, self.last_action, new_state, reward, is_finale_state)
+            self.playback_memory.add_sample((self.last_state, self.last_action, new_state, reward, is_finale_state))
             if self.steps > self.hyper_parameters['exploration_steps']:
                 self._learn()
                 if self.steps % self.hyper_parameters['policy_update_freq'] == 0:
@@ -123,7 +81,7 @@ class TD3(object):
 
     def _learn(self):
         if len(self.playback_memory) > self.hyper_parameters['min_memory_for_learning']:
-            states, actions, next_states, rewards, is_finale_states = self.playback_memory.sample(device, self.hyper_parameters['batch_size'])
+            states, actions, next_states, rewards, is_finale_states = self.playback_memory.sample(self.hyper_parameters['batch_size'], device)
             # update critics
             with torch.no_grad():
                 next_action = self.target_actor(next_states)
@@ -133,8 +91,8 @@ class TD3(object):
                 next_noisy_action = torch.max(torch.min(next_noisy_action, self.bounderies[1]), self.bounderies[0])
                 next_target_q_values_1, next_target_q_values_2 = self.target_critics(next_states, next_noisy_action.float())
                 next_target_q_values = torch.min(next_target_q_values_1.view(-1) , next_target_q_values_2.view(-1))
-                target_values = rewards
-                mask = np.logical_not(is_finale_states)
+                target_values = rewards.view(-1)
+                mask = ~is_finale_states.view(-1)
                 target_values[mask] += self.hyper_parameters['discount']*next_target_q_values[mask]
 
             # update critics

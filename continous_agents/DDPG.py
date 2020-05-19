@@ -5,6 +5,8 @@ import numpy as np
 import os
 from dnn_models import D_Actor, D_Critic
 
+from utils import update_net
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)
 
@@ -28,10 +30,6 @@ class OUNoise:
 
     def __repr__(self):
         return 'OrnsteinUhlenbeckActionNoise(mu={}, sigma={})'.format(self.mu, self.sigma)
-
-def update_net(model_to_change, reference_model, tau):
-    for target_param, local_param in zip(model_to_change.parameters(), reference_model.parameters()):
-        target_param.data.copy_(tau * local_param.data + (1.0 - tau) * target_param.data)
 
 class DDPG(object):
     def __init__(self, state_dim, bounderies, max_episodes, train = True):

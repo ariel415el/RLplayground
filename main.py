@@ -12,6 +12,7 @@ from gym.wrappers.pixel_observation import PixelObservationWrapper
 
 def train(env, actor, train_episodes, score_scope, solved_score, test_frequency=25):
     next_progress_checkpoint = 1
+    next_test_progress_checkpoint = 1
     # logger = TB_logger(score_scope, SummaryWriter(log_dir=os.path.join(TRAIN_DIR, "tensorboard_outputs",  actor.name)))
     logger = train_logger.plt_logger(score_scope, os.path.join(TRAIN_DIR,  actor.name))
     logger.log_test(test(env, actor, 3))
@@ -30,9 +31,12 @@ def train(env, actor, train_episodes, score_scope, solved_score, test_frequency=
         if (i+1) % test_frequency == 0:
             last_test_score = test(env, actor, 3)
             logger.log_test(last_test_score)
+            if last_test_score >= next_test_progress_checkpoint * 0.2 * solved_score:
+                actor.save_state(os.path.join(TRAIN_DIR, actor.name + "_test_%.5f_weights.pt" % last_test_score))
+                next_test_progress_checkpoint += 1
         last_k_scores = logger.log_train_episode(i, episode_rewards, actor.get_stats())
         if last_k_scores >= next_progress_checkpoint*0.2*solved_score:
-            actor.save_state(os.path.join(TRAIN_DIR, actor.name + "_%.5f_weights.pt"%last_k_scores))
+            actor.save_state(os.path.join(TRAIN_DIR, actor.name, actor.name + "_%.5f_weights.pt"%last_k_scores))
             next_progress_checkpoint += 1
 
         if last_k_scores > solved_score:
@@ -65,12 +69,12 @@ def test(env,  actor, test_episodes=1, render=False):
 
 if  __name__ == '__main__':
     # Choose enviroment
-    # ENV_NAME="CartPole-v1"; s=4; a=2
-    # ENV_NAME="LunarLander-v2"; s=8; a=4
-    # ENV_NAME="LunarLanderContinuous-v2";s=8; score_scope=99; solved_score=200
-    # ENV_NAME="Pendulum-v0";s=3; score_scope=99; solved_score=-200
-    # ENV_NAME="BipedalWalker-v3"; s=24; score_scope=99; solved_score=500
-    ENV_NAME="BipedalWalkerHardcore-v3"; s=24; score_scope=99; solved_score=300
+    # ENV_NAME="CartPole-v1"; s=4; a=2;score_scope=100; solved_score=195
+    # ENV_NAME="LunarLander-v2"; s=8; a=4; score_scope=100; solved_score=200
+    # ENV_NAME="LunarLanderContinuous-v2";s=8; score_scope=100; solved_score=200
+    ENV_NAME="Pendulum-v0";s=3; score_scope=100; solved_score=-200
+    # ENV_NAME="BipedalWalker-v3"; s=24; score_scope=100; solved_score=500
+    # ENV_NAME="BipedalWalkerHardcore-v3"; s=24; score_scope=100; solved_score=300
 
     env = gym.make(ENV_NAME)
 
@@ -83,7 +87,7 @@ if  __name__ == '__main__':
 
     # Create agent
     NUM_EPISODES = 10000
-    # actor = DQN_agent(s, a, NUM_EPISODES, train=True)
+    # actor = DQN_agent.DQN_agent(s, a, train=True)
     # actor = vanila_policy_gradient_agent(s, a, NUM_EPISODES, train=True)
     # actor = actor_critic_agent(s, a, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
     # actor = actor_critic_agent(s, bounderies, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
@@ -97,13 +101,13 @@ if  __name__ == '__main__':
     os.makedirs("Training", exist_ok=True)
     TRAIN_DIR = os.path.join("Training", ENV_NAME)
     os.makedirs(TRAIN_DIR, exist_ok=True)
-    trained_weights = None
-    trained_weights = os.path.join(TRAIN_DIR, actor.name + "_trained_weights.pt")
-    trained_weights = '/projects/RL/RL_implementations/Training/BipedalWalker-v3/TD3_lr[0.0003]_b[256]_tau[0.0050]_uf[2]_trained_weights.pt'
-    actor.load_state(trained_weights)
+    # trained_weights = None
+    # trained_weights = os.path.join(TRAIN_DIR, actor.name + "_trained_weights.pt")
+    # trained_weights =  '/projects/RL/RL_implementations/Training/BipedalWalkerHardcore-v3/TD3_lr[0.0003]_b[256]_tau[0.0050]_uf[2]_test_184.82193_weights.pt'
+    # actor.load_state(trained_weights)
 
     actor.hyper_parameters['exploration_steps'] = -1
-    actor.hyper_parameters['min_memory_for_learning'] = 10000
+    actor.hyper_parameters['min_memory_for_learning'] = -1
     train(env, actor, NUM_EPISODES, score_scope, solved_score)
 
     # Test
