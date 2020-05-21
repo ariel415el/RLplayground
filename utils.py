@@ -1,5 +1,43 @@
 import numpy as np
 import torch
+from time import time
+
+
+from ple.games.pong import Pong
+from ple.games.pixelcopter import Pixelcopter
+from ple import PLE
+def measure_time(fun, *args):
+    s = time()
+    for i in range(10):
+        fun(*args)
+    print("time: ", (time() - s) / 10)
+
+class PLE2GYM_wrapper(object):
+    def __init__(self, render=False):
+        self.ple_game = PLE(Pixelcopter(), fps=30, display_screen=render, force_fps=False)
+        self.ple_game.init()
+        self.allowed_actions = self.ple_game.getActionSet()
+        self._max_episode_steps = 100000
+
+    def reset(self):
+        self.ple_game.reset_game()
+        state = self.ple_game.getGameState()
+        state = [v for _, v in state.items()]
+        return state
+
+    def step(self, action):
+        reward = self.ple_game.act(self.allowed_actions[action])
+        state = self.ple_game.getGameState()
+        # state = np.array( [v for _, v in state.items()])
+        state = [v for _, v in state.items()]
+        done = self.ple_game.game_over()
+        return state, reward, done, None
+
+    def seed(self, num):
+        pass
+
+    def close(self):
+        pass
 
 def update_net(model_to_change, reference_model, tau):
     for target_param, local_param in zip(model_to_change.parameters(), reference_model.parameters()):
@@ -34,3 +72,8 @@ class FastMemory:
         batch = tuple([torch.from_numpy(storage[ind]).to(device) for storage in self.storages])
 
         return batch
+
+    def clear_memory(self):
+        for storage in self.storages:
+            del storage[:]
+

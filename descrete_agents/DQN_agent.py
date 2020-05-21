@@ -17,7 +17,7 @@ class DQN_agent(object):
         self.action_dim = action_dim
         self.train = train
         self.tau=0.5
-        self.lr = 0.01
+        self.lr = 0.0001
         self.epsilon = 1.0
         self.min_epsilon = 0.005
         self.discount = 0.99

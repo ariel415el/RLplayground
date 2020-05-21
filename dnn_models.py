@@ -26,7 +26,7 @@ class MLP_softmax(MLP):
 
     def forward(self, x):
         x = super().forward(x)
-        x = torch.nn.functional.softmax(x)
+        x = torch.nn.functional.softmax(x, dim=1)
         return x
 
 

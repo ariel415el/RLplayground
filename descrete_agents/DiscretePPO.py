@@ -4,6 +4,7 @@
 import os
 from dnn_models import *
 import torch.distributions as D
+from utils import FastMemory, measure_time
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
@@ -20,7 +21,7 @@ class Memory:
 
     def add_sample(self, state, action, action_log_prob, reward, is_terminals):
         self.actions += [action]
-        self.states += [state]
+        self.states += [state.view(-1)]
         self.logprobs += [action_log_prob]
         self.rewards += [reward]
         self.is_terminals += [is_terminals]
@@ -39,28 +40,46 @@ class Memory:
         del self.is_terminals[:]
 
 
-class PPO_continous_action(object):
-    def __init__(self, state_dim, action_bounderies, max_episodes, train=True):
+class Descrete_PPO_actor_critic(nn.Module):
+    def __init__(self, state_dim, action_dim, layers_dims):
+        super(Descrete_PPO_actor_critic, self).__init__()
+        # action mean range -1 to 1
+        self.actor =  nn.Sequential(
+                nn.Linear(state_dim, layers_dims[0]),
+                nn.Tanh(),
+                nn.Linear(layers_dims[0], layers_dims[1]),
+                nn.Tanh(),
+                nn.Linear(layers_dims[1], action_dim),
+                nn.Softmax(dim=1)
+                )
+        # critic
+        self.critic = nn.Sequential(
+                nn.Linear(state_dim, layers_dims[0]),
+                nn.Tanh(),
+                nn.Linear(layers_dims[0], layers_dims[1]),
+                nn.Tanh(),
+                nn.Linear(layers_dims[1], 1)
+                )
+
+class PPO_descrete_action(object):
+    def __init__(self, state_dim, action_dim, max_episodes, train=True):
         self.name = 'PPO'
         self.state_dim = state_dim
-        self.action_bounderies = action_bounderies
-        self.action_dim = len(action_bounderies[0])
+        self.action_dim = action_dim
         self.max_episodes = max_episodes
         self.train= train
         self.batch_size = 4000
         self.discount = 0.99
-        self.action_std = 0.5
-        self.action_var = torch.full((self.action_dim,), self.action_std**2)
 
         self.samples = Memory()
-        self.steps_per_iteration=80
+        self.steps_per_iteration=800
         self.epsilon_clip = 0.2
 
-        self.lr = 0.0003
-        self.lr_decay = 0.995
-        layers = [150, 120]
-        self.policy = ContinousActorCritic_2(state_dim, self.action_dim, layers).to(device)
-        self.policy_old = ContinousActorCritic_2(state_dim, self.action_dim, layers).to(device)
+        self.lr = 0.003
+        self.lr_decay = 0.95
+        layers = [64, 64]
+        self.policy = Descrete_PPO_actor_critic(state_dim, self.action_dim, layers).to(device)
+        self.policy_old = Descrete_PPO_actor_critic(state_dim, self.action_dim, layers).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
 
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr)
@@ -72,25 +91,23 @@ class PPO_continous_action(object):
         self.name += "_lr[%.4f]_b[%d]"%(self.lr, self.batch_size)
 
     def get_action_dist(self, model,  state_tensor):
-        mus = model.get_mu(state_tensor)
-        cov_mat = torch.diag(self.action_var).to(device)
-        dist = D.MultivariateNormal(mus, cov_mat)
+        action_probs = model.actor(state_tensor)
+        dist = D.Categorical(action_probs)
 
         return dist
 
     def process_new_state(self, state):
-        state = torch.from_numpy(state).to(device).float()
+        state = torch.from_numpy(np.array([state])).to(device).float()
         dist = self.get_action_dist(self.policy_old, state)
 
-        action = dist.sample()
+        action = dist.sample()[0]
 
         self.last_state = state
         self.last_action = action
-        self.last_action_log_prob = dist.log_prob(action)
+        self.last_action_log_prob = dist.log_prob(action)[0]
 
         action = action.detach().cpu().numpy()
         return action
-        # return np.clip(action, self.action_bounderies[0], self.action_bounderies[0])
 
     def process_output(self, new_state, reward, is_finale_state):
         self.samples.add_sample(self.last_state , self.last_action, self.last_action_log_prob, reward, is_finale_state)
@@ -103,7 +120,6 @@ class PPO_continous_action(object):
             if (self.learn_steps+1) % 10 == 0:
                 for param_group in self.optimizer.param_groups:
                     param_group['lr'] *= self.lr_decay
-
 
     def _learn(self):
         old_states, old_actions, old_logprobs, raw_rewards, is_terminals = self.samples.get_as_tensors(device)
@@ -127,7 +143,7 @@ class PPO_continous_action(object):
             dists = self.get_action_dist(self.policy, old_states)
             logprobs = dists.log_prob(old_actions)
             dist_entropies = dists.entropy()
-            state_values = self.policy.get_value(old_states).view(-1)
+            state_values = self.policy.critic(old_states).view(-1)
 
             # Finding the ratio (pi_theta / pi_theta__old):
             ratios = torch.exp(logprobs - old_logprobs.detach())

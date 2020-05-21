@@ -1,1 +1,1 @@
-__all__ = ["actor_critic", "DQN_agent", "vanila_policy_gradient"]
+__all__ = ["actor_critic", "DQN_agent", "vanila_policy_gradient", "DescretePPO"]
