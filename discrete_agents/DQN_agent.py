@@ -10,6 +10,26 @@ import copy
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)
 
+
+class conv_net(torch.nn.Module):
+    def __init__(self, state_dim, action_dim):
+        super(conv_net, self).__init__()
+        self.state_dim = state_dim
+        self.conv1 = torch.nn.Conv2d(1, 4, kernel_size=3, stride=1, padding=1)
+        self.conv2 = torch.nn.Conv2d(4, 1, kernel_size=3, stride=1, padding=1)
+        self.fc1 = torch.nn.Linear(self.state_dim[0]*self.state_dim[1] , 64)
+        self.fc2 = torch.nn.Linear(64 , action_dim)
+
+    def forward(self, x):
+        x = x.float().view(-1, 1, self.state_dim[0], self.state_dim[1])
+        x = torch.nn.functional.relu(self.conv1(x))
+        x = torch.nn.functional.relu(self.conv2(x))
+        x = x.view(-1, self.state_dim[0]*self.state_dim[1])
+        x = torch.nn.functional.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
+
+
 class DQN_agent(object):
     def __init__(self, state_dim, action_dim, train = True):
 
@@ -17,24 +37,24 @@ class DQN_agent(object):
         self.action_dim = action_dim
         self.train = train
         self.tau=0.5
-        self.lr = 0.0001
+        self.lr = 0.1
         self.epsilon = 1.0
         self.min_epsilon = 0.005
         self.discount = 0.99
         self.update_freq = 1
         self.batch_size = 32
-        self.max_playback = 1000000
+        self.max_playback = 100000
         self.epsilon_decay = 0.996
 
         self.action_counter = 0
         self.completed_episodes = 0
         self.gs_num=0
 
-        storage_sizes_and_types = [self.state_dim, (1, np.uint8), self.state_dim, 1, (1, bool)]
+        storage_sizes_and_types = [(self.state_dim, np.float32), (1, np.uint8), (self.state_dim,np.float32), (1, np.float32), (1, bool)]
         self.playback_memory = FastMemory(self.max_playback, storage_sizes_and_types)
 
-        layers = [10,10]
-        self.trainable_model = MLP(self.state_dim, self.action_dim, layers).to(device)
+        layers = [64,64]
+        self.trainable_model = conv_net(self.state_dim, self.action_dim).to(device)
         with torch.no_grad():
             self.target_model = copy.deepcopy(self.trainable_model)
 

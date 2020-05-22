@@ -3,14 +3,15 @@ import os
 from time import time, sleep
 import random
 import gym
-from descrete_agents import *
+from discrete_agents import *
 from continous_agents import *
 import train_logger
 import torch
-from utils import measure_time, PLE2GYM_wrapper
+from utils import measure_time, PLE2GYM_wrapper, image_preprocess_wrapper
 from gym.wrappers.pixel_observation import PixelObservationWrapper
+from gym.wrappers.atari_preprocessing import AtariPreprocessing
 
-def train(env, actor, train_episodes, score_scope, solved_score, log_frequency=20, test_frequency=50):
+def train(env, actor, train_episodes, score_scope, solved_score, log_frequency=1, test_frequency=100):
     next_progress_checkpoint = 1
     next_test_progress_checkpoint = 1
     # logger = TB_logger(score_scope, SummaryWriter(log_dir=os.path.join(TRAIN_DIR, "tensorboard_outputs",  actor.name)))
@@ -25,11 +26,6 @@ def train(env, actor, train_episodes, score_scope, solved_score, log_frequency=2
             # env.render()
             action = actor.process_new_state(state)
             state, reward, done, info = env.step(action)
-            is_terminal = 0
-            # if done:
-            #     is_terminal = 1
-            #     if len(episode_rewards) < env._max_episode_steps:
-            #         is_terminal = 2
             is_terminal = done and len(episode_rewards) < env._max_episode_steps
             # is_terminal = done
             actor.process_output(state, reward, is_terminal)
@@ -52,8 +48,6 @@ def train(env, actor, train_episodes, score_scope, solved_score, log_frequency=2
             if last_k_scores > solved_score:
                 print("Solved in %d episodes"%i)
                 break
-
-    actor.save_state(os.path.join(TRAIN_DIR, actor.name + "_final_weights.pt"))
 
     env.close()
 
@@ -80,15 +74,17 @@ def test(env,  actor, test_episodes=1, render=False):
 if  __name__ == '__main__':
     # Choose enviroment
     # ENV_NAME="CartPole-v1"; s=4; a=2;score_scope=100; solved_score=195
-    ENV_NAME='PixelChopper';s=7;a=2;score_scope=100; solved_score=100
+    ENV_NAME="Breakout-v0"; s=(105,80); a=3;score_scope=100; solved_score=195
+    # ENV_NAME='PixelChopper';s=7;a=2;score_scope=100; solved_score=100
     # ENV_NAME="LunarLander-v2"; s=8; a=4; score_scope=20; solved_score=200
     # ENV_NAME="LunarLanderContinuous-v2";s=8; score_scope=100; solved_score=200
     # ENV_NAME="Pendulum-v0";s=3; score_scope=100; solved_score=-200
     # ENV_NAME="BipedalWalker-v3"; s=24; score_scope=100; solved_score=500
     # ENV_NAME="BipedalWalkerHardcore-v3"; s=24; score_scope=100; solved_score=300
 
-    # env = gym.make(ENV_NAME)
-    env = PLE2GYM_wrapper(render=False)
+    env = gym.make(ENV_NAME)
+    env = image_preprocess_wrapper(env)
+    # env = PLE2GYM_wrapper(render=False)
 
     # set seeds
     SEED=0
@@ -99,8 +95,8 @@ if  __name__ == '__main__':
 
     # Create agent
     NUM_EPISODES = 10000
-    # actor = DQN_agent.DQN_agent(s, a, train=True)
-    actor = DescretePPO.PPO_descrete_action(s, a, NUM_EPISODES, train=True)
+    actor = DQN_agent.DQN_agent(s, a, train=True)
+    # actor = DiscretePPO.PPO_descrete_action(s, a, NUM_EPISODES, train=True)
     # actor = vanila_policy_gradient_agent(s, a, NUM_EPISODES, train=True)
     # actor = actor_critic_agent(s, a, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
     # actor = actor_critic_agent(s, bounderies, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
