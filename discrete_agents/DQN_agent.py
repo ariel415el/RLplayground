@@ -15,13 +15,13 @@ class conv_net(torch.nn.Module):
     def __init__(self, state_dim, action_dim):
         super(conv_net, self).__init__()
         self.state_dim = state_dim
-        self.conv1 = torch.nn.Conv2d(1, 4, kernel_size=3, stride=1, padding=1)
+        self.conv1 = torch.nn.Conv2d(2, 4, kernel_size=3, stride=1, padding=1)
         self.conv2 = torch.nn.Conv2d(4, 1, kernel_size=3, stride=1, padding=1)
         self.fc1 = torch.nn.Linear(self.state_dim[0]*self.state_dim[1] , 64)
         self.fc2 = torch.nn.Linear(64 , action_dim)
 
     def forward(self, x):
-        x = x.float().view(-1, 1, self.state_dim[0], self.state_dim[1])
+        x = x.float().view(-1, 2, self.state_dim[0], self.state_dim[1])
         x = torch.nn.functional.relu(self.conv1(x))
         x = torch.nn.functional.relu(self.conv2(x))
         x = x.view(-1, self.state_dim[0]*self.state_dim[1])
@@ -38,19 +38,19 @@ class DQN_agent(object):
         self.train = train
         self.tau=0.5
         self.lr = 0.1
-        self.epsilon = 1.0
+        self.epsilon = 0.10
         self.min_epsilon = 0.005
         self.discount = 0.99
         self.update_freq = 1
         self.batch_size = 32
-        self.max_playback = 100000
+        self.max_playback = 10000
         self.epsilon_decay = 0.996
 
         self.action_counter = 0
         self.completed_episodes = 0
         self.gs_num=0
 
-        storage_sizes_and_types = [(self.state_dim, np.float32), (1, np.uint8), (self.state_dim,np.float32), (1, np.float32), (1, bool)]
+        storage_sizes_and_types = [(self.state_dim, np.uint8), (1, np.uint8), (self.state_dim,np.float32), (1, np.float32), (1, bool)]
         self.playback_memory = FastMemory(self.max_playback, storage_sizes_and_types)
 
         layers = [64,64]
@@ -68,7 +68,7 @@ class DQN_agent(object):
         if random.uniform(0,1) < self.epsilon:
             action_index =  random.randint(0, self.action_dim - 1)
         else:
-            q_vals = self.trainable_model(torch.from_numpy(state).float())
+            q_vals = self.trainable_model(torch.from_numpy(state).to(device))
             action_index = np.argmax(q_vals.detach().cpu().numpy())
 
         self.last_state = state
