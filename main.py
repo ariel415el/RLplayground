@@ -72,9 +72,10 @@ def test(env,  actor, test_episodes=1, render=False):
 
 
 if  __name__ == '__main__':
+    kwargs = {}
     # Choose enviroment
     # ENV_NAME="CartPole-v1"; s=4; a=2;score_scope=100; solved_score=195
-    ENV_NAME="Breakout-v0"; s=(105,80, 4); a=3;score_scope=100; solved_score=195
+    ENV_NAME="Breakout-v0"; s=(105,80, 4); a=3;score_scope=100; solved_score=195;kwargs = {'frameskip':0}
     # ENV_NAME='PixelChopper';s=7;a=2;score_scope=100; solved_score=100
     # ENV_NAME="LunarLander-v2"; s=(105,80); a=4; score_scope=20; solved_score=200
     # ENV_NAME="LunarLander-v2"; s=8; a=4; score_scope=20; solved_score=200
@@ -83,7 +84,7 @@ if  __name__ == '__main__':
     # ENV_NAME="BipedalWalker-v3"; s=24; score_scope=100; solved_score=500
     # ENV_NAME="BipedalWalkerHardcore-v3"; s=24; score_scope=100; solved_score=300
 
-    env = gym.make(ENV_NAME)
+    env = gym.make(ENV_NAME, **kwargs)
     # env = my_image_level_wrapper(env)
     env = image_preprocess_wrapper(env)
     # env = PLE2GYM_wrapper(render=False)

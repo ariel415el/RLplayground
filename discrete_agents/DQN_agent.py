@@ -15,13 +15,13 @@ class conv_net(torch.nn.Module):
     def __init__(self, state_dim, action_dim):
         super(conv_net, self).__init__()
         self.state_dim = state_dim
-        self.conv1 = torch.nn.Conv2d(2, 4, kernel_size=3, stride=1, padding=1)
+        self.conv1 = torch.nn.Conv2d(self.state_dim[2], 4, kernel_size=3, stride=1, padding=1)
         self.conv2 = torch.nn.Conv2d(4, 1, kernel_size=3, stride=1, padding=1)
         self.fc1 = torch.nn.Linear(self.state_dim[0]*self.state_dim[1] , 64)
         self.fc2 = torch.nn.Linear(64 , action_dim)
 
     def forward(self, x):
-        x = x.float().view(-1, 2, self.state_dim[0], self.state_dim[1])
+        x = x.float().view(-1, self.state_dim[2], self.state_dim[0], self.state_dim[1])
         x = torch.nn.functional.relu(self.conv1(x))
         x = torch.nn.functional.relu(self.conv2(x))
         x = x.view(-1, self.state_dim[0]*self.state_dim[1])
