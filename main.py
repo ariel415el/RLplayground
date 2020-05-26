@@ -3,13 +3,13 @@ import os
 from time import time, sleep
 import random
 import gym
+import gym_ple
 from discrete_agents import *
 from continous_agents import *
 import train_logger
 import torch
-from utils import measure_time, image_preprocess_wrapper, my_image_level_wrapper
-from gym.wrappers.pixel_observation import PixelObservationWrapper
-from gym.wrappers.atari_preprocessing import AtariPreprocessing
+from utils import measure_time
+from env_wrappers import PLE2GYM_wrapper
 
 def train(env, actor, train_episodes, score_scope, solved_score, log_frequency=1, test_frequency=100):
     next_progress_checkpoint = 1
@@ -71,58 +71,66 @@ def test(env,  actor, test_episodes=1, render=False):
     return score
 
 
-if  __name__ == '__main__':
-    kwargs = {}
-    # Choose enviroment
-    # ENV_NAME="CartPole-v1"; s=4; a=2;score_scope=100; solved_score=195
-    ENV_NAME="Breakout-v0"; s=(105,80, 4); a=3;score_scope=100; solved_score=195;kwargs = {'frameskip':0}
-    # ENV_NAME='PixelChopper';s=7;a=2;score_scope=100; solved_score=100
-    # ENV_NAME="LunarLander-v2"; s=(105,80); a=4; score_scope=20; solved_score=200
-    # ENV_NAME="LunarLander-v2"; s=8; a=4; score_scope=20; solved_score=200
-    # ENV_NAME="LunarLanderContinuous-v2";s=8; score_scope=100; solved_score=200
-    # ENV_NAME="Pendulum-v0";s=3; score_scope=100; solved_score=-200
-    # ENV_NAME="BipedalWalker-v3"; s=24; score_scope=100; solved_score=500
-    # ENV_NAME="BipedalWalkerHardcore-v3"; s=24; score_scope=100; solved_score=300
+def get_env(seed):
+    ##### gym discrete envs #####
+    # env_name="CartPole-v1"; s=4; a=2;score_scope=100; solved_score=195
+    # env_name="LunarLander-v2"; s=8; a=4; score_scope=20; solved_score=200
+    # env_name="LunarLanderContinuous-v2";s=8; score_scope=100; solved_score=200
+    # env_name="Pendulum-v0";s=3; score_scope=100; solved_score=-200
+    # env_name="BipedalWalker-v3"; s=24; score_scope=100; solved_score=500
+    # env_name="BipedalWalkerHardcore-v3"; s=24; score_scope=100; solved_score=300
 
-    env = gym.make(ENV_NAME, **kwargs)
+    # image envs TODO
+    # env_name='PixelChopper';s=7;a=2;score_scope=100; solved_score=100
+    # env_name="LunarLander-v2"; s=(105,80); a=4; score_scope=20; solved_score=200
+    # env_name="BreakoutNoFrameskip-v0"; s=(84,84, 4); a=3;score_scope=100; solved_score=195
+    # env_name="BreakoutNoFrameskip-v0"; s=(84,84, 4); a=3;score_scope=100; solved_score=195
+
+    # env = gym.make(env_name)
     # env = my_image_level_wrapper(env)
-    env = image_preprocess_wrapper(env)
-    # env = PLE2GYM_wrapper(render=False)
+    # env = AtariPreprocessing(env)
+    # env = image_preprocess_wrapper(env)
 
-    # set seeds
+    # get_ple games
+
+    env = PLE2GYM_wrapper()
+    env_name = 'FlappyBird-ple';s = len(env.state_keys);a = len(env.allowed_actions);score_scope=100;solved_score=100
+
+
+
+    env.seed(seed)
+    return env, s, a, score_scope, solved_score, env_name
+
+
+def get_agent(env, s, a):
+    agent = DQN_agent.DQN_agent(s, a, train=True)
+    # agent = DiscretePPO.PPO_descrete_action(s, a, train=True)
+    # agent = vanila_policy_gradient_agent(s, a, train=True)
+    # agent = actor_critic_agent(s, a, train=True, critic_objective="Monte-Carlo")
+    # agent = actor_critic_agent(s, bounderies, train=True, critic_objective="Monte-Carlo")
+    # agent = DDPG.DDPG(s, bounderies, train=True)
+    # agent = TD3.TD3(s, [env.action_space.low, env.action_space.high], train=True, action_space=env.action_space)
+    # agent = PPO.PPO(s, bounderies, train=True)
+    return agent
+
+if  __name__ == '__main__':
+
     SEED=0
     random.seed(SEED)
     np.random.seed(SEED)
     torch.manual_seed(SEED)
-    env.seed(SEED)
 
-    # Create agent
-    NUM_EPISODES = 10000
-    actor = DQN_agent.DQN_agent(s, a, train=True)
-    # actor = DiscretePPO.PPO_descrete_action(s, a, NUM_EPISODES, train=True)
-    # actor = vanila_policy_gradient_agent(s, a, NUM_EPISODES, train=True)
-    # actor = actor_critic_agent(s, a, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
-    # actor = actor_critic_agent(s, bounderies, NUM_EPISODES, train=True, critic_objective="Monte-Carlo")
-    # actor = DDPG.DDPG(s, bounderies, NUM_EPISODES, train=True)
-    # actor = TD3.TD3(s, [env.action_space.low, env.action_space.high], NUM_EPISODES, train=True, action_space=env.action_space)
-    # actor = PPO.PPO(s, bounderies, NUM_EPISODES, train=True)
-
-    # env = PixelObservationWrapper(env)
+    env, s, a, score_scope, solved_score, env_name = get_env(SEED)
+    agent = get_agent(env, s, a)
 
     # Train
     os.makedirs("Training", exist_ok=True)
-    TRAIN_DIR = os.path.join("Training", ENV_NAME)
+    TRAIN_DIR = os.path.join("Training", env_name)
     os.makedirs(TRAIN_DIR, exist_ok=True)
-    # trained_weights = None
-    # trained_weights = os.path.join(TRAIN_DIR, actor.name + "_trained_weights.pt")
-    # trained_weights =  '/projects/RL/RL_implementations/Training/LunarLander-v2/PPO_lr[0.0010]_b[3000]/PPO_lr[0.0010]_b[3000]_124.67556_weights.pt'
+
     # actor.load_state(trained_weights)
 
-    # actor.hyper_parameters['exploration_steps'] = -1
-    # actor.hyper_parameters['min_memory_for_learning'] = -1
-    # actor.hyper_parameters['actor_lr'] = 0.005
-    # actor.hyper_parameters['critic_lr'] = 0.005
-    train(env, actor, NUM_EPISODES, score_scope, solved_score)
+    train(env, agent, 100000, score_scope, solved_score)
 
     # Test
     # actor.train = False

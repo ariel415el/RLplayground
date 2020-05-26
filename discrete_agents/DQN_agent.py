@@ -37,38 +37,46 @@ class DQN_agent(object):
         self.action_dim = action_dim
         self.train = train
         self.tau=0.5
-        self.lr = 0.1
-        self.epsilon = 0.10
+        self.lr = 0.003
+        self.epsilon = 1.0
         self.min_epsilon = 0.005
         self.discount = 0.99
         self.update_freq = 1
         self.batch_size = 32
-        self.max_playback = 10000
+        self.max_playback = 1000000
         self.epsilon_decay = 0.996
 
         self.action_counter = 0
         self.completed_episodes = 0
         self.gs_num=0
 
-        storage_sizes_and_types = [(self.state_dim, np.uint8), (1, np.uint8), (self.state_dim,np.float32), (1, np.float32), (1, bool)]
+        state_dtype = np.uint8
+
+
+        if type(self.state_dim) == tuple:
+            self.trainable_model = conv_net(self.state_dim, self.action_dim).to(device)
+            state_dtype = np.uint8
+        else:
+            layers = [64, 64]
+            state_dtype = np.float32
+            self.trainable_model = MLP(self.state_dim, self.action_dim, layers).to(device)
+        storage_sizes_and_types = [(self.state_dim, state_dtype), (1, np.uint8), (self.state_dim, state_dtype), (1, np.float32), (1, bool)]
         self.playback_memory = FastMemory(self.max_playback, storage_sizes_and_types)
 
-        layers = [64,64]
-        self.trainable_model = conv_net(self.state_dim, self.action_dim).to(device)
         with torch.no_grad():
             self.target_model = copy.deepcopy(self.trainable_model)
 
         self.optimizer = torch.optim.Adam(self.trainable_model.parameters(), lr=self.lr)
         self.optimizer.zero_grad()
 
-        self.name = "DQN_%s_lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]"%(str(layers), self.lr, self.batch_size, self.tau, self.update_freq)
+        self.name = "DQN_lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]"%(self.lr, self.batch_size, self.tau, self.update_freq)
 
     def process_new_state(self, state):
         self.action_counter += 1
         if random.uniform(0,1) < self.epsilon:
             action_index =  random.randint(0, self.action_dim - 1)
         else:
-            q_vals = self.trainable_model(torch.from_numpy(state).to(device))
+            q_vals = self.trainable_model(torch.from_numpy(state).to(device).float())
             action_index = np.argmax(q_vals.detach().cpu().numpy())
 
         self.last_state = state
