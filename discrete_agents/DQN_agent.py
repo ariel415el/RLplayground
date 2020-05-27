@@ -161,7 +161,7 @@ class DQN_agent(object):
             curr_q_vals = torch.gather(prev_net_outs, dim=1, index = prev_actions.long())
 
             if self.prioritized_memory:
-                weights = torch.from_numpy(weights)
+                weights = torch.from_numpy(weights).to(device)
                 delta = (target_values - curr_q_vals)
                 loss = ((delta**2)*weights).mean()
                 delta = np.abs(delta.detach().cpu().numpy()).reshape(-1)

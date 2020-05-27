@@ -3,7 +3,6 @@ import os
 from time import time, sleep
 import random
 import gym
-import gym_ple
 from discrete_agents import *
 from continous_agents import *
 import train_logger
