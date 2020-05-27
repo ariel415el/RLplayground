@@ -151,6 +151,7 @@ class DQN_agent(object):
             if self.double_dqn:
                 trainable_net_outs = self.trainable_model(next_states)
                 q_vals = target_net_outs.gather(1, trainable_net_outs.argmax(1).unsqueeze(1)) # uses trainalbe to choose actions and target to evaluate
+                q_vals = q_vals.detach()
             else:
                 q_vals = target_net_outs.max(axis=1)[0].reshape(-1,1)
             target_values[mask] += self.discount*q_vals[mask]
@@ -162,7 +163,7 @@ class DQN_agent(object):
             if self.prioritized_memory:
                 weights = torch.from_numpy(weights)
                 delta = (target_values - curr_q_vals)
-                loss = ((delta*weights)**2).mean()
+                loss = ((delta**2)*weights).mean()
                 delta = np.abs(delta.detach().cpu().numpy()).reshape(-1)
                 self.playback_memory.update_priorities(delta)
             else:
