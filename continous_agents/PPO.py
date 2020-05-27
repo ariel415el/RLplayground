@@ -2,10 +2,41 @@
 ### Credits to nikhilbarhate99/PPO-PyTorch ###
 ##############################################
 import os
-from dnn_models import *
+import torch
+from torch import nn
 import torch.distributions as D
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+
+class PPOContinousActorCritic(nn.Module):
+    def __init__(self, state_dim, action_dim, layers_dims):
+        super(PPOContinousActorCritic, self).__init__()
+        # action mean range -1 to 1
+        self.actor =  nn.Sequential(
+                nn.Linear(state_dim, layers_dims[0]),
+                nn.Tanh(),
+                nn.Linear(layers_dims[0], layers_dims[1]),
+                nn.Tanh(),
+                nn.Linear(layers_dims[1], action_dim),
+                nn.Tanh()
+                )
+        # critic
+        self.critic = nn.Sequential(
+                nn.Linear(state_dim, layers_dims[0]),
+                nn.Tanh(),
+                nn.Linear(layers_dims[0], layers_dims[1]),
+                nn.Tanh(),
+                nn.Linear(layers_dims[1], 1)
+                )
+
+    def get_value(self, state):
+        return self.critic(state)
+
+    def get_mu(self, state):
+        return self.actor(state)
+
+    def forward(self, x):
+        raise NotImplementedError
 
 class Memory:
     def __init__(self):
@@ -59,8 +90,8 @@ class PPO_continous_action(object):
         self.lr = 0.0003
         self.lr_decay = 0.995
         layers = [150, 120]
-        self.policy = ContinousActorCritic_2(state_dim, self.action_dim, layers).to(device)
-        self.policy_old = ContinousActorCritic_2(state_dim, self.action_dim, layers).to(device)
+        self.policy = PPOContinousActorCritic(state_dim, self.action_dim, layers).to(device)
+        self.policy_old = PPOContinousActorCritic(state_dim, self.action_dim, layers).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
 
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr)

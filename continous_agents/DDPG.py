@@ -3,12 +3,80 @@ import random
 from collections import deque
 import numpy as np
 import os
-from dnn_models import D_Actor, D_Critic
-
+from torch import nn
 from utils import update_net
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)
+
+
+def hidden_init(layer):
+    fan_in = layer.weight.data.size()[0]
+    lim = 1. / np.sqrt(fan_in)
+    return (-lim, lim)
+
+
+class D_Actor(nn.Module):
+    def __init__(self, nb_states, nb_actions, layer_dims=[400,200], init_w=3e-3, batch_norm=True):
+        super(D_Actor, self).__init__()
+        self.batch_norm = batch_norm
+        self.fc1 = nn.Linear(nb_states, layer_dims[0])
+        self.fc2 = nn.Linear(layer_dims[0], layer_dims[1])
+        self.fc3 = nn.Linear(layer_dims[1], nb_actions)
+        if batch_norm:
+            self.bn1 = torch.nn.BatchNorm1d(layer_dims[0])
+            self.bn2 = torch.nn.BatchNorm1d(layer_dims[1])
+
+        self.relu = nn.ReLU()
+        self.tanh = nn.Tanh()
+        self.init_weights(init_w)
+
+    def init_weights(self, init_w):
+        self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
+        self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
+        self.fc3.weight.data.uniform_(-init_w, init_w)
+
+    def forward(self, x):
+        out = self.fc1(x)
+        if self.batch_norm:
+            out = self.bn1(out)
+        out = self.relu(out)
+        out = self.fc2(out)
+        if self.batch_norm:
+            out = self.bn2(out)
+        out = self.relu(out)
+        out = self.fc3(out)
+        out = self.tanh(out)
+        return out
+
+
+class D_Critic(nn.Module):
+    def __init__(self, nb_states, nb_actions, layer_dims=[400,200], init_w=3e-3, batch_norm=True):
+        super(D_Critic, self).__init__()
+        self.batch_norm = batch_norm
+        self.fc1 = nn.Linear(nb_states, layer_dims[0])
+        self.fc2 = nn.Linear(layer_dims[0] + nb_actions, layer_dims[1])
+        self.fc3 = nn.Linear(layer_dims[1], 1)
+        if batch_norm:
+            self.bn1 = torch.nn.BatchNorm1d(layer_dims[0])
+        self.relu = nn.ReLU()
+        self.init_weights(init_w)
+
+    def init_weights(self, init_w):
+        self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
+        self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
+        self.fc3.weight.data.uniform_(-init_w, init_w)
+
+    def forward(self, s, a):
+        out = self.fc1(s)
+        if self.batch_norm:
+            out = self.bn1(out)
+        out = self.relu(out)
+        out = self.fc2(torch.cat([out, a], 1))
+        out = self.relu(out)
+        out = self.fc3(out)
+        return out
+
 
 class OUNoise:
     def __init__(self, size, mu=0, theta=.2, sigma=0.15, dt=1e-2, x0=None):
@@ -30,6 +98,7 @@ class OUNoise:
 
     def __repr__(self):
         return 'OrnsteinUhlenbeckActionNoise(mu={}, sigma={})'.format(self.mu, self.sigma)
+
 
 class DDPG(object):
     def __init__(self, state_dim, bounderies, max_episodes, train = True):

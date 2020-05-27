@@ -103,7 +103,7 @@ def get_env(seed):
 
 
 def get_agent(env, s, a):
-    agent = DQN_agent.DQN_agent(s, a, double_dqn=True, dueling_dqn=False, prioritized_memory=True)
+    agent = DQN_agent.DQN_agent(s, a, double_dqn=True, dueling_dqn=False, prioritized_memory=True, noisy_MLP=True)
     # agent = DiscretePPO.PPO_descrete_action(s, a)
     # agent = vanila_policy_gradient_agent(s, a)
     # agent = actor_critic_agent(s, a, train=True, critic_objective="Monte-Carlo")

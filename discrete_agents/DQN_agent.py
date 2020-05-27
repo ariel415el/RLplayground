@@ -1,15 +1,37 @@
+#####################################################################
+# Code inspired from https://github.com/higgsfield/RL-Adventure.git #
+#####################################################################
+
 import torch
 import random
 from collections import deque
 import numpy as np
 import os
-from dnn_models import MLP
+from dnn_models import MLP, NoisyLinear
 from utils import update_net, FastMemory, PrioritizedMemory
 import copy
 from torch import nn
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)
 
+
+class NoisyMLP(nn.Module):
+    def __init__(self, num_inputs, num_outputs, layers):
+        super(NoisyMLP, self).__init__()
+
+        self.linear = nn.Linear(num_inputs, layers[0])
+        self.noisy1 = NoisyLinear(layers[0], layers[1])
+        self.noisy2 = NoisyLinear(layers[1], num_outputs)
+
+    def forward(self, x):
+        x = torch.nn.functional.relu(self.linear(x))
+        x = torch.nn.functional.relu(self.noisy1(x))
+        x = self.noisy2(x)
+        return x
+
+    def reset_noise(self):
+        self.noisy1.reset_noise()
+        self.noisy2.reset_noise()
 
 class DuelingDQN(nn.Module):
     def __init__(self, num_inputs, num_outputs, layers):
@@ -58,14 +80,14 @@ class conv_net(nn.Module):
 
 
 class DQN_agent(object):
-    def __init__(self, state_dim, action_dim, train = True, double_dqn=False, dueling_dqn=False, prioritized_memory=False):
-
+    def __init__(self, state_dim, action_dim, train = True, double_dqn=False, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.train = train
         self.double_dqn=double_dqn
         self.dueling_dqn=dueling_dqn
         self.prioritized_memory=prioritized_memory
+        self.noisy_MLP = noisy_MLP
         self.tau=0.5
         self.lr = 0.01
         self.epsilon = 1.0
@@ -88,6 +110,8 @@ class DQN_agent(object):
             state_dtype = np.float32
             if self.dueling_dqn:
                 self.trainable_model = DuelingDQN(self.state_dim, self.action_dim, layers).to(device)
+            elif self.noisy_MLP:
+                self.trainable_model = NoisyMLP(self.state_dim, self.action_dim, layers).to(device)
             else:
                 self.trainable_model = MLP(self.state_dim, self.action_dim, layers).to(device)
         storage_sizes_and_types = [(self.state_dim, state_dtype), (1, np.uint8), (self.state_dim, state_dtype), (1, np.float32), (1, bool)]
@@ -102,20 +126,23 @@ class DQN_agent(object):
         self.optimizer = torch.optim.Adam(self.trainable_model.parameters(), lr=self.lr)
         self.optimizer.zero_grad()
 
-        self.name = "_lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]"%(self.lr, self.batch_size, self.tau, self.update_freq)
+        self.name = ""
         if self.double_dqn:
-            self.name = "DobuleDQN" + self.name
+            self.name += "DobuleDQN-"
         if self.dueling_dqn:
-            self.name = "DuelingDqn" + self.name
+            self.name += "DuelingDqn-"
         if self.prioritized_memory:
-            self.name = "PriorityMemory" + self.name
+            self.name += "PriorityMemory-"
+        if self.noisy_MLP:
+            self.name += "NoisyNetwork-"
         else:
-            self.name = "Dqn" + self.name
+            self.name += "Dqn-"
+        self.name += "lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]"%(self.lr, self.batch_size, self.tau, self.update_freq)
 
 
     def process_new_state(self, state):
         self.action_counter += 1
-        if random.uniform(0,1) < self.epsilon:
+        if not self.noisy_MLP and random.uniform(0,1) < self.epsilon:
             action_index =  random.randint(0, self.action_dim - 1)
         else:
             q_vals = self.trainable_model(torch.from_numpy(state).to(device).float())
@@ -172,6 +199,10 @@ class DQN_agent(object):
             self.optimizer.step()
             self.optimizer.zero_grad()
             self.gs_num += 1
+            if self.noisy_MLP:
+                self.trainable_model.reset_noise()
+                self.target_model.reset_noise()
+
 
     def load_state(self, path):
         if os.path.exists(path):
