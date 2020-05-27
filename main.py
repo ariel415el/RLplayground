@@ -14,7 +14,7 @@ from env_wrappers import PLE2GYM_wrapper
 def train(env, actor, train_episodes, score_scope, solved_score, log_frequency=1, test_frequency=100):
     next_progress_checkpoint = 1
     next_test_progress_checkpoint = 1
-    # logger = TB_logger(score_scope, SummaryWriter(log_dir=os.path.join(TRAIN_DIR, "tensorboard_outputs",  actor.name)))
+    # logger = train_logger.TB_logger(score_scope, SummaryWriter(log_dir=os.path.join(TRAIN_DIR, "tensorboard_outputs",  actor.name)))
     logger = train_logger.plt_logger(score_scope, log_frequency,  os.path.join(TRAIN_DIR,  actor.name))
     # logger = train_logger.logger(score_scope, log_frequency)
     logger.log_test(test(env, actor, 3))
@@ -73,7 +73,8 @@ def test(env,  actor, test_episodes=1, render=False):
 
 def get_env(seed):
     ##### gym discrete envs #####
-    # env_name="CartPole-v1"; s=4; a=2;score_scope=100; solved_score=195
+    env_name="CartPole-v1"; s=4; a=2;score_scope=100; solved_score=195
+    # env_name="MountainCar-v0"; s=2; a=3;score_scope=100; solved_score=-110
     # env_name="LunarLander-v2"; s=8; a=4; score_scope=20; solved_score=200
     # env_name="LunarLanderContinuous-v2";s=8; score_scope=100; solved_score=200
     # env_name="Pendulum-v0";s=3; score_scope=100; solved_score=-200
@@ -86,15 +87,15 @@ def get_env(seed):
     # env_name="BreakoutNoFrameskip-v0"; s=(84,84, 4); a=3;score_scope=100; solved_score=195
     # env_name="BreakoutNoFrameskip-v0"; s=(84,84, 4); a=3;score_scope=100; solved_score=195
 
-    # env = gym.make(env_name)
+    env = gym.make(env_name)
     # env = my_image_level_wrapper(env)
     # env = AtariPreprocessing(env)
     # env = image_preprocess_wrapper(env)
 
     # get_ple games
 
-    env = PLE2GYM_wrapper()
-    env_name = 'FlappyBird-ple';s = len(env.state_keys);a = len(env.allowed_actions);score_scope=100;solved_score=100
+    # env = PLE2GYM_wrapper()
+    # env_name = 'FlappyBird-ple';s = len(env.state_keys);a = len(env.allowed_actions);score_scope=100;solved_score=100
 
 
 
@@ -103,14 +104,14 @@ def get_env(seed):
 
 
 def get_agent(env, s, a):
-    agent = DQN_agent.DQN_agent(s, a, train=True)
-    # agent = DiscretePPO.PPO_descrete_action(s, a, train=True)
-    # agent = vanila_policy_gradient_agent(s, a, train=True)
+    agent = DQN_agent.DQN_agent(s, a, double_dqn=True, dueling_dqn=False, prioritized_memory=True)
+    # agent = DiscretePPO.PPO_descrete_action(s, a)
+    # agent = vanila_policy_gradient_agent(s, a)
     # agent = actor_critic_agent(s, a, train=True, critic_objective="Monte-Carlo")
     # agent = actor_critic_agent(s, bounderies, train=True, critic_objective="Monte-Carlo")
-    # agent = DDPG.DDPG(s, bounderies, train=True)
+    # agent = DDPG.DDPG(s, bounderies)
     # agent = TD3.TD3(s, [env.action_space.low, env.action_space.high], train=True, action_space=env.action_space)
-    # agent = PPO.PPO(s, bounderies, train=True)
+    # agent = PPO.PPO(s, bounderies)
     return agent
 
 if  __name__ == '__main__':

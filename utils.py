@@ -39,6 +39,33 @@ class FastMemory:
         for storage in self.storages:
             del storage[:]
 
+class PrioritizedMemory(FastMemory):
+    def __init__(self, max_size, storage_sizes_and_types, alpha=0.6):
+        super().__init__(max_size, storage_sizes_and_types)
+        self.priorities = np.ones((max_size,), np.float32)
+        self.alpha = alpha
+
+    def add_sample(self, sample):
+        super().add_sample(sample)
+        self.priorities[self.next_index - 1] = self.priorities.max()
+
+    def sample(self, batch_size, device, beta=0.4):
+        probs  = self.priorities[:self.size] ** self.alpha
+        probs /= probs.sum()
+
+        ind = np.random.choice(self.size, batch_size, p=probs)
+        self.last_ind = ind
+        batch = tuple([torch.from_numpy(storage[ind]).to(device) for storage in self.storages])
+
+        # Compute sample weights
+        weights = (self.size * probs[ind]) ** (-beta)
+        weights /= weights.max()
+
+        return batch + (weights,)
+
+    def update_priorities(self, batch_priorities):
+        self.priorities[self.last_ind] = batch_priorities
+
 def update_net(model_to_change, reference_model, tau):
     for target_param, local_param in zip(model_to_change.parameters(), reference_model.parameters()):
         target_param.data.copy_(tau * local_param.data + (1.0 - tau) * target_param.data)
