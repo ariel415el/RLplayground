@@ -29,8 +29,8 @@ def train(env, actor, train_episodes, score_scope, solved_score, log_frequency=1
             action = actor.process_new_state(state)
             state, reward, done, info = env.step(action)
             # define final test
-            is_terminal = done and len(episode_rewards) < env._max_episode_steps
-            # is_terminal = done
+            # is_terminal = done and len(episode_rewards) < env._max_episode_steps
+            is_terminal = done
             actor.process_output(state, reward, is_terminal)
             episode_rewards += [reward]
 
@@ -101,7 +101,9 @@ def get_env(seed):
     # env_name = 'FlappyBird-ple';s = len(env.state_keys);a = len(env.allowed_actions);score_scope=100;solved_score=100
 
     from ExternalAtariWrappers import get_final_env
-    env = get_final_env();s=(4,84,84);a=6; score_scope=20; solved_score=200
+    # env_name="PongNoFrameskip-v4";s=(4,84,84);a=6; score_scope=20; solved_score=200
+    env_name="BreakoutNoFrameskip-v4";s=(4,84,84);a=4; score_scope=20; solved_score=200;
+    env = get_final_env(env_name)
 
     env.seed(seed)
     return env, s, a, score_scope, solved_score, env_name

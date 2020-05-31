@@ -105,13 +105,14 @@ class DQN_agent(object):
         self.prioritized_memory=prioritized_memory
         self.noisy_MLP = noisy_MLP
         self.tau=0.5
-        self.lr = 0.01
+        self.lr = 0.00001
         self.epsilon = 1.0
         self.min_epsilon = 0.005
         self.discount = 0.99
         self.update_freq = 1
         self.batch_size = 32
         self.max_playback = 10000
+        self.min_playback = 1000
         self.epsilon_decay = 0.996
 
         self.action_counter = 0
@@ -155,7 +156,7 @@ class DQN_agent(object):
             self.name += "NoisyNetwork-"
         else:
             self.name += "Dqn-"
-        self.name += "lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]"%(self.lr, self.batch_size, self.tau, self.update_freq)
+        self.name += "lr[%.5f]_b[%d]_tau[%.4f]_uf[%d]"%(self.lr, self.batch_size, self.tau, self.update_freq)
 
 
     def process_new_state(self, state):
@@ -181,7 +182,7 @@ class DQN_agent(object):
             update_net(self.target_model, self.trainable_model, self.tau)
 
     def _learn(self):
-        if len(self.playback_memory) >= self.batch_size:
+        if len(self.playback_memory) >= max(self.min_playback, self.batch_size):
             if self.prioritized_memory:
                 prev_states, prev_actions, next_states, rewards, is_finale_states, weights = self.playback_memory.sample(self.batch_size ,device)
             else:
