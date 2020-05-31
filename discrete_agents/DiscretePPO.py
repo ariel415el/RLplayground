@@ -62,20 +62,19 @@ class Descrete_PPO_actor_critic(nn.Module):
                 )
 
 class PPO_descrete_action(object):
-    def __init__(self, state_dim, action_dim, max_episodes, train=True):
+    def __init__(self, state_dim, action_dim, train=True):
         self.name = 'PPO'
         self.state_dim = state_dim
         self.action_dim = action_dim
-        self.max_episodes = max_episodes
         self.train= train
-        self.batch_size = 4000
+        self.batch_size = 400
         self.discount = 0.99
 
         self.samples = Memory()
-        self.steps_per_iteration=800
+        self.steps_per_iteration=32
         self.epsilon_clip = 0.2
 
-        self.lr = 0.003
+        self.lr = 0.01
         self.lr_decay = 0.95
         layers = [64, 64]
         self.policy = Descrete_PPO_actor_critic(state_dim, self.action_dim, layers).to(device)

@@ -7,38 +7,13 @@ import random
 from collections import deque
 import numpy as np
 import os
-from dnn_models import MLP, NoisyLinear
+from dnn_models import *
 from utils import update_net, FastMemory, PrioritizedMemory
 import copy
 from torch import nn
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)
 
-
-class LinearFeatureExtracor(nn.Module):
-    def __init__(self, num_inputs, num_outputs):
-        super(LinearFeatureExtracor, self).__init__()
-        self.linear = nn.Linear(num_inputs, num_outputs)
-        self.features_space = num_outputs
-
-    def forward(self, x):
-        x = torch.nn.functional.relu(self.linear(x))
-        return x
-
-class ConvNetFeatureExtracor(nn.Module):
-    def __init__(self, input_channels):
-        super(ConvNetFeatureExtracor, self).__init__()
-        self.conv1 = nn.Conv2d(input_channels, 32, kernel_size=8, stride=4, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1)
-        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)
-        self.features_space = 64*10*10
-
-    def forward(self, x):
-        x = nn.functional.relu(self.conv1(x))
-        x = nn.functional.relu(self.conv2(x))
-        x = nn.functional.relu(self.conv3(x))
-        x = x.view(-1, self.features_space)
-        return x
 
 class MLP(nn.Module):
     def __init__(self, feature_extractor, num_outputs, hidden_layer_size):
@@ -104,15 +79,15 @@ class DQN_agent(object):
         self.dueling_dqn=dueling_dqn
         self.prioritized_memory=prioritized_memory
         self.noisy_MLP = noisy_MLP
-        self.tau=0.5
-        self.lr = 0.00001
+        self.tau=1.0
+        self.lr = 0.0001
         self.epsilon = 1.0
         self.min_epsilon = 0.005
         self.discount = 0.99
-        self.update_freq = 1
+        self.update_freq = 1000
         self.batch_size = 32
-        self.max_playback = 10000
-        self.min_playback = 1000
+        self.max_playback = 100000
+        self.min_playback = 10000
         self.epsilon_decay = 0.996
 
         self.action_counter = 0

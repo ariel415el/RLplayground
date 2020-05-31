@@ -54,22 +54,30 @@ class NoisyLinear(nn.Module):
         x = x.sign().mul(x.abs().sqrt())
         return x
 
-class ATARIFeaturesExtraction(torch.nn.Module):
-        def __init__(self, input_channels, conv_channels=[32, 64, 64]):
-            super(ATARIFeaturesExtraction, self).__init__()
-            self.features = nn.Sequential(
-                nn.Conv2d(input_channels, conv_channels[0], kernel_size=8, stride=4),
-                nn.ReLU(),
-                nn.Conv2d(conv_channels[0], conv_channels[1], kernel_size=4, stride=2),
-                nn.ReLU(),
-                nn.Conv2d(conv_channels[1], conv_channels[2], kernel_size=3, stride=1),
-                nn.ReLU()
-            )
+class LinearFeatureExtracor(nn.Module):
+    def __init__(self, num_inputs, num_outputs):
+        super(LinearFeatureExtracor, self).__init__()
+        self.linear = nn.Linear(num_inputs, num_outputs)
+        self.features_space = num_outputs
 
-        def forward(self, x):
-            x = self.features(x)
-            x = x.view(x.size(0), -1)
-            return x
+    def forward(self, x):
+        x = torch.nn.functional.relu(self.linear(x))
+        return x
+
+class ConvNetFeatureExtracor(nn.Module):
+    def __init__(self, input_channels):
+        super(ConvNetFeatureExtracor, self).__init__()
+        self.conv1 = nn.Conv2d(input_channels, 32, kernel_size=8, stride=4, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1)
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)
+        self.features_space = 64*10*10
+
+    def forward(self, x):
+        x = nn.functional.relu(self.conv1(x))
+        x = nn.functional.relu(self.conv2(x))
+        x = nn.functional.relu(self.conv3(x))
+        x = x.view(-1, self.features_space)
+        return x
 
 class MLP(torch.nn.Module):
     def __init__(self, input_dim, output_dim, hidden_layer_sizes):

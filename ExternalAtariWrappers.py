@@ -267,8 +267,8 @@ class ImageToPyTorch(gym.ObservationWrapper):
 def wrap_pytorch(env):
     return ImageToPyTorch(env)
 
-def get_final_env(env_name):
+def get_final_env(env_name, frame_stack=True):
     env = make_atari(env_name)
-    env = wrap_deepmind(env, frame_stack=True)
+    env = wrap_deepmind(env, frame_stack=frame_stack)
     env = wrap_pytorch(env)
     return env

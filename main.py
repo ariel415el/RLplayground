@@ -99,11 +99,11 @@ def get_env(seed):
 
     # env = PLE2GYM_wrapper()
     # env_name = 'FlappyBird-ple';s = len(env.state_keys);a = len(env.allowed_actions);score_scope=100;solved_score=100
-
+    #
     from ExternalAtariWrappers import get_final_env
     # env_name="PongNoFrameskip-v4";s=(4,84,84);a=6; score_scope=20; solved_score=200
-    env_name="BreakoutNoFrameskip-v4";s=(4,84,84);a=4; score_scope=20; solved_score=200;
-    env = get_final_env(env_name)
+    env_name="BreakoutNoFrameskip-v4";s=(1,84,84);a=4; score_scope=20; solved_score=200;
+    env = get_final_env(env_name, frame_stack=False)
 
     env.seed(seed)
     return env, s, a, score_scope, solved_score, env_name

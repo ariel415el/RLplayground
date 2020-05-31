@@ -4,6 +4,7 @@ from time import time
 
 
 class FastMemory:
+    "Pre alocates a numpy array for fast acess"
     def __init__(self, max_size, storage_sizes_and_types):
         self.max_size = max_size
         self.storages = []
