@@ -54,6 +54,23 @@ class NoisyLinear(nn.Module):
         x = x.sign().mul(x.abs().sqrt())
         return x
 
+class ATARIFeaturesExtraction(torch.nn.Module):
+        def __init__(self, input_channels, conv_channels=[32, 64, 64]):
+            super(ATARIFeaturesExtraction, self).__init__()
+            self.features = nn.Sequential(
+                nn.Conv2d(input_channels, conv_channels[0], kernel_size=8, stride=4),
+                nn.ReLU(),
+                nn.Conv2d(conv_channels[0], conv_channels[1], kernel_size=4, stride=2),
+                nn.ReLU(),
+                nn.Conv2d(conv_channels[1], conv_channels[2], kernel_size=3, stride=1),
+                nn.ReLU()
+            )
+
+        def forward(self, x):
+            x = self.features(x)
+            x = x.view(x.size(0), -1)
+            return x
+
 class MLP(torch.nn.Module):
     def __init__(self, input_dim, output_dim, hidden_layer_sizes):
         super(MLP, self).__init__()

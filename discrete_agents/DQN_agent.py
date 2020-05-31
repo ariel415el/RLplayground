@@ -15,16 +15,53 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)
 
 
-class NoisyMLP(nn.Module):
-    def __init__(self, num_inputs, num_outputs, layers):
-        super(NoisyMLP, self).__init__()
-
-        self.linear = nn.Linear(num_inputs, layers[0])
-        self.noisy1 = NoisyLinear(layers[0], layers[1])
-        self.noisy2 = NoisyLinear(layers[1], num_outputs)
+class LinearFeatureExtracor(nn.Module):
+    def __init__(self, num_inputs, num_outputs):
+        super(LinearFeatureExtracor, self).__init__()
+        self.linear = nn.Linear(num_inputs, num_outputs)
+        self.features_space = num_outputs
 
     def forward(self, x):
         x = torch.nn.functional.relu(self.linear(x))
+        return x
+
+class ConvNetFeatureExtracor(nn.Module):
+    def __init__(self, input_channels):
+        super(ConvNetFeatureExtracor, self).__init__()
+        self.conv1 = nn.Conv2d(input_channels, 32, kernel_size=8, stride=4, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1)
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)
+        self.features_space = 64*10*10
+
+    def forward(self, x):
+        x = nn.functional.relu(self.conv1(x))
+        x = nn.functional.relu(self.conv2(x))
+        x = nn.functional.relu(self.conv3(x))
+        x = x.view(-1, self.features_space)
+        return x
+
+class MLP(nn.Module):
+    def __init__(self, feature_extractor, num_outputs, hidden_layer_size):
+        super(MLP, self).__init__()
+        self.feature_extractor = feature_extractor
+        self.linear1 = nn.Linear(self.feature_extractor.features_space, hidden_layer_size)
+        self.linear2 = nn.Linear(hidden_layer_size, num_outputs)
+
+    def forward(self, x):
+        x = self.feature_extractor(x)
+        x = torch.nn.functional.relu(self.linear1(x))
+        x = self.linear2(x)
+        return x
+
+class NoisyMLP(nn.Module):
+    def __init__(self, feature_extractor, num_outputs, hidden_layer_size):
+        super(NoisyMLP, self).__init__()
+        self.feature_extractor = feature_extractor
+        self.noisy1 = NoisyLinear(self.feature_extractor.features_space, hidden_layer_size)
+        self.noisy2 = NoisyLinear(hidden_layer_size, num_outputs)
+
+    def forward(self, x):
+        x = self.feature_extractor(x)
         x = torch.nn.functional.relu(self.noisy1(x))
         x = self.noisy2(x)
         return x
@@ -34,49 +71,28 @@ class NoisyMLP(nn.Module):
         self.noisy2.reset_noise()
 
 class DuelingDQN(nn.Module):
-    def __init__(self, num_inputs, num_outputs, layers):
+    def __init__(self, feature_extractor, num_outputs, hidden_layer_size):
         super(DuelingDQN, self).__init__()
 
-        self.feature = nn.Sequential(
-            nn.Linear(num_inputs, layers[0]),
-            nn.ReLU()
-        )
+        self.feature_extractor = feature_extractor
 
         self.advantage = nn.Sequential(
-            nn.Linear(layers[0], layers[1]),
+            nn.Linear(feature_extractor.features_space, hidden_layer_size),
             nn.ReLU(),
-            nn.Linear(layers[1], num_outputs)
+            nn.Linear(hidden_layer_size, num_outputs)
         )
 
         self.value = nn.Sequential(
-            nn.Linear(layers[0], layers[1]),
+            nn.Linear(feature_extractor.features_space, hidden_layer_size),
             nn.ReLU(),
-            nn.Linear(layers[1], 1)
+            nn.Linear(hidden_layer_size, 1)
         )
 
     def forward(self, x):
-        x = self.feature(x)
+        x = self.feature_extractor(x)
         advantage = self.advantage(x)
         value = self.value(x)
         return value + advantage - advantage.mean()
-
-class conv_net(nn.Module):
-    def __init__(self, state_dim, action_dim):
-        super(conv_net, self).__init__()
-        self.state_dim = state_dim
-        self.conv1 = nn.Conv2d(self.state_dim[2], 4, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(4, 1, kernel_size=3, stride=1, padding=1)
-        self.fc1 = nn.Linear(self.state_dim[0]*self.state_dim[1] , 64)
-        self.fc2 = nn.Linear(64 , action_dim)
-
-    def forward(self, x):
-        x = x.float().view(-1, self.state_dim[2], self.state_dim[0], self.state_dim[1])
-        x = nn.functional.relu(self.conv1(x))
-        x = nn.functional.relu(self.conv2(x))
-        x = x.view(-1, self.state_dim[0]*self.state_dim[1])
-        x = nn.functional.relu(self.fc1(x))
-        x = self.fc2(x)
-        return x
 
 
 class DQN_agent(object):
@@ -95,7 +111,7 @@ class DQN_agent(object):
         self.discount = 0.99
         self.update_freq = 1
         self.batch_size = 32
-        self.max_playback = 1000000
+        self.max_playback = 10000
         self.epsilon_decay = 0.996
 
         self.action_counter = 0
@@ -103,17 +119,19 @@ class DQN_agent(object):
         self.gs_num=0
 
         if type(self.state_dim) == tuple:
-            self.trainable_model = conv_net(self.state_dim, self.action_dim).to(device)
+            feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
             state_dtype = np.uint8
-        else:
-            layers = [64, 64]
             state_dtype = np.float32
-            if self.dueling_dqn:
-                self.trainable_model = DuelingDQN(self.state_dim, self.action_dim, layers).to(device)
-            elif self.noisy_MLP:
-                self.trainable_model = NoisyMLP(self.state_dim, self.action_dim, layers).to(device)
-            else:
-                self.trainable_model = MLP(self.state_dim, self.action_dim, layers).to(device)
+        else:
+            feature_extractor = LinearFeatureExtracor(self.state_dim, 64)
+            state_dtype = np.float32
+        if self.dueling_dqn:
+            self.trainable_model = DuelingDQN(feature_extractor, self.action_dim, 64).to(device)
+        elif self.noisy_MLP:
+            self.trainable_model = NoisyMLP(feature_extractor, self.action_dim, 64).to(device)
+        else:
+            self.trainable_model = MLP(feature_extractor, self.action_dim, 64).to(device)
+
         storage_sizes_and_types = [(self.state_dim, state_dtype), (1, np.uint8), (self.state_dim, state_dtype), (1, np.float32), (1, bool)]
         if self.prioritized_memory:
             self.playback_memory = PrioritizedMemory(self.max_playback, storage_sizes_and_types)
@@ -142,10 +160,10 @@ class DQN_agent(object):
 
     def process_new_state(self, state):
         self.action_counter += 1
-        if not self.noisy_MLP and random.uniform(0,1) < self.epsilon:
+        if not self.noisy_MLP and self.train and random.uniform(0,1) < self.epsilon:
             action_index =  random.randint(0, self.action_dim - 1)
         else:
-            q_vals = self.trainable_model(torch.from_numpy(state).to(device).float())
+            q_vals = self.trainable_model(torch.from_numpy(state).unsqueeze(0).to(device).float())
             action_index = np.argmax(q_vals.detach().cpu().numpy())
 
         self.last_state = state

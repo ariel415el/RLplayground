@@ -13,6 +13,8 @@ from env_wrappers import PLE2GYM_wrapper
 def train(env, actor, train_episodes, score_scope, solved_score, log_frequency=1, test_frequency=100):
     next_progress_checkpoint = 1
     next_test_progress_checkpoint = 1
+
+    # Define loggers
     # logger = train_logger.TB_logger(score_scope, SummaryWriter(log_dir=os.path.join(TRAIN_DIR, "tensorboard_outputs",  actor.name)))
     logger = train_logger.plt_logger(score_scope, log_frequency,  os.path.join(TRAIN_DIR,  actor.name))
     # logger = train_logger.logger(score_scope, log_frequency)
@@ -21,10 +23,12 @@ def train(env, actor, train_episodes, score_scope, solved_score, log_frequency=1
         done = False
         state = env.reset()
         episode_rewards = []
+        # Run a single episode
         while not done:
             # env.render()
             action = actor.process_new_state(state)
             state, reward, done, info = env.step(action)
+            # define final test
             is_terminal = done and len(episode_rewards) < env._max_episode_steps
             # is_terminal = done
             actor.process_output(state, reward, is_terminal)
@@ -96,14 +100,15 @@ def get_env(seed):
     # env = PLE2GYM_wrapper()
     # env_name = 'FlappyBird-ple';s = len(env.state_keys);a = len(env.allowed_actions);score_scope=100;solved_score=100
 
-
+    from ExternalAtariWrappers import get_final_env
+    env = get_final_env();s=(4,84,84);a=6; score_scope=20; solved_score=200
 
     env.seed(seed)
     return env, s, a, score_scope, solved_score, env_name
 
 
 def get_agent(env, s, a):
-    agent = DQN_agent.DQN_agent(s, a, double_dqn=True, dueling_dqn=False, prioritized_memory=True, noisy_MLP=True)
+    agent = DQN_agent.DQN_agent(s, a, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
     # agent = DiscretePPO.PPO_descrete_action(s, a)
     # agent = vanila_policy_gradient_agent(s, a)
     # agent = actor_critic_agent(s, a, train=True, critic_objective="Monte-Carlo")
@@ -115,7 +120,7 @@ def get_agent(env, s, a):
 
 if  __name__ == '__main__':
 
-    SEED=0
+    SEED=2
     random.seed(SEED)
     np.random.seed(SEED)
     torch.manual_seed(SEED)
