@@ -6,7 +6,7 @@ from dnn_models import *
 import torch.distributions as D
 from utils import FastMemory, measure_time
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+import copy
 
 class Memory:
     def __init__(self):
@@ -21,7 +21,7 @@ class Memory:
 
     def add_sample(self, state, action, action_log_prob, reward, is_terminals):
         self.actions += [action]
-        self.states += [state.view(-1)]
+        self.states += [state]
         self.logprobs += [action_log_prob]
         self.rewards += [reward]
         self.is_terminals += [is_terminals]
@@ -61,6 +61,45 @@ class Descrete_PPO_actor_critic(nn.Module):
                 nn.Linear(layers_dims[1], 1)
                 )
 
+    def get_probs(self, x):
+        probs = self.actor(x)
+        return probs
+
+    def forward(self, x):
+        probs = self.actor(x)
+        value = self.critic(x)
+        return probs, value
+
+class Descrete_CNN_PPO_actor_critic(nn.Module):
+    def __init__(self, feature_extractor, action_dim, hidden_layer_size):
+        super(Descrete_CNN_PPO_actor_critic, self).__init__()
+        # action mean range -1 to 1
+        self.features = feature_extractor
+        self.actor =  nn.Sequential(
+                nn.Linear(self.features.features_space, hidden_layer_size),
+                nn.Tanh(),
+                nn.Linear(hidden_layer_size, action_dim),
+                nn.Softmax(dim=1)
+                )
+        # critic
+        self.critic = nn.Sequential(
+                nn.Linear(self.features.features_space, hidden_layer_size),
+                nn.Tanh(),
+                nn.Linear(hidden_layer_size, 1)
+                )
+
+    def get_probs(self, x):
+        features = self.features(x)
+        probs = self.actor(features)
+        return probs
+
+    def forward(self, x):
+        features = self.features(x)
+        probs = self.actor(features)
+        value = self.critic(features)
+        return probs, value
+
+
 class PPO_descrete_action(object):
     def __init__(self, state_dim, action_dim, train=True):
         self.name = 'PPO'
@@ -76,10 +115,15 @@ class PPO_descrete_action(object):
 
         self.lr = 0.01
         self.lr_decay = 0.95
-        layers = [64, 64]
-        self.policy = Descrete_PPO_actor_critic(state_dim, self.action_dim, layers).to(device)
-        self.policy_old = Descrete_PPO_actor_critic(state_dim, self.action_dim, layers).to(device)
-        self.policy_old.load_state_dict(self.policy.state_dict())
+        if type(self.state_dim) == tuple:
+            feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
+            self.policy = Descrete_CNN_PPO_actor_critic(feature_extractor, self.action_dim, 512).to(device)
+        else:
+            layers = [64, 64]
+            self.policy = Descrete_PPO_actor_critic(state_dim, self.action_dim, layers).to(device)
+
+        with torch.no_grad():
+            self.policy_old = copy.deepcopy(self.policy)
 
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr)
         self.optimizer.zero_grad()
@@ -89,15 +133,10 @@ class PPO_descrete_action(object):
 
         self.name += "_lr[%.4f]_b[%d]"%(self.lr, self.batch_size)
 
-    def get_action_dist(self, model,  state_tensor):
-        action_probs = model.actor(state_tensor)
-        dist = D.Categorical(action_probs)
-
-        return dist
-
     def process_new_state(self, state):
-        state = torch.from_numpy(np.array([state])).to(device).float()
-        dist = self.get_action_dist(self.policy_old, state)
+        state = torch.from_numpy(np.array(state)).to(device).float()
+        probs = self.policy_old.get_probs(state.unsqueeze(0))
+        dist = D.Categorical(probs)
 
         action = dist.sample()[0]
 
@@ -139,10 +178,11 @@ class PPO_descrete_action(object):
         # Optimize policy for K epochs:
         for _ in range(self.steps_per_iteration):
             # Evaluating old actions and values :
-            dists = self.get_action_dist(self.policy, old_states)
+            probs, values = self.policy(old_states)
+            dists = D.Categorical(probs)
             logprobs = dists.log_prob(old_actions)
             dist_entropies = dists.entropy()
-            state_values = self.policy.critic(old_states).view(-1)
+            state_values = values.view(-1)
 
             # Finding the ratio (pi_theta / pi_theta__old):
             ratios = torch.exp(logprobs - old_logprobs.detach())
@@ -152,7 +192,6 @@ class PPO_descrete_action(object):
             surr1 = ratios * advantages
             surr2 = torch.clamp(ratios, 1 - self.epsilon_clip, 1 + self.epsilon_clip) * advantages
             loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values.float(), rewards.float()) - 0.01 * dist_entropies
-            loss = loss.double()
             # take gradient step
             self.optimizer.zero_grad()
             loss.mean().backward()

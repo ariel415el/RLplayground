@@ -101,12 +101,13 @@ class DQN_agent(object):
         else:
             feature_extractor = LinearFeatureExtracor(self.state_dim, 64)
             state_dtype = np.float32
+        hiden_layer_size = 512
         if self.dueling_dqn:
-            self.trainable_model = DuelingDQN(feature_extractor, self.action_dim, 64).to(device)
+            self.trainable_model = DuelingDQN(feature_extractor, self.action_dim, hiden_layer_size).to(device)
         elif self.noisy_MLP:
-            self.trainable_model = NoisyMLP(feature_extractor, self.action_dim, 64).to(device)
+            self.trainable_model = NoisyMLP(feature_extractor, self.action_dim, hiden_layer_size).to(device)
         else:
-            self.trainable_model = MLP(feature_extractor, self.action_dim, 64).to(device)
+            self.trainable_model = MLP(feature_extractor, self.action_dim, hiden_layer_size).to(device)
 
         storage_sizes_and_types = [(self.state_dim, state_dtype), (1, np.uint8), (self.state_dim, state_dtype), (1, np.float32), (1, bool)]
         if self.prioritized_memory:
