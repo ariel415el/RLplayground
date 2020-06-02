@@ -164,23 +164,21 @@ class DQN_agent(object):
             else:
                 prev_states, prev_actions, next_states, rewards, is_finale_states = self.playback_memory.sample(self.batch_size ,device)
 
-            with torch.no_grad():
-                target_net_outs = self.target_model(next_states)
-
-            target_values = rewards
-            mask = (~is_finale_states).view(-1,1)
-            # target_values[mask] += self.discount*target_net_outs.max(axis=1)[0].reshape(-1,1)[mask]
+            # Compute target
+            target_net_outs = self.target_model(next_states)
             if self.double_dqn:
                 trainable_net_outs = self.trainable_model(next_states)
                 q_vals = target_net_outs.gather(1, trainable_net_outs.argmax(1).unsqueeze(1)) # uses trainalbe to choose actions and target to evaluate
                 q_vals = q_vals.detach()
             else:
                 q_vals = target_net_outs.max(axis=1)[0].reshape(-1,1)
-            target_values[mask] += self.discount*q_vals[mask]
 
+            target_values = self.discount*q_vals*(1-is_finale_states.type(torch.float32))
+
+            # Copute prediction
             self.trainable_model.train()
             prev_net_outs = self.trainable_model(prev_states)
-            curr_q_vals = torch.gather(prev_net_outs, dim=1, index = prev_actions.long())
+            curr_q_vals = torch.gather(prev_net_outs, dim=1, index=prev_actions.long())
 
             if self.prioritized_memory:
                 weights = torch.from_numpy(weights).to(device)
@@ -189,10 +187,11 @@ class DQN_agent(object):
                 delta = np.abs(delta.detach().cpu().numpy()).reshape(-1)
                 self.playback_memory.update_priorities(delta)
             else:
-                loss = nn.functional.mse_loss(target_values, curr_q_vals)
+                loss = (target_values - curr_q_vals).pow(2).mean()
+
+            self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            self.optimizer.zero_grad()
             self.gs_num += 1
             if self.noisy_MLP:
                 self.trainable_model.reset_noise()

@@ -16,9 +16,9 @@ def train(env, actor, train_episodes, score_scope, solved_score, log_frequency=1
 
     # Define loggers
     # logger = train_logger.TB_logger(score_scope, SummaryWriter(log_dir=os.path.join(TRAIN_DIR, "tensorboard_outputs",  actor.name)))
-    logger = train_logger.plt_logger(score_scope, log_frequency,  os.path.join(TRAIN_DIR,  actor.name))
-    # logger = train_logger.logger(score_scope, log_frequency)
-    logger.log_test(test(env, actor, 3))
+    # logger = train_logger.plt_logger(score_scope, log_frequency,  os.path.join(TRAIN_DIR,  actor.name))
+    logger = train_logger.logger(score_scope, log_frequency)
+    # logger.log_test(test(env, actor, 3))
     for i in range(train_episodes):
         done = False
         state = env.reset()
@@ -101,8 +101,8 @@ def get_env(seed):
     # env_name = 'FlappyBird-ple';s = len(env.state_keys);a = len(env.allowed_actions);score_scope=100;solved_score=100
     #
     from ExternalAtariWrappers import get_final_env
-    env_name="PongNoFrameskip-v4";s=(1,84,84);a=6; score_scope=20; solved_score=200
-    # env_name="BreakoutNoFrameskip-v4";s=(1,84,84);a=4; score_scope=20; solved_score=200;
+    env_name="PongNoFrameskip-v4";s=(1,84,84);a=6; score_scope=20; solved_score=20
+    # env_name="BreakoutNoFrameskip-v4";s=(1,84,84);a=4; score_scope=20; solved_score=20;
     env = get_final_env(env_name, frame_stack=False)
 
     env.seed(seed)
@@ -110,8 +110,8 @@ def get_env(seed):
 
 
 def get_agent(env, s, a):
-    # agent = DQN_agent.DQN_agent(s, a, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
-    agent = DiscretePPO.PPO_descrete_action(s, a)
+    agent = DQN_agent.DQN_agent(s, a, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
+    # agent = DiscretePPO.PPO_descrete_action(s, a)
     # agent = vanila_policy_gradient_agent(s, a)
     # agent = actor_critic_agent(s, a, train=True, critic_objective="Monte-Carlo")
     # agent = actor_critic_agent(s, bounderies, train=True, critic_objective="Monte-Carlo")
