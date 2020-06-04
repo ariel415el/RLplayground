@@ -233,7 +233,7 @@ class DQN_agent(object):
             # Copute prediction
             self.trainable_model.train()
             prev_net_outs = self.trainable_model(prev_states)
-            curr_q_vals = torch.gather(prev_net_outs, dim=1, index=prev_actions.long())
+            curr_q_vals = torch.gather(prev_net_outs, dim=1, index=prev_actions.long().unsqueeze(1))
 
             if self.prioritized_memory:
                 weights = torch.from_numpy(weights).to(device)
