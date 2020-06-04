@@ -9,6 +9,7 @@ import train_logger
 import torch
 from utils import measure_time
 from env_wrappers import PLE2GYM_wrapper
+from pyglet.gl import * # Fixes rendering issues of openAi gym with wrappers
 
 def train(env, actor, train_episodes, score_scope, solved_score, log_frequency=1, test_frequency=100):
     next_progress_checkpoint = 1
@@ -64,6 +65,7 @@ def test(env,  actor, test_episodes=1, render=False):
         while not done:
             if render:
                 env.render()
+                # sleep(0.05)
             action = actor.process_new_state(state)
             state, reward, done, info = env.step(action)
             all_rewards += [reward]
@@ -99,10 +101,10 @@ def get_env(seed):
 
     # env = PLE2GYM_wrapper()
     # env_name = 'FlappyBird-ple';s = len(env.state_keys);a = len(env.allowed_actions);score_scope=100;solved_score=100
-    #
+
     from ExternalAtariWrappers import get_final_env
-    env_name="PongNoFrameskip-v4";s=(1,84,84);a=6; score_scope=20; solved_score=20
-    # env_name="BreakoutNoFrameskip-v4";s=(1,84,84);a=4; score_scope=20; solved_score=20;
+    # env_name="PongNoFrameskip-v4";s=(1,84,84);a=6; score_scope=20; solved_score=20
+    env_name="BreakoutNoFrameskip-v4";s=(1,84,84);a=4; score_scope=20; solved_score=20;
     env = get_final_env(env_name, frame_stack=False)
 
     env.seed(seed)
@@ -110,7 +112,7 @@ def get_env(seed):
 
 
 def get_agent(env, s, a):
-    agent = DQN_agent.DQN_agent(s, a, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
+    agent = DQN_agent.DQN_agent(s, a, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=True)
     # agent = DiscretePPO.PPO_descrete_action(s, a)
     # agent = vanila_policy_gradient_agent(s, a)
     # agent = actor_critic_agent(s, a, train=True, critic_objective="Monte-Carlo")
@@ -135,11 +137,10 @@ if  __name__ == '__main__':
     TRAIN_DIR = os.path.join("Training", env_name)
     os.makedirs(TRAIN_DIR, exist_ok=True)
 
-    # actor.load_state(trained_weights)
+    # agent.load_state( '/home/ariel/Desktop/projects/RL/RL_implementations/Training/PongNoFrameskip-v4/DobuleDQN-NoisyNetwork-lr[0.00010]_b[32]_tau[1.0000]_uf[1000]/DobuleDQN-NoisyNetwork-lr[0.00010]_b[32]_tau[1.0000]_uf[1000]_test_17.33333_weights.pt')
 
     train(env, agent, 100000, score_scope, solved_score)
 
-    # Test
-    # actor.train = False
-    # score = test(env, actor, 3, render=True)
+    # # Test
+    # score = test(env, agent, 1, render=True)
     # print("Reward over %d episodes: %f"%(3, score))

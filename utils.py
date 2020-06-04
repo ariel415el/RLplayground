@@ -8,11 +8,12 @@ class FastMemory:
     def __init__(self, max_size, storage_sizes_and_types):
         self.max_size = max_size
         self.storages = []
+        self.prealocate_size = 1000 # Avoid too large memory allocation
         for s in storage_sizes_and_types:
             if type(s[0]) == int:
-                shape = (max_size,s[0])
+                shape = (self.prealocate_size,s[0])
             else:
-                shape = (max_size,) +s[0]
+                shape = (self.prealocate_size,) + s[0]
             self.storages += [np.zeros(shape, dtype=s[1])]
 
         self.next_index = 0
@@ -26,8 +27,12 @@ class FastMemory:
         for i, s in enumerate(sample):
             self.storages[i][self.next_index] = s
 
-        self.next_index = (self.next_index + 1) % self.max_size
         self.size = min(self.max_size, self.size+1)
+        self.next_index = (self.next_index + 1) % self.max_size
+        if self.next_index >= self.storages[0].shape[0]:
+            for i,s in enumerate(self.storages):
+                added_shape = (min(self.max_size-self.size, self.prealocate_size),) + s.shape[1:]
+                self.storages[i] = np.append(s, np.zeros(added_shape), axis=0)
 
     def sample(self, batch_size, device) :
         ind = np.random.randint(0, self.size, size=batch_size)

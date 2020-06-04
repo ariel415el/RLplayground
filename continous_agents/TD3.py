@@ -175,7 +175,6 @@ class TD3(object):
             print("Couldn't find weights file")
 
     def save_state(self, path):
-
         dict = {'actor':self.trainable_actor.state_dict(), 'critic': self.trainable_critics.state_dict()}
         torch.save(dict, path)
 

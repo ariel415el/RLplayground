@@ -261,7 +261,6 @@ class ImageToPyTorch(gym.ObservationWrapper):
 
     def observation(self, observation):
         new_output = np.swapaxes(observation, 2, 0)#.astype(np.float32)
-        # new_output = (new_output - new_output.mean())/np.abs(new_output).max()
         return new_output
 
 def wrap_pytorch(env):

@@ -80,14 +80,14 @@ class DQN_agent(object):
         self.prioritized_memory=prioritized_memory
         self.noisy_MLP = noisy_MLP
         self.tau=1.0
-        self.lr = 0.0001
+        self.lr = 0.00025
         self.epsilon = 1.0
         self.min_epsilon = 0.005
         self.discount = 0.99
-        self.update_freq = 1000
+        self.update_freq = 10000
         self.batch_size = 32
-        self.max_playback = 100000
-        self.min_playback = 10000
+        self.max_playback = 1000000
+        self.min_playback = 50000
         self.epsilon_decay = 0.996
 
         self.action_counter = 0
@@ -97,7 +97,6 @@ class DQN_agent(object):
         if type(self.state_dim) == tuple:
             feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
             state_dtype = np.uint8
-            state_dtype = np.float32
         else:
             feature_extractor = LinearFeatureExtracor(self.state_dim, 64)
             state_dtype = np.float32
@@ -140,7 +139,9 @@ class DQN_agent(object):
         if not self.noisy_MLP and self.train and random.uniform(0,1) < self.epsilon:
             action_index =  random.randint(0, self.action_dim - 1)
         else:
-            q_vals = self.trainable_model(torch.from_numpy(state).unsqueeze(0).to(device).float())
+            torch_state = torch.from_numpy(state).unsqueeze(0).to(device).float()
+            # torch_state = (torch_state - torch_state.mean())/np.abs(torch_state).max() # TODOD
+            q_vals = self.trainable_model(torch_state)
             action_index = np.argmax(q_vals.detach().cpu().numpy())
 
         self.last_state = state
@@ -157,12 +158,24 @@ class DQN_agent(object):
         if self.action_counter % self.update_freq == 0:
             update_net(self.target_model, self.trainable_model, self.tau)
 
+        if len(self.playback_memory) >= max(self.min_playback, self.batch_size):
+            from time import time
+            s = time()
+            for i in range(100):
+                self._learn()
+            print((time() - s) / 100)
+            exit()
+
     def _learn(self):
         if len(self.playback_memory) >= max(self.min_playback, self.batch_size):
             if self.prioritized_memory:
                 prev_states, prev_actions, next_states, rewards, is_finale_states, weights = self.playback_memory.sample(self.batch_size ,device)
             else:
                 prev_states, prev_actions, next_states, rewards, is_finale_states = self.playback_memory.sample(self.batch_size ,device)
+
+            # prev_states = (prev_states - prev_states.mean())/np.abs(prev_states).max() # TODOD
+            # next_states = (next_states - next_states.mean())/np.abs(next_states).max() # TODOD
+
 
             # Compute target
             target_net_outs = self.target_model(next_states)
@@ -173,7 +186,7 @@ class DQN_agent(object):
             else:
                 q_vals = target_net_outs.max(axis=1)[0].reshape(-1,1)
 
-            target_values = self.discount*q_vals*(1-is_finale_states.type(torch.float32))
+            target_values = rewards + self.discount*q_vals*(1-is_finale_states.type(torch.float32))
 
             # Copute prediction
             self.trainable_model.train()
@@ -187,7 +200,8 @@ class DQN_agent(object):
                 delta = np.abs(delta.detach().cpu().numpy()).reshape(-1)
                 self.playback_memory.update_priorities(delta)
             else:
-                loss = (target_values - curr_q_vals).pow(2).mean()
+                loss = (curr_q_vals - target_values).pow(2).mean()
+                # loss = (target_values - curr_q_vals).pow(2).mean()
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -200,8 +214,9 @@ class DQN_agent(object):
 
     def load_state(self, path):
         if os.path.exists(path):
-            self.target_model.load_state_dict(torch.load(path))
-            self.trainable_model.load_state_dict(torch.load(path))
+            weights = torch.load(path, map_location=lambda storage, loc: storage)
+            self.target_model.load_state_dict(weights)
+            self.trainable_model.load_state_dict(weights)
         else:
             print("Couldn't find weights file")
 
