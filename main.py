@@ -131,7 +131,7 @@ def solve_breakout():
     solved_score=20
     agent = DQN_agent.DQN_agent(s, a, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
     env = get_final_env(env_name, frame_stack=True)
-
+    agent.hp.update({'lr':0.00002, "min_playback":50000, "max_playback":1000000, "update_freq": 10000})
     return env_name, env, agent, score_scope, solved_score
 
 def solve_pong():

@@ -89,25 +89,31 @@ class DuelingDQN(nn.Module):
         super(DuelingDQN, self).__init__()
 
         self.feature_extractor = feature_extractor
-
-        self.advantage = nn.Sequential(
-            nn.Linear(feature_extractor.features_space, hidden_layer_size),
-            nn.ReLU(),
-            nn.Linear(hidden_layer_size, num_outputs)
-        )
+        self.value_half = feature_extractor.features_space / 2
+        self.advantage_half = feature_extractor.features_space  - self.value_half
 
         self.value = nn.Sequential(
-            nn.Linear(feature_extractor.features_space, hidden_layer_size),
+            nn.Linear(self.value_half, hidden_layer_size),
             nn.ReLU(),
             nn.Linear(hidden_layer_size, 1)
         )
 
+        self.advantage = nn.Sequential(
+            nn.Linear(self.advantage_half, hidden_layer_size),
+            nn.ReLU(),
+            nn.Linear(hidden_layer_size, num_outputs)
+        )
+
     def forward(self, x):
         x = self.feature_extractor(x)
-        advantage = self.advantage(x)
-        value = self.value(x)
+        value_input, advantage_input = x[:,:self.value_half], x[:, self.value_half:]
+        value = self.value(value_input)
+        advantage = self.advantage(advantage_input)
         return value + advantage - advantage.mean()
 
+
+def normalize_states(states):
+    return (states - 127) / 255
 
 class DQN_agent(object):
     def __init__(self, state_dim, action_dim, train = True, double_dqn=False, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False):
@@ -182,7 +188,7 @@ class DQN_agent(object):
             action_index =  random.randint(0, self.action_dim - 1)
         else:
             torch_state = torch.from_numpy(np.array(state)).unsqueeze(0).to(device).float()
-            torch_state = (torch_state - torch_state.mean()) /255
+            torch_state = normalize_states(torch_state)
             q_vals = self.trainable_model(torch_state)
             action_index = np.argmax(q_vals.detach().cpu().numpy())
 
@@ -197,9 +203,9 @@ class DQN_agent(object):
         if is_finale_state:
             self.hp['epsilon'] = max(self.hp['min_epsilon'], self.hp['epsilon']*self.hp['epsilon_decay'])
 
-        # self._learn()
-        # if self.action_counter % self.hp['update_freq'] == 0:
-        #     update_net(self.target_model, self.trainable_model, self.hp['tau'])
+        self._learn()
+        if self.action_counter % self.hp['update_freq'] == 0:
+            update_net(self.target_model, self.trainable_model, self.hp['tau'])
 
     def _learn(self):
         if len(self.playback_memory) >= max(self.hp['min_playback'], self.hp['batch_size']):
@@ -210,8 +216,8 @@ class DQN_agent(object):
 
             prev_states = prev_states.float()
             next_states = next_states.float()
-            prev_states = (prev_states - prev_states.mean()) /255
-            next_states = (next_states - next_states.mean()) /255
+            prev_states = normalize_states(prev_states)
+            next_states = normalize_states(next_states)
 
             # Compute target
             target_net_outs = self.target_model(next_states)

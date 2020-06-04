@@ -17,16 +17,14 @@ class ListMemory:
 
     def add_sample(self, sample):
         self.mem[self.next_index] = sample
+        self.size = min(self.max_size, self.size+1)
+        self.next_index = (self.next_index + 1) % self.max_size
 
     def sample(self, batch_size, device):
         res = []
         batch_arrays = np.array(random.sample(self.mem[:self.size], k=batch_size))
         for i in range(batch_arrays.shape[1]):
             res += [torch.from_numpy(np.stack(batch_arrays[:, i])).to(device)]
-
-        self.size = min(self.max_size, self.size+1)
-        self.next_index = (self.next_index + 1) % self.max_size
-
         return tuple(res)
 
 class FastMemory:
