@@ -9,7 +9,6 @@ import train_logger
 import torch
 from utils import measure_time
 from env_wrappers import PLE2GYM_wrapper
-from pyglet.gl import * # Fixes rendering issues of openAi gym with wrappers
 
 def train(env, actor, train_episodes, score_scope, solved_score, log_frequency=1, test_frequency=100):
     next_progress_checkpoint = 1
@@ -142,5 +141,8 @@ if  __name__ == '__main__':
     train(env, agent, 100000, score_scope, solved_score)
 
     # # Test
+    render=False
+    if render:
+        from pyglet.gl import *  # Fixes rendering issues of openAi gym with wrappers
     # score = test(env, agent, 1, render=True)
     # print("Reward over %d episodes: %f"%(3, score))

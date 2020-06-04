@@ -86,9 +86,9 @@ class DQN_agent(object):
         self.discount = 0.99
         self.update_freq = 10000
         self.batch_size = 32
-        self.max_playback = 1000000
+        self.max_playback = 200000
         self.min_playback = 50000
-        self.epsilon_decay = 0.996
+        self.epsilon_decay = 0.9996
 
         self.action_counter = 0
         self.completed_episodes = 0
@@ -140,7 +140,7 @@ class DQN_agent(object):
             action_index =  random.randint(0, self.action_dim - 1)
         else:
             torch_state = torch.from_numpy(state).unsqueeze(0).to(device).float()
-            # torch_state = (torch_state - torch_state.mean())/np.abs(torch_state).max() # TODOD
+            torch_state = (torch_state - torch_state.mean()) /255
             q_vals = self.trainable_model(torch_state)
             action_index = np.argmax(q_vals.detach().cpu().numpy())
 
@@ -158,14 +158,6 @@ class DQN_agent(object):
         if self.action_counter % self.update_freq == 0:
             update_net(self.target_model, self.trainable_model, self.tau)
 
-        if len(self.playback_memory) >= max(self.min_playback, self.batch_size):
-            from time import time
-            s = time()
-            for i in range(100):
-                self._learn()
-            print((time() - s) / 100)
-            exit()
-
     def _learn(self):
         if len(self.playback_memory) >= max(self.min_playback, self.batch_size):
             if self.prioritized_memory:
@@ -173,9 +165,10 @@ class DQN_agent(object):
             else:
                 prev_states, prev_actions, next_states, rewards, is_finale_states = self.playback_memory.sample(self.batch_size ,device)
 
-            # prev_states = (prev_states - prev_states.mean())/np.abs(prev_states).max() # TODOD
-            # next_states = (next_states - next_states.mean())/np.abs(next_states).max() # TODOD
-
+            prev_states = prev_states.float()
+            next_states = next_states.float()
+            prev_states = (prev_states - prev_states.mean()) /255
+            next_states = (next_states - next_states.mean()) /255
 
             # Compute target
             target_net_outs = self.target_model(next_states)

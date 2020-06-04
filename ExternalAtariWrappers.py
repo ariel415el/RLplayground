@@ -225,7 +225,6 @@ class LazyFrames(object):
 
 def make_atari(env_id):
     env = gym.make(env_id)
-    assert 'NoFrameskip' in env.spec.id
     env = NoopResetEnv(env, noop_max=30)
     env = MaxAndSkipEnv(env, skip=4)
     return env
@@ -260,14 +259,13 @@ class ImageToPyTorch(gym.ObservationWrapper):
                                                 dtype=np.uint8)
 
     def observation(self, observation):
-        new_output = np.swapaxes(observation, 2, 0)#.astype(np.float32)
+        new_output = np.swapaxes(observation, 2, 0)
+        # new_output -= new_output.mean().astype(np.uint8)
         return new_output
 
-def wrap_pytorch(env):
-    return ImageToPyTorch(env)
 
 def get_final_env(env_name, frame_stack=True):
     env = make_atari(env_name)
     env = wrap_deepmind(env, frame_stack=frame_stack)
-    env = wrap_pytorch(env)
+    env = ImageToPyTorch(env)
     return env
