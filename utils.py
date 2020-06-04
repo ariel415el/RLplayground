@@ -4,19 +4,30 @@ from time import time
 from _collections import deque
 import random
 
-# class NaiveMemory:
-#     def __init__(self, max_size):
-#         self.mem = deque(maxlen=max_size)
-#
-#     def __len__(self):
-#         return len(self.mem)
-#
-#     def add_sample(self, sample):
-#         self.mem.append(sample)
-#
-#     def sample(self, batch_size, device):
-#         batch_arrays = np.array(random.sample(self.mem, k=batch_size))
-#         for i in range(batch_arrays.shape[1]):
+class ListMemory:
+    # Credit to Adrien Lucas Ecoffet
+    def __init__(self, max_size,storage_sizes_and_types):
+        self.mem = [None]*max_size
+        self.max_size = max_size
+        self.next_index = 0
+        self.size = 0
+    
+    def __len__(self):
+        return self.size
+
+    def add_sample(self, sample):
+        self.mem[self.next_index] = sample
+
+    def sample(self, batch_size, device):
+        res = []
+        batch_arrays = np.array(random.sample(self.mem[:self.size], k=batch_size))
+        for i in range(batch_arrays.shape[1]):
+            res += [torch.from_numpy(np.stack(batch_arrays[:, i])).to(device)]
+
+        self.size = min(self.max_size, self.size+1)
+        self.next_index = (self.next_index + 1) % self.max_size
+
+        return tuple(res)
 
 class FastMemory:
     "Pre alocates a numpy array for fast acess"

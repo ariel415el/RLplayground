@@ -8,11 +8,50 @@ from collections import deque
 import numpy as np
 import os
 from dnn_models import *
-from utils import update_net, FastMemory, PrioritizedMemory
+from utils import update_net, FastMemory, PrioritizedMemory, ListMemory
 import copy
 from torch import nn
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)
+
+
+class new_DuelingDQN(nn.Module):
+    def __init__(self):
+        super(new_DuelingDQN, self).__init__()
+        self.conv1 = nn.Conv2d(4, 32, kernel_size=8, stride=4)
+        nn.init.kaiming_normal_(self.conv1.weight, nonlinearity='relu')
+        nn.init.constant_(self.conv1.bias, 0)
+
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        nn.init.kaiming_normal_(self.conv2.weight, nonlinearity='relu')
+        nn.init.constant_(self.conv2.bias, 0)
+
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
+        nn.init.kaiming_normal_(self.conv3.weight, nonlinearity='relu')
+        nn.init.constant_(self.conv3.bias, 0)
+
+        self.conv4 = nn.Conv2d(64, 1024, kernel_size=7, stride=1)
+        nn.init.kaiming_normal_(self.conv4.weight, nonlinearity='relu')
+        nn.init.constant_(self.conv4.bias, 0)
+        # add comment
+        self.fc_value = nn.Linear(512, 1)
+        nn.init.kaiming_normal_(self.fc_value.weight, nonlinearity='relu')
+        self.fc_advantage = nn.Linear(512, 4)
+        nn.init.kaiming_normal_(self.fc_advantage.weight, nonlinearity='relu')
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.conv4(x))
+        # add comment
+        x_value = x[:, :512, :, :].view(-1, 512)
+        x_advantage = x[:, 512:, :, :].view(-1, 512)
+        x_value = self.fc_value(x_value)
+        x_advantage = self.fc_advantage(x_advantage)
+        # add comment
+        q_value = x_value + x_advantage.sub(torch.mean(x_advantage, 1)[:, None])
+        return q_value
 
 
 class MLP(nn.Module):
@@ -79,17 +118,18 @@ class DQN_agent(object):
         self.dueling_dqn=dueling_dqn
         self.prioritized_memory=prioritized_memory
         self.noisy_MLP = noisy_MLP
-        self.tau=1.0
-        self.lr = 0.00025
-        self.epsilon = 1.0
-        self.min_epsilon = 0.005
-        self.discount = 0.99
-        self.update_freq = 10000
-        self.batch_size = 32
-        self.max_playback = 200000
-        self.min_playback = 50000
-        self.epsilon_decay = 0.9996
-
+        self.hp = {
+            'tau': 1.0,
+            'lr' : 0.00025,
+            'epsilon' : 1.0,
+            'min_epsilon' : 0.005,
+            'discount' : 0.99,
+            'update_freq' : 10000,
+            'batch_size' : 32,
+            'max_playback' : 1000000,
+            'min_playback' : 50000,
+            'epsilon_decay' : 0.9996
+        }
         self.action_counter = 0
         self.completed_episodes = 0
         self.gs_num=0
@@ -107,17 +147,19 @@ class DQN_agent(object):
             self.trainable_model = NoisyMLP(feature_extractor, self.action_dim, hiden_layer_size).to(device)
         else:
             self.trainable_model = MLP(feature_extractor, self.action_dim, hiden_layer_size).to(device)
+            # self.trainable_model = new_DuelingDQN().to(device)
+
 
         storage_sizes_and_types = [(self.state_dim, state_dtype), (1, np.uint8), (self.state_dim, state_dtype), (1, np.float32), (1, bool)]
         if self.prioritized_memory:
-            self.playback_memory = PrioritizedMemory(self.max_playback, storage_sizes_and_types)
+            self.playback_memory = PrioritizedMemory(self.hp['max_playback'], storage_sizes_and_types)
         else:
-            self.playback_memory = FastMemory(self.max_playback, storage_sizes_and_types)
+            self.playback_memory = ListMemory(self.hp['max_playback'], storage_sizes_and_types)
 
         with torch.no_grad():
             self.target_model = copy.deepcopy(self.trainable_model)
 
-        self.optimizer = torch.optim.Adam(self.trainable_model.parameters(), lr=self.lr)
+        self.optimizer = torch.optim.Adam(self.trainable_model.parameters(), lr=self.hp['lr'])
         self.optimizer.zero_grad()
 
         self.name = ""
@@ -131,15 +173,15 @@ class DQN_agent(object):
             self.name += "NoisyNetwork-"
         else:
             self.name += "Dqn-"
-        self.name += "lr[%.5f]_b[%d]_tau[%.4f]_uf[%d]"%(self.lr, self.batch_size, self.tau, self.update_freq)
+        self.name += "lr[%.5f]_b[%d]_tau[%.4f]_uf[%d]"%(self.hp['lr'], self.hp['batch_size'], self.hp['tau'], self.hp['update_freq'])
 
 
     def process_new_state(self, state):
         self.action_counter += 1
-        if not self.noisy_MLP and self.train and random.uniform(0,1) < self.epsilon:
+        if not self.noisy_MLP and self.train and random.uniform(0,1) < self.hp['epsilon']:
             action_index =  random.randint(0, self.action_dim - 1)
         else:
-            torch_state = torch.from_numpy(state).unsqueeze(0).to(device).float()
+            torch_state = torch.from_numpy(np.array(state)).unsqueeze(0).to(device).float()
             torch_state = (torch_state - torch_state.mean()) /255
             q_vals = self.trainable_model(torch_state)
             action_index = np.argmax(q_vals.detach().cpu().numpy())
@@ -150,20 +192,21 @@ class DQN_agent(object):
         return action_index
 
     def process_output(self, new_state, reward, is_finale_state):
+
         self.playback_memory.add_sample((self.last_state, self.last_action, new_state, reward, is_finale_state))
         if is_finale_state:
-            self.epsilon = max(self.min_epsilon, self.epsilon*self.epsilon_decay)
+            self.hp['epsilon'] = max(self.hp['min_epsilon'], self.hp['epsilon']*self.hp['epsilon_decay'])
 
-        self._learn()
-        if self.action_counter % self.update_freq == 0:
-            update_net(self.target_model, self.trainable_model, self.tau)
+        # self._learn()
+        # if self.action_counter % self.hp['update_freq'] == 0:
+        #     update_net(self.target_model, self.trainable_model, self.hp['tau'])
 
     def _learn(self):
-        if len(self.playback_memory) >= max(self.min_playback, self.batch_size):
+        if len(self.playback_memory) >= max(self.hp['min_playback'], self.hp['batch_size']):
             if self.prioritized_memory:
-                prev_states, prev_actions, next_states, rewards, is_finale_states, weights = self.playback_memory.sample(self.batch_size ,device)
+                prev_states, prev_actions, next_states, rewards, is_finale_states, weights = self.playback_memory.sample(self.hp['batch_size'] ,device)
             else:
-                prev_states, prev_actions, next_states, rewards, is_finale_states = self.playback_memory.sample(self.batch_size ,device)
+                prev_states, prev_actions, next_states, rewards, is_finale_states = self.playback_memory.sample(self.hp['batch_size'] ,device)
 
             prev_states = prev_states.float()
             next_states = next_states.float()
@@ -179,8 +222,8 @@ class DQN_agent(object):
             else:
                 q_vals = target_net_outs.max(axis=1)[0].reshape(-1,1)
 
-            target_values = rewards + self.discount*q_vals*(1-is_finale_states.type(torch.float32))
-
+            target_values = rewards + self.hp['discount']*q_vals*(1-is_finale_states.type(torch.float32))
+    
             # Copute prediction
             self.trainable_model.train()
             prev_net_outs = self.trainable_model(prev_states)
@@ -217,6 +260,6 @@ class DQN_agent(object):
         torch.save(self.trainable_model.state_dict(), path)
 
     def get_stats(self):
-        return "GS: %d, Epsilon: %.5f; LR: %.5f"%(self.gs_num, self.epsilon, self.optimizer.param_groups[0]['lr'])
+        return "GS: %d, Epsilon: %.5f; LR: %.5f"%(self.gs_num, self.hp['epsilon'], self.optimizer.param_groups[0]['lr'])
 
 

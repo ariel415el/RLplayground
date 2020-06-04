@@ -151,7 +151,7 @@ class WarpFrame(gym.ObservationWrapper):
     def observation(self, frame):
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
         frame = cv2.resize(frame, (self.width, self.height), interpolation=cv2.INTER_AREA)
-        return frame[:, :, None]
+        return frame[None, :, :]
 
 
 class FrameStack(gym.Wrapper):
@@ -206,7 +206,7 @@ class LazyFrames(object):
 
     def _force(self):
         if self._out is None:
-            self._out = np.concatenate(self._frames, axis=2)
+            self._out = np.concatenate(self._frames, axis=0)
             self._frames = None
         return self._out
 
@@ -239,7 +239,7 @@ def wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=False, 
         env = FireResetEnv(env)
     env = WarpFrame(env)
     if scale:
-        env = ScaledFloatFrame(env)
+        env = ScaledFloatFrame(env) # Disables memory optimization
     if clip_rewards:
         env = ClipRewardEnv(env)
     if frame_stack:
@@ -247,25 +247,7 @@ def wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=False, 
     return env
 
 
-class ImageToPyTorch(gym.ObservationWrapper):
-    """
-    Image shape to num_channels x weight x height
-    """
-
-    def __init__(self, env):
-        super(ImageToPyTorch, self).__init__(env)
-        old_shape = self.observation_space.shape
-        self.observation_space = gym.spaces.Box(low=0.0, high=1.0, shape=(old_shape[-1], old_shape[0], old_shape[1]),
-                                                dtype=np.uint8)
-
-    def observation(self, observation):
-        new_output = np.swapaxes(observation, 2, 0)
-        # new_output -= new_output.mean().astype(np.uint8)
-        return new_output
-
-
 def get_final_env(env_name, frame_stack=True):
     env = make_atari(env_name)
     env = wrap_deepmind(env, frame_stack=frame_stack)
-    env = ImageToPyTorch(env)
     return env

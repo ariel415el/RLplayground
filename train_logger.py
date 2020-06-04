@@ -29,8 +29,8 @@ class logger(object):
         last_k_score = self.get_last_k_episodes_mean()
         print('Episodes done: ', self.done_episodes)
         print("\t# Steps %d, time %d mins; avg-%d %.2f:" % (self.total_steps, time_passed / 60, len(self.last_episodes_total_rewards), last_k_score))
-        # print("\t# steps/sec avg: %.3f " % (self.total_steps / time_passed))
-        print("\t# steps/sec avg: %.3f " % ((self.total_steps- self.last_steps) / (time_passed - self.last_time)))
+        print("\t# steps/sec avg: %.3f " % (self.total_steps / time_passed))
+        # print("\t# steps/sec avg: %.3f " % ((self.total_steps- self.last_steps) / (time_passed - self.last_time)))
         print("\t# Agent stats: ", actor_stats)
         self.last_steps = self.total_steps
         self.last_time = time_passed
