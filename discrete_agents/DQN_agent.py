@@ -89,7 +89,7 @@ class DuelingDQN(nn.Module):
         super(DuelingDQN, self).__init__()
 
         self.feature_extractor = feature_extractor
-        self.value_half = feature_extractor.features_space / 2
+        self.value_half = int(feature_extractor.features_space / 2)
         self.advantage_half = feature_extractor.features_space  - self.value_half
 
         self.value = nn.Sequential(
@@ -116,7 +116,7 @@ def normalize_states(states):
     return (states - 127) / 255
 
 class DQN_agent(object):
-    def __init__(self, state_dim, action_dim, hp=None,  train = True, double_dqn=False, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False):
+    def __init__(self, state_dim, action_dim, hp=None, train=True, double_dqn=False, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.train = train
@@ -127,17 +127,17 @@ class DQN_agent(object):
         self.hp = {
             'tau': 1.0,
             'lr' : 0.00025,
-            'epsilon' : 1.0,
-            'min_epsilon' : 0.005,
+            'min_epsilon' : 0.01,
             'discount' : 0.99,
             'update_freq' : 10000,
             'learn_freq': 1,
             'batch_size' : 32,
             'max_playback' : 1000000,
             'min_playback' : 50000,
-            'epsilon_decay' : 0.9996,
-            'hiden_layer_size' : 512
-
+            'epsilon': 1.0,
+            'epsilon_decay' : 0.0001,
+            'hiden_layer_size' : 512,
+            'normalize_state':False
         }
         if hp is not None:
             self.hp.update(hp)
@@ -157,8 +157,8 @@ class DQN_agent(object):
         elif self.noisy_MLP:
             self.trainable_model = NoisyMLP(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
         else:
-            # self.trainable_model = MLP(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
-            self.trainable_model = new_DuelingDQN(self.state_dim[0]).to(device)
+            self.trainable_model = MLP(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
+            # self.trainable_model = new_DuelingDQN(self.state_dim[0]).to(device)
 
 
         storage_sizes_and_types = [(self.state_dim, state_dtype), (1, np.uint8), (self.state_dim, state_dtype), (1, np.float32), (1, bool)]
@@ -186,14 +186,17 @@ class DQN_agent(object):
             self.name += "Dqn-"
         self.name += "lr[%.5f]_b[%d]_lf[%d]_uf[%d]"%(self.hp['lr'], self.hp['batch_size'], self.hp['learn_freq'], self.hp['update_freq'])
 
+    def _get_cur_epsilon(self):
+        return self.hp['min_epsilon'] + (self.hp['epsilon'] - self.hp['min_epsilon']) * np.exp(-1. * self.action_counter / self.hp['epsilon_decay'])
 
     def process_new_state(self, state):
         self.action_counter += 1
-        if not self.noisy_MLP and self.train and random.uniform(0,1) < self.hp['epsilon']:
-            action_index =  random.randint(0, self.action_dim - 1)
+        if not self.noisy_MLP and self.train and random.uniform(0,1) < self._get_cur_epsilon():
+            action_index = random.randint(0, self.action_dim - 1)
         else:
             torch_state = torch.from_numpy(np.array(state)).unsqueeze(0).to(device).float()
-            torch_state = normalize_states(torch_state)
+            if self.hp['normalize_state']:
+                torch_state = normalize_states(torch_state)
             q_vals = self.trainable_model(torch_state)
             action_index = np.argmax(q_vals.detach().cpu().numpy())
 
@@ -203,10 +206,7 @@ class DQN_agent(object):
         return action_index
 
     def process_output(self, new_state, reward, is_finale_state):
-
         self.playback_memory.add_sample((self.last_state, self.last_action, new_state, reward, is_finale_state))
-        if is_finale_state:
-            self.hp['epsilon'] = max(self.hp['min_epsilon'], self.hp['epsilon']*self.hp['epsilon_decay'])
 
         self._learn()
         if self.action_counter % self.hp['update_freq'] == 0:
@@ -221,11 +221,11 @@ class DQN_agent(object):
 
             prev_states = prev_states.float()
             next_states = next_states.float()
-            prev_states = normalize_states(prev_states)
-            next_states = normalize_states(next_states)
+            if self.hp['normalize_state']:
+                prev_states = normalize_states(prev_states)
+                next_states = normalize_states(next_states)
 
             # Compute target
-
             target_net_outs = self.target_model(next_states)
             if self.double_dqn:
                 trainable_net_outs = self.trainable_model(next_states)
@@ -233,9 +233,9 @@ class DQN_agent(object):
                 q_vals = q_vals.detach()
             else:
                 q_vals = target_net_outs.max(axis=1)[0].reshape(-1,1)
+            not_final = (1-is_finale_states.type(torch.float32).view(-1,1))
+            target_values = rewards.view(-1,1) + self.hp['discount']*q_vals*not_final
 
-            target_values = rewards + self.hp['discount']*q_vals*(1-is_finale_states.type(torch.float32))
-    
             # Copute prediction
             self.trainable_model.train()
             prev_net_outs = self.trainable_model(prev_states)
@@ -272,6 +272,6 @@ class DQN_agent(object):
         torch.save(self.trainable_model.state_dict(), path)
 
     def get_stats(self):
-        return "GS: %d, Epsilon: %.5f; LR: %.5f"%(self.gs_num, self.hp['epsilon'], self.optimizer.param_groups[0]['lr'])
+        return "GS: %d, Epsilon: %.5f; LR: %.5f"%(self.gs_num, self._get_cur_epsilon(), self.optimizer.param_groups[0]['lr'])
 
 

@@ -123,14 +123,30 @@ def test(env,  actor, test_episodes=1, render=False):
 #     # agent = PPO.PPO(s, bounderies)
 #     return agent
 
+
+def solve_cart_pole():
+    env_name="CartPole-v1"; s=4; a=2;score_scope=100; solved_score=195
+    env = gym.make(env_name)
+    hp = {'lr':0.001, "min_playback":0, "max_playback":1000000, "update_freq": 100, 'hiden_layer_size':32, 'epsilon_decay':500}
+    agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
+    return env_name, env, agent, score_scope, solved_score
+
+def solve_lunar_lander():
+    env_name="LunarLander-v2"; s=8; a=4; score_scope=100; solved_score=200
+    env = gym.make(env_name)
+    hp = {'lr':0.001, "min_playback":1000, "max_playback":1000000, "update_freq": 500, 'hiden_layer_size':256}
+    agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
+    return env_name, env, agent, score_scope, solved_score
+
+
 def solve_breakout():
     env_name="BreakoutNoFrameskip-v4"
     s=(4,84,84)
     a=4
     score_scope=20
     solved_score=20
-    hp = {'lr':0.00002, "min_playback":50000, "max_playback":1000000, "update_freq": 10000, 'learn_freq':4}
-    hp = {'lr':0.00002, "min_playback":1000, "max_playback":1000000, "update_freq": 10000, 'learn_freq':4}
+    hp = {'lr':0.00002, "min_playback":50000, "max_playback":1000000, "update_freq": 10000, 'learn_freq':4, "normalize_state":True}
+    hp = {'lr':0.00002, "min_playback":1000, "max_playback":1000000, "update_freq": 10000, 'learn_freq':4, "normalize_state":True}
     agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
     env = get_final_env(env_name, frame_stack=True)
 
@@ -143,19 +159,20 @@ def solve_pong():
     a=4
     score_scope=20
     solved_score=20
-    hp = {'lr':0.0003, "min_playback":1000, "max_playback":10000, "update_freq": 1000, 'hiden_layer_size':1024}
-    agent = DQN_agent.DQN_agent(s, a, hp , double_dqn=True, dueling_dqn=True, prioritized_memory=False, noisy_MLP=True)
+    hp = {'lr':0.0002, "min_playback":1000, "max_playback":100000, "update_freq": 1000, 'hiden_layer_size':1024,"normalize_state":True}
+    agent = DQN_agent.DQN_agent(s, a, hp , double_dqn=True, dueling_dqn=True, prioritized_memory=False, noisy_MLP=False)
     return env_name, env, agent, score_scope, solved_score
 
 if  __name__ == '__main__':
-
     SEED=2
     random.seed(SEED)
     np.random.seed(SEED)
     torch.manual_seed(SEED)
 
-    env_name, env, agent, score_scope, solved_score = solve_breakout()
-    # env_name, env, agent, score_scope, solved_score = solve_pong()
+    # env_name, env, agent, score_scope, solved_score = solve_breakout()
+    env_name, env, agent, score_scope, solved_score = solve_pong()
+    # env_name, env, agent, score_scope, solved_score = solve_lunar_lander()
+    # env_name, env, agent, score_scope, solved_score = solve_cart_pole()
 
     # Train
     os.makedirs("Training", exist_ok=True)
