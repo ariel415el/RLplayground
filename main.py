@@ -129,9 +129,11 @@ def solve_breakout():
     a=4
     score_scope=20
     solved_score=20
-    agent = DQN_agent.DQN_agent(s, a, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
+    hp = {'lr':0.00002, "min_playback":50000, "max_playback":1000000, "update_freq": 10000, 'learn_freq':4}
+    hp = {'lr':0.00002, "min_playback":1000, "max_playback":1000000, "update_freq": 10000, 'learn_freq':4}
+    agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
     env = get_final_env(env_name, frame_stack=True)
-    agent.hp.update({'lr':0.00002, "min_playback":50000, "max_playback":1000000, "update_freq": 10000})
+
     return env_name, env, agent, score_scope, solved_score
 
 def solve_pong():
@@ -141,8 +143,8 @@ def solve_pong():
     a=4
     score_scope=20
     solved_score=20
-    agent = DQN_agent.DQN_agent(s, a, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=True)
-    agent.hp.update({'lr':0.0003, "min_playback":1000, "max_playback":10000, "update_freq": 1000})
+    hp = {'lr':0.0003, "min_playback":1000, "max_playback":10000, "update_freq": 1000, 'hiden_layer_size':1024}
+    agent = DQN_agent.DQN_agent(s, a, hp , double_dqn=True, dueling_dqn=True, prioritized_memory=False, noisy_MLP=True)
     return env_name, env, agent, score_scope, solved_score
 
 if  __name__ == '__main__':
@@ -152,8 +154,8 @@ if  __name__ == '__main__':
     np.random.seed(SEED)
     torch.manual_seed(SEED)
 
-    # env_name, env, agent, score_scope, solved_score = solve_breakout()
-    env_name, env, agent, score_scope, solved_score = solve_pong()
+    env_name, env, agent, score_scope, solved_score = solve_breakout()
+    # env_name, env, agent, score_scope, solved_score = solve_pong()
 
     # Train
     os.makedirs("Training", exist_ok=True)

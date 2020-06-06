@@ -22,7 +22,7 @@ class ListMemory:
 
     def sample(self, batch_size, device):
         res = []
-        batch_arrays = np.array(random.sample(self.mem[:self.size], k=batch_size))
+        batch_arrays = np.array(random.sample(self.mem[:self.size], k=batch_size), dtype=object)
         for i in range(batch_arrays.shape[1]):
             res += [torch.from_numpy(np.stack(batch_arrays[:, i])).to(device)]
         return tuple(res)

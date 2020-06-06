@@ -71,25 +71,33 @@ class plt_logger(logger):
         self.all_episode_total_scores += [np.sum(episode_rewards)]
         self.all_avg_last_k += [self.get_last_k_episodes_mean()]
 
-    def output_stats(self, actor_stats=None):
+    def output_stats(self, actor_stats=None, by_step=False):
+        xs = np.arange(1, len(self.all_episode_lengths) + 1)
+        x_label = 'Episode #'
+        if by_step:
+            xs = np.cumsum(self.all_episode_lengths)
+            x_label = 'Step #'
         last_k_scores = super(plt_logger, self).output_stats(actor_stats)
-        plt.plot(np.arange(1, len(self.all_episode_lengths) + 1), self.all_episode_lengths)
+        plt.plot(xs, self.all_episode_lengths)
         plt.ylabel('Length')
-        plt.xlabel('Episode #')
+        plt.xlabel(x_label)
         plt.savefig(os.path.join(self.logdir, "Episode-lengths.png"))
         plt.clf()
 
-        plt.plot(np.arange(1, len(self.all_episode_total_scores) + 1), self.all_episode_total_scores)
+        plt.plot(xs, self.all_episode_total_scores, label='Episode-score')
+        plt.plot(xs, self.all_avg_last_k, label='Score-last %d' % self.k)
         plt.ylabel('Score')
-        plt.xlabel('Episode #')
+        plt.xlabel(x_label)
+        plt.legend()
         plt.savefig(os.path.join(self.logdir, "Episode-scores.png"))
         plt.clf()
 
-        plt.plot(np.arange(1, len(self.all_avg_last_k) + 1), self.all_avg_last_k)
-        plt.ylabel('Score-last %d' % self.k)
-        plt.xlabel('Episode #')
-        plt.savefig(os.path.join(self.logdir, "Episode-avg-last-%d.png" % self.k))
-        plt.clf()
+        # plt.plot(np.cumsum(self.all_episode_lengths), self.all_episode_total_scores)
+        # plt.ylabel('Score')
+        # plt.xlabel('Step #')
+        # plt.savefig(os.path.join(self.logdir, "Episode-scores-by-step.png"))
+        # plt.clf()
+
 
         return last_k_scores
 

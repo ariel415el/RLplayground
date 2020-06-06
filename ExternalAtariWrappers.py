@@ -181,7 +181,8 @@ class FrameStack(gym.Wrapper):
 
     def _get_ob(self):
         assert len(self.frames) == self.k
-        return LazyFrames(list(self.frames))
+        # return list(self.frames)
+        return LazyFrames((self.frames))
 
 
 class ScaledFloatFrame(gym.ObservationWrapper):
@@ -202,25 +203,25 @@ class LazyFrames(object):
         This object should only be converted to numpy array before being passed to the model.
         You'd not believe how complex the previous solution was."""
         self._frames = frames
-        self._out = None
+        # self._out = None
 
-    def _force(self):
-        if self._out is None:
-            self._out = np.concatenate(self._frames, axis=0)
-            self._frames = None
-        return self._out
+    # def _force(self):
+    #     if self._out is None:
+    #         self._out = np.concatenate(self._frames, axis=0)
+    #         # self._frames = None
+    #     return self._out
 
     def __array__(self, dtype=None):
-        out = self._force()
-        if dtype is not None:
-            out = out.astype(dtype)
-        return out
+        # out = self._force()
+        # if dtype is not None:
+        #     out = out.astype(dtype)
+        return np.concatenate(self._frames, axis=0)
 
-    def __len__(self):
-        return len(self._force())
-
-    def __getitem__(self, i):
-        return self._force()[i]
+    # def __len__(self):
+    #     return len(self._force())
+    #
+    # def __getitem__(self, i):
+    #     return self._force()[i]
 
 
 def make_atari(env_id):

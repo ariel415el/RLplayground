@@ -16,9 +16,9 @@ print("using device: ", device)
 
 
 class new_DuelingDQN(nn.Module):
-    def __init__(self):
+    def __init__(self, input_features):
         super(new_DuelingDQN, self).__init__()
-        self.conv1 = nn.Conv2d(4, 32, kernel_size=8, stride=4)
+        self.conv1 = nn.Conv2d(input_features, 32, kernel_size=8, stride=4)
         nn.init.kaiming_normal_(self.conv1.weight, nonlinearity='relu')
         nn.init.constant_(self.conv1.bias, 0)
 
@@ -116,7 +116,7 @@ def normalize_states(states):
     return (states - 127) / 255
 
 class DQN_agent(object):
-    def __init__(self, state_dim, action_dim, train = True, double_dqn=False, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False):
+    def __init__(self, state_dim, action_dim, hp=None,  train = True, double_dqn=False, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.train = train
@@ -131,11 +131,17 @@ class DQN_agent(object):
             'min_epsilon' : 0.005,
             'discount' : 0.99,
             'update_freq' : 10000,
+            'learn_freq': 1,
             'batch_size' : 32,
             'max_playback' : 1000000,
             'min_playback' : 50000,
-            'epsilon_decay' : 0.9996
+            'epsilon_decay' : 0.9996,
+            'hiden_layer_size' : 512
+
         }
+        if hp is not None:
+            self.hp.update(hp)
+
         self.action_counter = 0
         self.completed_episodes = 0
         self.gs_num=0
@@ -146,14 +152,13 @@ class DQN_agent(object):
         else:
             feature_extractor = LinearFeatureExtracor(self.state_dim, 64)
             state_dtype = np.float32
-        hiden_layer_size = 512
         if self.dueling_dqn:
-            self.trainable_model = DuelingDQN(feature_extractor, self.action_dim, hiden_layer_size).to(device)
+            self.trainable_model = DuelingDQN(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
         elif self.noisy_MLP:
-            self.trainable_model = NoisyMLP(feature_extractor, self.action_dim, hiden_layer_size).to(device)
+            self.trainable_model = NoisyMLP(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
         else:
-            self.trainable_model = MLP(feature_extractor, self.action_dim, hiden_layer_size).to(device)
-            # self.trainable_model = new_DuelingDQN().to(device)
+            # self.trainable_model = MLP(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
+            self.trainable_model = new_DuelingDQN(self.state_dim[0]).to(device)
 
 
         storage_sizes_and_types = [(self.state_dim, state_dtype), (1, np.uint8), (self.state_dim, state_dtype), (1, np.float32), (1, bool)]
@@ -179,7 +184,7 @@ class DQN_agent(object):
             self.name += "NoisyNetwork-"
         else:
             self.name += "Dqn-"
-        self.name += "lr[%.5f]_b[%d]_tau[%.4f]_uf[%d]"%(self.hp['lr'], self.hp['batch_size'], self.hp['tau'], self.hp['update_freq'])
+        self.name += "lr[%.5f]_b[%d]_lf[%d]_uf[%d]"%(self.hp['lr'], self.hp['batch_size'], self.hp['learn_freq'], self.hp['update_freq'])
 
 
     def process_new_state(self, state):
@@ -208,7 +213,7 @@ class DQN_agent(object):
             update_net(self.target_model, self.trainable_model, self.hp['tau'])
 
     def _learn(self):
-        if len(self.playback_memory) >= max(self.hp['min_playback'], self.hp['batch_size']):
+        if len(self.playback_memory) >= max(self.hp['min_playback'], self.hp['batch_size']) and self.action_counter % self.hp['learn_freq'] == 0:
             if self.prioritized_memory:
                 prev_states, prev_actions, next_states, rewards, is_finale_states, weights = self.playback_memory.sample(self.hp['batch_size'] ,device)
             else:
@@ -220,6 +225,7 @@ class DQN_agent(object):
             next_states = normalize_states(next_states)
 
             # Compute target
+
             target_net_outs = self.target_model(next_states)
             if self.double_dqn:
                 trainable_net_outs = self.trainable_model(next_states)
