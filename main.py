@@ -88,29 +88,7 @@ def test(env,  actor, test_episodes=1, render=False):
 #     # env_name="BipedalWalker-v3"; s=24; score_scope=100; solved_score=500
 #     # env_name="BipedalWalkerHardcore-v3"; s=24; score_scope=100; solved_score=300
 #
-#     # image envs TODO
-#     # env_name='PixelChopper';s=7;a=2;score_scope=100; solved_score=100
-#     # env_name="LunarLander-v2"; s=(105,80); a=4; score_scope=20; solved_score=200
-#     # env_name="BreakoutNoFrameskip-v0"; s=(84,84, 4); a=3;score_scope=100; solved_score=195
-#     # env_name="BreakoutNoFrameskip-v0"; s=(84,84, 4); a=3;score_scope=100; solved_score=195
-#
-#     env = gym.make(env_name)
-#     # env = my_image_level_wrapper(env)
-#     # env = AtariPreprocessing(env)
-#     # env = image_preprocess_wrapper(env)
-#
-#     # get_ple games
-#
-#     # env = PLE2GYM_wrapper()
-#     # env_name = 'FlappyBird-ple';s = len(env.state_keys);a = len(env.allowed_actions);score_scope=100;solved_score=100
-#
-#     from ExternalAtariWrappers import get_final_env
-#     # env_name="PongNoFrameskip-v4";s=(1,84,84);a=6; score_scope=20; solved_score=20
-#     env_name="BreakoutNoFrameskip-v4";s=(4,84,84);a=4; score_scope=20; solved_score=20;
-#     env = get_final_env(env_name, frame_stack=True)
-#
-#     env.seed(seed)
-#     return env, s, a, score_scope, solved_score, env_name
+
 #
 # def get_agent(env, s, a):
 #     agent = DQN_agent.DQN_agent(s, a, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
@@ -124,6 +102,20 @@ def test(env,  actor, test_episodes=1, render=False):
 #     return agent
 
 
+def solve_pendulum():
+    env_name="Pendulum-v0";s=3; score_scope=100; solved_score=-200
+    env = gym.make(env_name)
+    hp = {'actor_lr':0.01, 'critic_lr':0.01, "exploration_steps":5000, "min_memory_for_learning":10000, "batch_size": 128}
+    agent = TD3.TD3(s, env.action_space, [env.action_space.low, env.action_space.high], hp, train=True)
+    return env_name, env, agent, score_scope, solved_score
+
+def solve_bipedal_walker():
+    env_name="BipedalWalker-v3"; s=24; score_scope=100; solved_score=500
+    env = gym.make(env_name)
+    # hp = {'lr':0.001, "min_playback":0, "max_playback":1000000, "update_freq": 100, 'hiden_layer_size':32, 'epsilon_decay':500}
+    agent = TD3.TD3(s, env.action_space, [env.action_space.low, env.action_space.high], hp, train=True)
+    return env_name, env, agent, score_scope, solved_score
+
 def solve_cart_pole():
     env_name="CartPole-v1"; s=4; a=2;score_scope=100; solved_score=195
     env = gym.make(env_name)
@@ -134,8 +126,9 @@ def solve_cart_pole():
 def solve_lunar_lander():
     env_name="LunarLander-v2"; s=8; a=4; score_scope=100; solved_score=200
     env = gym.make(env_name)
-    hp = {'lr':0.001, "min_playback":1000, "max_playback":1000000, "update_freq": 500, 'hiden_layer_size':256}
-    agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
+    hp = {'lr':0.001, "min_playback":1000, "max_playback":1000000, "update_freq": 500, 'hiden_layer_size':256, 'epsilon_decay':10000}
+    agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=True)
+    # agent = DiscretePPO.PPO_descrete_action(s, a)
     return env_name, env, agent, score_scope, solved_score
 
 
@@ -143,10 +136,9 @@ def solve_breakout():
     env_name="BreakoutNoFrameskip-v4"
     s=(4,84,84)
     a=4
-    score_scope=20
+    score_scope=100
     solved_score=20
-    hp = {'lr':0.00002, "min_playback":50000, "max_playback":1000000, "update_freq": 10000, 'learn_freq':4, "normalize_state":True}
-    hp = {'lr':0.00002, "min_playback":1000, "max_playback":1000000, "update_freq": 10000, 'learn_freq':4, "normalize_state":True}
+    hp = {'lr':0.00001, "min_playback":50000, "max_playback":1000000, "update_freq": 10000, 'learn_freq':4, "normalize_state":True, 'epsilon_decay':1000000}
     agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
     env = get_final_env(env_name, frame_stack=True)
 
@@ -157,10 +149,10 @@ def solve_pong():
     env = get_final_env(env_name, frame_stack=False)
     s=(1,84,84)
     a=4
-    score_scope=20
+    score_scope=100
     solved_score=20
-    hp = {'lr':0.0002, "min_playback":1000, "max_playback":100000, "update_freq": 1000, 'hiden_layer_size':1024,"normalize_state":True}
-    agent = DQN_agent.DQN_agent(s, a, hp , double_dqn=True, dueling_dqn=True, prioritized_memory=False, noisy_MLP=False)
+    hp = {'lr':0.0001, "min_playback":1000, "max_playback":100000, "update_freq": 1000, 'hiden_layer_size':512, "normalize_state":True, 'epsilon_decay':30000}
+    agent = DQN_agent.DQN_agent(s, a, hp , double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
     return env_name, env, agent, score_scope, solved_score
 
 if  __name__ == '__main__':
@@ -169,10 +161,12 @@ if  __name__ == '__main__':
     np.random.seed(SEED)
     torch.manual_seed(SEED)
 
-    # env_name, env, agent, score_scope, solved_score = solve_breakout()
-    env_name, env, agent, score_scope, solved_score = solve_pong()
-    # env_name, env, agent, score_scope, solved_score = solve_lunar_lander()
     # env_name, env, agent, score_scope, solved_score = solve_cart_pole()
+    env_name, env, agent, score_scope, solved_score = solve_pendulum()
+    # env_name, env, agent, score_scope, solved_score = solve_lunar_lander()
+    # env_name, env, agent, score_scope, solved_score = solve_bipedal_walker()
+    # env_name, env, agent, score_scope, solved_score = solve_pong()
+    # env_name, env, agent, score_scope, solved_score = solve_breakout()
 
     # Train
     os.makedirs("Training", exist_ok=True)

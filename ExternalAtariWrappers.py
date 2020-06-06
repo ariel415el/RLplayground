@@ -224,12 +224,6 @@ class LazyFrames(object):
     #     return self._force()[i]
 
 
-def make_atari(env_id):
-    env = gym.make(env_id)
-    env = NoopResetEnv(env, noop_max=30)
-    env = MaxAndSkipEnv(env, skip=4)
-    return env
-
 
 def wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=False, scale=False):
     """Configure environment for DeepMind-style Atari.
@@ -248,7 +242,25 @@ def wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=False, 
     return env
 
 
-def get_final_env(env_name, frame_stack=True):
-    env = make_atari(env_name)
-    env = wrap_deepmind(env, frame_stack=frame_stack)
+def get_final_env(env_name, episode_life=True, clip_rewards=True, frame_stack=False, scale=False, no_op_reset=True):
+    env = gym.make(env_name)
+    if no_op_reset:
+        env = NoopResetEnv(env, noop_max=30)
+    if "Deterministic" in env_name:
+        pass
+    elif "NoFrameskip" in  env_name:
+        env = MaxAndSkipEnv(env, skip=4)
+    else:
+        raise Exception("Atari Enviroment should be deterministic")
+    env = WarpFrame(env)
+    if 'FIRE' in env.unwrapped.get_action_meanings():
+        env = FireResetEnv(env)
+    if episode_life:
+        env = EpisodicLifeEnv(env)
+    if scale:
+        env = ScaledFloatFrame(env)  # Disables memory optimization
+    if clip_rewards:
+        env = ClipRewardEnv(env)
+    if frame_stack:
+        env = FrameStack(env, 4)
     return env

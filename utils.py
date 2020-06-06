@@ -6,7 +6,7 @@ import random
 
 class ListMemory:
     # Credit to Adrien Lucas Ecoffet
-    def __init__(self, max_size,storage_sizes_and_types):
+    def __init__(self, max_size):
         self.mem = [None]*max_size
         self.max_size = max_size
         self.next_index = 0

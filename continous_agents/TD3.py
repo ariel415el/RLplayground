@@ -4,7 +4,7 @@
 import os
 from dnn_models import *
 import copy
-from utils import update_net, FastMemory
+from utils import update_net, ListMemory
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)
@@ -62,16 +62,15 @@ class TD3_paper_critic(nn.Module):
 
 
 class TD3(object):
-    def __init__(self, state_dim, bounderies, max_episodes, train = True, action_space = None):
+    def __init__(self, state_dim, action_space, bounderies, hp, train=True):
         self.action_space = action_space
         self.state_dim = state_dim
         self.bounderies = torch.tensor(bounderies).float().to(device)
         self.action_dim = len(bounderies[0])
-        self.max_episodes = max_episodes
         self.train = train
         self.steps=0
 
-        self.hyper_parameters = {
+        self.hp = {
             'tau':0.005,
             'actor_lr':0.0003,
             'critic_lr':0.0003,
@@ -85,21 +84,23 @@ class TD3(object):
             'noise_clip':0.5,
             'exploration_noise_sigma':0.1
         }
-        storage_sizes_and_types = [self.state_dim, self.action_dim, self.state_dim, 1, (1, bool)]
-        self.playback_memory = FastMemory(self.hyper_parameters['max_playback'], storage_sizes_and_types)
+        self.hp.update(hp)
+        # storage_sizes_and_types = [self.state_dim, self.action_dim, self.state_dim, 1, (1, bool)]
+        # self.playback_memory = FastMemory(self.hp['max_playback'], storage_sizes_and_types)
+        self.playback_memory = ListMemory(self.hp['max_playback'])
 
         self.trainable_actor = TD3_paper_actor(self.state_dim, self.action_dim).to(device)
         self.target_actor = copy.deepcopy(self.trainable_actor)
-        self.actor_optimizer = torch.optim.Adam(self.trainable_actor.parameters(), lr=self.hyper_parameters['actor_lr'])
+        self.actor_optimizer = torch.optim.Adam(self.trainable_actor.parameters(), lr=self.hp['actor_lr'])
 
         self.trainable_critics = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
         self.target_critics = copy.deepcopy(self.trainable_critics)
-        self.critics_optimizer = torch.optim.Adam(self.trainable_critics.parameters(), lr=self.hyper_parameters['critic_lr'])
+        self.critics_optimizer = torch.optim.Adam(self.trainable_critics.parameters(), lr=self.hp['critic_lr'])
 
 
         self.name = "TD3_lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]"%(
-            self.hyper_parameters['actor_lr'], self.hyper_parameters['batch_size'],
-            self.hyper_parameters['tau'], self.hyper_parameters['policy_update_freq'])
+            self.hp['actor_lr'], self.hp['batch_size'],
+            self.hp['tau'], self.hp['policy_update_freq'])
 
     def process_new_state(self, state):
         self.trainable_actor.eval()
@@ -108,11 +109,11 @@ class TD3(object):
             action = self.trainable_actor(state_torch).cpu().data.numpy()[0]
         self.trainable_actor.train()
         if self.train:
-            if self.steps < self.hyper_parameters['exploration_steps']:
+            if self.steps < self.hp['exploration_steps']:
                 # action = np.random.uniform(-1, 1,size=action.shape) # TODO: use self.bounderies
                 action = self.action_space.sample()
             else:
-                action += np.random.normal(0, self.hyper_parameters['exploration_noise_sigma'], size=action.shape)
+                action += np.random.normal(0, self.hp['exploration_noise_sigma'], size=action.shape)
 
         self.last_state = state
         self.last_action = action
@@ -124,40 +125,47 @@ class TD3(object):
         self.steps += 1
         if self.train:
             self.playback_memory.add_sample((self.last_state, self.last_action, new_state, reward, is_finale_state))
-            if self.steps > self.hyper_parameters['exploration_steps']:
+            if self.steps > self.hp['exploration_steps']:
                 self._learn()
-                if self.steps % self.hyper_parameters['policy_update_freq'] == 0:
-                    update_net(self.target_actor, self.trainable_actor, self.hyper_parameters['tau'])
-                    update_net(self.target_critics, self.trainable_critics, self.hyper_parameters['tau'])
+                if self.steps % self.hp['policy_update_freq'] == 0:
+                    update_net(self.target_actor, self.trainable_actor, self.hp['tau'])
+                    update_net(self.target_critics, self.trainable_critics, self.hp['tau'])
 
     def _learn(self):
-        if len(self.playback_memory) > self.hyper_parameters['min_memory_for_learning']:
-            states, actions, next_states, rewards, is_finale_states = self.playback_memory.sample(self.hyper_parameters['batch_size'], device)
+        if len(self.playback_memory) > self.hp['min_memory_for_learning']:
+            states, actions, next_states, rewards, is_finale_states = self.playback_memory.sample(self.hp['batch_size'], device)
             # update critics
+            states = states.float()
+            next_states = next_states.float()
             with torch.no_grad():
                 next_action = self.target_actor(next_states)
-                # noise = torch.empty(next_action.shape).normal_(mean=0,std=self.hyper_parameters['policy_noise_sigma']).clamp(-self.hyper_parameters['noise_clip'], self.hyper_parameters['noise_clip']).to(device)
-                noise = (torch.randn_like(actions) * self.hyper_parameters['policy_noise_sigma']).clamp(-self.hyper_parameters['noise_clip'], self.hyper_parameters['noise_clip']).to(device)
+                # noise = torch.empty(next_action.shape).normal_(mean=0,std=self.hp['policy_noise_sigma']).clamp(-self.hp['noise_clip'], self.hp['noise_clip']).to(device)
+                noise = (torch.randn_like(actions) * self.hp['policy_noise_sigma']).clamp(-self.hp['noise_clip'], self.hp['noise_clip']).to(device)
                 next_noisy_action = next_action + noise
                 next_noisy_action = torch.max(torch.min(next_noisy_action, self.bounderies[1]), self.bounderies[0])
-                next_target_q_values_1, next_target_q_values_2 = self.target_critics(next_states, next_noisy_action.float())
+                next_target_q_values_1, next_target_q_values_2 = self.target_critics(next_states, next_noisy_action)
                 next_target_q_values = torch.min(next_target_q_values_1.view(-1) , next_target_q_values_2.view(-1))
-                target_values = rewards.view(-1)
-                mask = ~is_finale_states.view(-1)
-                target_values[mask] += self.hyper_parameters['discount']*next_target_q_values[mask]
+                # target_values = rewards.view(-1)
+                # mask = ~is_finale_states.view(-1)
+                # target_values[mask] += self.hp['discount']*next_target_q_values[mask]
+                not_final = (1-is_finale_states.float())
+                target_values = rewards + self.hp['discount']*next_target_q_values*not_final
+
 
             # update critics
             self.trainable_critics.train()
             self.critics_optimizer.zero_grad()
             q_values_1, q_values_2 = self.trainable_critics(states, actions)
-            critic_loss = torch.nn.functional.mse_loss(q_values_1.view(-1), target_values) + \
-                          torch.nn.functional.mse_loss(q_values_2.view(-1), target_values)
+            # critic_loss = torch.nn.functional.mse_loss(q_values_1.view(-1), target_values) + \
+            #               torch.nn.functional.mse_loss(q_values_2.view(-1), target_values)
+            critic_loss = ( (q_values_1.view(-1) - target_values).pow(2) + (q_values_2.view(-1) - target_values).pow(2) ).mean()
+
             critic_loss.backward()
             self.critics_optimizer.step()
 
 
             # update  policy only each few steps (delayed update)
-            if self.steps % self.hyper_parameters['policy_update_freq'] == 0:
+            if self.steps % self.hp['policy_update_freq'] == 0:
                 # update actor
                 self.actor_optimizer.zero_grad()
                 actor_obj = -self.trainable_critics.Q1(states, self.trainable_actor(states)).mean() # paper suggest using critic_1 ?
