@@ -105,14 +105,14 @@ def test(env,  actor, test_episodes=1, render=False):
 def solve_pendulum():
     env_name="Pendulum-v0";s=3; score_scope=100; solved_score=-200
     env = gym.make(env_name)
-    hp = {'actor_lr':0.01, 'critic_lr':0.01, "exploration_steps":5000, "min_memory_for_learning":10000, "batch_size": 128}
+    hp = {'actor_lr':0.00025, 'critic_lr':0.0002, "exploration_steps":5000, "min_memory_for_learning":10000, "batch_size": 256}
     agent = TD3.TD3(s, env.action_space, [env.action_space.low, env.action_space.high], hp, train=True)
     return env_name, env, agent, score_scope, solved_score
 
 def solve_bipedal_walker():
     env_name="BipedalWalker-v3"; s=24; score_scope=100; solved_score=500
     env = gym.make(env_name)
-    # hp = {'lr':0.001, "min_playback":0, "max_playback":1000000, "update_freq": 100, 'hiden_layer_size':32, 'epsilon_decay':500}
+    hp = {'actor_lr':0.00025, 'critic_lr':0.00025}#, "exploration_steps":5000, "min_memory_for_learning":10000, "batch_size": 256}
     agent = TD3.TD3(s, env.action_space, [env.action_space.low, env.action_space.high], hp, train=True)
     return env_name, env, agent, score_scope, solved_score
 
@@ -162,9 +162,9 @@ if  __name__ == '__main__':
     torch.manual_seed(SEED)
 
     # env_name, env, agent, score_scope, solved_score = solve_cart_pole()
-    env_name, env, agent, score_scope, solved_score = solve_pendulum()
+    # env_name, env, agent, score_scope, solved_score = solve_pendulum()
     # env_name, env, agent, score_scope, solved_score = solve_lunar_lander()
-    # env_name, env, agent, score_scope, solved_score = solve_bipedal_walker()
+    env_name, env, agent, score_scope, solved_score = solve_bipedal_walker()
     # env_name, env, agent, score_scope, solved_score = solve_pong()
     # env_name, env, agent, score_scope, solved_score = solve_breakout()
 
