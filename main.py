@@ -10,7 +10,7 @@ import torch
 from ExternalAtariWrappers import get_final_env
 
 MAX_TRAIN_EPISODES = 1000000
-TEST_EPISODES=3
+TEST_EPISODES=1
 CHECKPOINT_STEPS=0.2
 
 def run_episode(env, agent):
@@ -29,13 +29,13 @@ def run_episode(env, agent):
     return episode_rewards
 
 
-def train(env, agent, score_scope, solved_score, log_frequency=1, test_frequency=100):
+def train(env, agent, score_scope, solved_score, log_frequency=20, test_frequency=1000):
     next_progress_checkpoint = 1
     next_test_progress_checkpoint = 1
 
     # Define loggers
-    # logger = train_logger.plt_logger(score_scope, log_frequency,  os.path.join(TRAIN_DIR,  agent.name))
-    logger = train_logger.logger(score_scope, log_frequency)
+    logger = train_logger.plt_logger(score_scope, log_frequency,  os.path.join(TRAIN_DIR,  agent.name))
+    # logger = train_logger.logger(score_scope, log_frequency)
     # logger.log_test(test(env, agent, TEST_EPISODES))
     for i in range(MAX_TRAIN_EPISODES):
 
@@ -76,6 +76,7 @@ def test(env,  actor, test_episodes=1, render=False, delay=0.0):
             action = actor.process_new_state(state)
             state, reward, done, info = env.step(action)
             all_rewards += [reward]
+
         episodes_total_rewards += [np.sum(all_rewards)]
     score = np.mean(episodes_total_rewards)
     env.close()
@@ -134,10 +135,9 @@ def solve_breakout():
     a=4
     score_scope=100
     solved_score=20
-    hp = {'lr':0.000001, "min_playback":50000, "max_playback":1000000, "update_freq": 10000, 'learn_freq':4, "normalize_state":True, 'epsilon_decay':1000000}
-    hp = {'lr':0.000001, "min_playback":32, "max_playback":200000, "update_freq": 10000, 'learn_freq':4, "normalize_state":True, 'epsilon_decay':1000000}
+    hp = {'lr':0.000001, "min_playback":50000, "max_playback":1000000, "update_freq": 10000, 'learn_freq':4, "normalize_state":True, 'epsilon_decay':5000000}
     agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
-    env = get_final_env(env_name, frame_stack=True, episode_life=False)
+    env = get_final_env(env_name, frame_stack=True, episode_life=True)
 
     return env_name, env, agent, score_scope, solved_score
 

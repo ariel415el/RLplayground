@@ -252,11 +252,11 @@ def get_final_env(env_name, episode_life=True, clip_rewards=True, frame_stack=Fa
         env = MaxAndSkipEnv(env, skip=4)
     else:
         raise Exception("Atari Enviroment should be deterministic")
-    env = WarpFrame(env)
-    if 'FIRE' in env.unwrapped.get_action_meanings():
-        env = FireResetEnv(env)
     if episode_life:
         env = EpisodicLifeEnv(env)
+    if 'FIRE' in env.unwrapped.get_action_meanings():
+        env = FireResetEnv(env)
+    env = WarpFrame(env)
     if scale:
         env = ScaledFloatFrame(env)  # Disables memory optimization
     if clip_rewards:
