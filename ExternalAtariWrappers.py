@@ -1,5 +1,5 @@
 #####################################################################
-# Taken entirely from https://github.com/higgsfield/RL-Adventure.git
+# Forked from https://github.com/higgsfield/RL-Adventure.git
 #####################################################################
 import numpy as np
 from collections import deque

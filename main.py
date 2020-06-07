@@ -10,44 +10,49 @@ import torch
 from ExternalAtariWrappers import get_final_env
 
 MAX_TRAIN_EPISODES = 1000000
+TEST_EPISODES=3
+CHECKPOINT_STEPS=0.2
+
+def run_episode(env, agent):
+    episode_rewards = []
+    done = False
+    state = env.reset()
+    while not done:
+        action = agent.process_new_state(state)
+        state, reward, done, info = env.step(action)
+        is_terminal = done
+        if hasattr(env, '_max_episode_steps'):
+            is_terminal = done and len(episode_rewards) < env._max_episode_steps
+        agent.process_output(state, reward, is_terminal)
+        episode_rewards += [reward]
+
+    return episode_rewards
 
 
-def train(env, actor, score_scope, solved_score, log_frequency=20, test_frequency=100):
+def train(env, agent, score_scope, solved_score, log_frequency=1, test_frequency=100):
     next_progress_checkpoint = 1
     next_test_progress_checkpoint = 1
 
     # Define loggers
-    # logger = train_logger.TB_logger(score_scope, SummaryWriter(log_dir=os.path.join(TRAIN_DIR, "tensorboard_outputs",  actor.name)))
-    logger = train_logger.plt_logger(score_scope, log_frequency,  os.path.join(TRAIN_DIR,  actor.name))
-    # logger = train_logger.logger(score_scope, log_frequency)
-    # logger.log_test(test(env, actor, 3))
+    # logger = train_logger.plt_logger(score_scope, log_frequency,  os.path.join(TRAIN_DIR,  agent.name))
+    logger = train_logger.logger(score_scope, log_frequency)
+    # logger.log_test(test(env, agent, TEST_EPISODES))
     for i in range(MAX_TRAIN_EPISODES):
-        done = False
-        state = env.reset()
-        episode_rewards = []
-        # Run a single episode
-        while not done:
-            # env.render()
-            action = actor.process_new_state(state)
-            state, reward, done, info = env.step(action)
-            # define final test
-            is_terminal = done
-            # is_terminal = done and len(episode_rewards) < env._max_episode_steps
-            actor.process_output(state, reward, is_terminal)
-            episode_rewards += [reward]
+
+        episode_rewards = run_episode(env, agent)
 
         if (i+1) % test_frequency == 0:
-            last_test_score = test(env, actor, 3)
+            last_test_score = test(env, agent, TEST_EPISODES)
             logger.log_test(last_test_score)
-            if last_test_score >= next_test_progress_checkpoint * 0.2 * solved_score:
-                actor.save_state(os.path.join(TRAIN_DIR, actor.name + "_test_%.5f_weights.pt" % last_test_score))
+            if last_test_score >= next_test_progress_checkpoint * CHECKPOINT_STEPS * solved_score:
+                agent.save_state(os.path.join(TRAIN_DIR, agent.name + "_test_%.5f_weights.pt" % last_test_score))
                 next_test_progress_checkpoint += 1
 
         logger.update_train_episode(episode_rewards)
         if (i+1) % log_frequency == 0:
-            last_k_scores = logger.output_stats(actor.get_stats())
-            if last_k_scores >= next_progress_checkpoint*0.2*solved_score:
-                actor.save_state(os.path.join(TRAIN_DIR, actor.name, actor.name + "_%.5f_weights.pt"%last_k_scores))
+            last_k_scores = logger.output_stats(agent.get_stats())
+            if last_k_scores >= next_progress_checkpoint*CHECKPOINT_STEPS*solved_score:
+                agent.save_state(os.path.join(TRAIN_DIR, agent.name, agent.name + "_%.5f_weights.pt"%last_k_scores))
                 next_progress_checkpoint += 1
 
             if last_k_scores > solved_score:
@@ -76,30 +81,6 @@ def test(env,  actor, test_episodes=1, render=False, delay=0.0):
     env.close()
     actor.train=True
     return score
-
-
-# def get_env(seed):
-#     ##### gym discrete envs #####
-#     env_name="CartPole-v1"; s=4; a=2;score_scope=100; solved_score=195
-#     # env_name="MountainCar-v0"; s=2; a=3;score_scope=100; solved_score=-110
-#     # env_name="LunarLander-v2"; s=8; a=4; score_scope=20; solved_score=200
-#     # env_name="LunarLanderContinuous-v2";s=8; score_scope=100; solved_score=200
-#     # env_name="Pendulum-v0";s=3; score_scope=100; solved_score=-200
-#     # env_name="BipedalWalker-v3"; s=24; score_scope=100; solved_score=500
-#     # env_name="BipedalWalkerHardcore-v3"; s=24; score_scope=100; solved_score=300
-#
-
-#
-# def get_agent(env, s, a):
-#     agent = DQN_agent.DQN_agent(s, a, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
-#     # agent = DiscretePPO.PPO_descrete_action(s, a)
-#     # agent = vanila_policy_gradient_agent(s, a)
-#     # agent = actor_critic_agent(s, a, train=True, critic_objective="Monte-Carlo")
-#     # agent = actor_critic_agent(s, bounderies, train=True, critic_objective="Monte-Carlo")
-#     # agent = DDPG.DDPG(s, bounderies)
-#     # agent = TD3.TD3(s, [env.action_space.low, env.action_space.high], train=True, action_space=env.action_space)
-#     # agent = PPO.PPO(s, bounderies)
-#     return agent
 
 
 def solve_cart_pole():

@@ -161,8 +161,8 @@ class DQN_agent(object):
             # self.trainable_model = new_DuelingDQN(self.state_dim[0]).to(device)
 
 
+        storage_sizes_and_types = [(self.state_dim, state_dtype), (1, np.uint8), (self.state_dim, state_dtype), (1, np.float32), (1, bool)]
         if self.prioritized_memory:
-            storage_sizes_and_types = [(self.state_dim, state_dtype), (1, np.uint8), (self.state_dim, state_dtype), (1, np.float32), (1, bool)]
             self.playback_memory = PrioritizedMemory(self.hp['max_playback'], storage_sizes_and_types)
         else:
             self.playback_memory = ListMemory(self.hp['max_playback'])
