@@ -5,6 +5,7 @@ import random
 import gym
 from discrete_agents import *
 from continous_agents import *
+from hybrid_agents import GenericActorCritic
 import train_logger
 import torch
 from ExternalAtariWrappers import get_final_env
@@ -17,10 +18,15 @@ def run_episode(env, agent):
     episode_rewards = []
     done = False
     state = env.reset()
+    # lives = env.unwrapped.ale.lives()
     while not done:
         action = agent.process_new_state(state)
         state, reward, done, info = env.step(action)
         is_terminal = done
+        # cur_life = env.unwrapped.ale.lives()
+        # if cur_life < lives:
+        #     is_terminal = True
+        #     lives = cur_life
         if hasattr(env, '_max_episode_steps'):
             is_terminal = done and len(episode_rewards) < env._max_episode_steps
         agent.process_output(state, reward, is_terminal)
@@ -29,7 +35,7 @@ def run_episode(env, agent):
     return episode_rewards
 
 
-def train(env, agent, score_scope, solved_score, log_frequency=20, test_frequency=1000):
+def train(env, agent, score_scope, solved_score, log_frequency=1, test_frequency=1000):
     next_progress_checkpoint = 1
     next_test_progress_checkpoint = 1
 
@@ -87,16 +93,32 @@ def test(env,  actor, test_episodes=1, render=False, delay=0.0):
 def solve_cart_pole():
     env_name="CartPole-v1"; s=4; a=2;score_scope=100; solved_score=195
     env = gym.make(env_name)
-    hp = {'lr':0.001, "min_playback":0, "max_playback":1000000, "update_freq": 100, 'hiden_layer_size':32, 'epsilon_decay':500}
-    agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
+    ### With DQN
+    # hp = {'lr':0.001, "min_playback":0, "max_playback":1000000, "update_freq": 100, 'hiden_layer_size':32, 'epsilon_decay':500}
+    # agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
+
+    # # With PPO
+    # hp = {'lr':0.001, 'epoch_size':400, 'epochs':4}
+    # agent = DiscretePPO.PPO_descrete_action(s, a, hp)
+
+    # With Vanila Actor-Critic
+    hp = {'lr':0.003, 'batch_size':150}
+    agent = GenericActorCritic.ActorCritic(s,a,hp)
     return env_name, env, agent, score_scope, solved_score
 
 
 def solve_pendulum():
     env_name="Pendulum-v0";s=3; score_scope=100; solved_score=-200
     env = gym.make(env_name)
-    hp = {'actor_lr':0.00025, 'critic_lr':0.0002, "exploration_steps":5000, "min_memory_for_learning":10000, "batch_size": 256}
-    agent = TD3.TD3(s, env.action_space, [env.action_space.low, env.action_space.high], hp, train=True)
+    a = [env.action_space.low, env.action_space.high]
+
+    # # With TD3
+    # hp = {'actor_lr':0.00025, 'critic_lr':0.0002, "exploration_steps":5000, "min_memory_for_learning":10000, "batch_size": 256}
+    # agent = TD3.TD3(s, env.action_space, a, hp, train=True)
+
+    # With Vanila Actor-Critic
+    hp = {'lr':0.0003, 'batch_size':150}
+    agent = GenericActorCritic.ActorCritic(s, a,hp)
     return env_name, env, agent, score_scope, solved_score
 
 
@@ -131,28 +153,30 @@ def solve_pong():
 
 def solve_breakout():
     env_name="BreakoutNoFrameskip-v4"
+    env_name="BreakoutDeterministic-v4"
     s=(4,84,84)
     a=4
     score_scope=100
     solved_score=20
-    hp = {'lr':0.000001, "min_playback":50000, "max_playback":1000000, "update_freq": 10000, 'learn_freq':4, "normalize_state":True, 'epsilon_decay':5000000}
+    hp = {'lr':0.00001, "min_playback":50000, "max_playback":1000000, "update_freq": 10000, 'learn_freq':4, "normalize_state":True, 'epsilon_decay':5000000}
+    hp = {'lr':0.00001, "min_playback":32, "max_playback":1000000, "update_freq": 10000, 'learn_freq':4, "normalize_state":True, 'epsilon_decay':5000000}
     agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
-    env = get_final_env(env_name, frame_stack=True, episode_life=True)
+    env = get_final_env(env_name, frame_stack=True, episode_life=False)
 
     return env_name, env, agent, score_scope, solved_score
 
 if  __name__ == '__main__':
-    SEED=0
+    SEED=2
     random.seed(SEED)
     np.random.seed(SEED)
     torch.manual_seed(SEED)
 
-    # env_name, env, agent, score_scope, solved_score = solve_cart_pole()
+    env_name, env, agent, score_scope, solved_score = solve_cart_pole()
     # env_name, env, agent, score_scope, solved_score = solve_pendulum()
     # env_name, env, agent, score_scope, solved_score = solve_lunar_lander()
     # env_name, env, agent, score_scope, solved_score = solve_bipedal_walker()
     # env_name, env, agent, score_scope, solved_score = solve_pong()
-    env_name, env, agent, score_scope, solved_score = solve_breakout()
+    # env_name, env, agent, score_scope, solved_score = solve_breakout()
 
     # Train
     os.makedirs("Training", exist_ok=True)

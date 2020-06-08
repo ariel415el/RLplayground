@@ -54,7 +54,7 @@ class new_DuelingDQN(nn.Module):
         return q_value
 
 
-class MLP(nn.Module):
+class LinearClassifier(nn.Module):
     def __init__(self, feature_extractor, num_outputs, hidden_layer_size):
         super(MLP, self).__init__()
         self.feature_extractor = feature_extractor
@@ -143,26 +143,25 @@ class DQN_agent(object):
             self.hp.update(hp)
 
         self.action_counter = 0
-        self.completed_episodes = 0
         self.gs_num=0
 
-        if type(self.state_dim) == tuple:
-            feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
-            state_dtype = np.uint8
-        else:
-            feature_extractor = LinearFeatureExtracor(self.state_dim, 64)
-            state_dtype = np.float32
-        if self.dueling_dqn:
-            self.trainable_model = DuelingDQN(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
-        elif self.noisy_MLP:
-            self.trainable_model = NoisyMLP(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
-        else:
-            self.trainable_model = MLP(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
-            # self.trainable_model = new_DuelingDQN(self.state_dim[0]).to(device)
+        # if type(self.state_dim) == tuple:
+        #     feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
+        #     state_dtype = np.uint8
+        # else:
+        #     feature_extractor = LinearFeatureExtracor(self.state_dim, 64)
+        #     state_dtype = np.float32
+        # if self.dueling_dqn:
+        #     self.trainable_model = DuelingDQN(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
+        # elif self.noisy_MLP:
+        #     self.trainable_model = NoisyMLP(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
+        # else:
+        #     # self.trainable_model = LinearClassifier(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
+        self.trainable_model = new_DuelingDQN(self.state_dim[0]).to(device)
 
 
-        storage_sizes_and_types = [(self.state_dim, state_dtype), (1, np.uint8), (self.state_dim, state_dtype), (1, np.float32), (1, bool)]
         if self.prioritized_memory:
+            storage_sizes_and_types = [(self.state_dim, state_dtype), (1, np.uint8), (self.state_dim, state_dtype), (1, np.float32), (1, bool)]
             self.playback_memory = PrioritizedMemory(self.hp['max_playback'], storage_sizes_and_types)
         else:
             self.playback_memory = ListMemory(self.hp['max_playback'])

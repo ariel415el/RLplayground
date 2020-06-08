@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import torch.distributions as D
 
 class NoisyLinear(nn.Module):
     # implements https://arxiv.org/abs/1706.10295
@@ -79,49 +80,79 @@ class ConvNetFeatureExtracor(nn.Module):
         x = x.view(-1, self.features_space)
         return x
 
-class MLP(torch.nn.Module):
-    def __init__(self, input_dim, output_dim, hidden_layer_sizes):
-        super(MLP, self).__init__()
-        layers = [torch.nn.Linear(input_dim, hidden_layer_sizes[0]), torch.nn.ReLU()]
+# class MLP(torch.nn.Module):
+#     def __init__(self, input_dim, output_dim, hidden_layer_sizes):
+#         super(MLP, self).__init__()
+#         layers = [torch.nn.Linear(input_dim, hidden_layer_sizes[0]), torch.nn.ReLU()]
+#
+#         for i in range(1, len(hidden_layer_sizes)):
+#             layers += [torch.nn.Linear(hidden_layer_sizes[i - 1], hidden_layer_sizes[i]), torch.nn.ReLU()]
+#
+#         layers += [torch.nn.Linear(hidden_layer_sizes[-1], output_dim)]
+#
+#         self.model = torch.nn.Sequential(*layers)
+#
+#     def forward(self, x):
+#         x = self.model(x)
+#         return x
+#
+# class MLP_softmax(MLP):
+#     def __init__(self, input_dim, output_dim, hidden_layer_sizes):
+#         MLP.__init__(self, input_dim, output_dim, hidden_layer_sizes)
+#
+#     def forward(self, x):
+#         x = super().forward(x)
+#         x = torch.nn.functional.softmax(x, dim=1)
+#         return x
 
-        for i in range(1, len(hidden_layer_sizes)):
-            layers += [torch.nn.Linear(hidden_layer_sizes[i - 1], hidden_layer_sizes[i]), torch.nn.ReLU()]
-
-        layers += [torch.nn.Linear(hidden_layer_sizes[-1], output_dim)]
-
-        self.model = torch.nn.Sequential(*layers)
-
-    def forward(self, x):
-        x = self.model(x)
-        return x
-
-class MLP_softmax(MLP):
-    def __init__(self, input_dim, output_dim, hidden_layer_sizes):
-        MLP.__init__(self, input_dim, output_dim, hidden_layer_sizes)
-
-    def forward(self, x):
-        x = super().forward(x)
-        x = torch.nn.functional.softmax(x, dim=1)
-        return x
-
-
-class ContinousActorCritic(torch.nn.Module):
-    def __init__(self, input_dim, output_dim, hidden_dims):
-        super(ContinousActorCritic, self).__init__()
-        layers = [torch.nn.Linear(input_dim, hidden_dims[0]), torch.nn.ReLU()]
-        for i in range(1, len(hidden_dims)):
-            layers += [torch.nn.Linear(hidden_dims[i - 1], hidden_dims[i]), torch.nn.ReLU()]
-        self.features = torch.nn.Sequential(*layers)
-
-        self.mu_layer = torch.nn.Linear(hidden_dims[-1], output_dim)
-        self.sigma_layer = torch.nn.Linear(hidden_dims[-1], output_dim)
-        self.value_layer = torch.nn.Linear(hidden_dims[-1], 1)
+class DiscreteActorCriticModel(nn.Module):
+    def __init__(self, feature_extractor, action_dim, hidden_layer_size):
+        super(DiscreteActorCriticModel, self).__init__()
+        # action mean range -1 to 1
+        self.features = feature_extractor
+        self.actor =  nn.Sequential(
+                nn.Linear(self.features.features_space, hidden_layer_size),
+                nn.Tanh(),
+                nn.Linear(hidden_layer_size, action_dim),
+                nn.Softmax(dim=1)
+                )
+        # critic
+        self.critic = nn.Sequential(
+                nn.Linear(self.features.features_space, hidden_layer_size),
+                nn.Tanh(),
+                nn.Linear(hidden_layer_size, 1)
+                )
 
     def forward(self, x):
         features = self.features(x)
+        probs = self.actor(features)
+        value = self.critic(features)
+        dist = D.Categorical(probs)
+        return dist, value
 
-        mu = torch.nn.functional.tanh(self.mu_layer(features))
-        sigma = torch.nn.functional.softplus(self.sigma_layer(features))
-        value = self.value_layer(features)
+class ContinousActorCriticModdel(torch.nn.Module):
+    def __init__(self, feature_extractor, action_dim, hidden_layer_size):
+        super(ContinousActorCriticModdel, self).__init__()
+        # action mean range -1 to 1
+        self.action_dim = action_dim
+        self.features = feature_extractor
+        self.actor =  nn.Sequential(
+                nn.Linear(self.features.features_space, hidden_layer_size),
+                nn.Tanh(),
+                nn.Linear(hidden_layer_size, 2*action_dim),
+                )
+        # critic
+        self.critic = nn.Sequential(
+                nn.Linear(self.features.features_space, hidden_layer_size),
+                nn.Tanh(),
+                nn.Linear(hidden_layer_size, 1)
+                )
 
-        return mu, sigma, value
+    def forward(self, x):
+        features = self.features(x)
+        mu_sigma = self.actor(features)
+        value = self.critic(features)
+        mu = torch.tanh(mu_sigma[:, self.action_dim:])
+        sigma = torch.nn.functional.softplus(mu_sigma[:, :self.action_dim])
+        dist = D.multivariate_normal.MultivariateNormal(mu, torch.diag(sigma[0]))
+        return dist, value

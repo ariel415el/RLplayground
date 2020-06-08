@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import os
-from dnn_models import MLP_softmax
+# from dnn_models import MLP_softmax
 from torch.distributions import Categorical
 
 def get_action_vec(action, dim):
@@ -27,7 +27,7 @@ class vanila_policy_gradient_agent(object):
         self.currently_building_episode = []
         self.device = torch.device("cpu")
         layers = [32,32]
-        self.trainable_model = MLP_softmax(self.state_dim, self.action_dim, layers)
+        # self.trainable_model = MLP_softmax(self.state_dim, self.action_dim, layers)
 
         self.optimizer = torch.optim.Adam(self.trainable_model.parameters(), lr=self.lr)
         self.optimizer.zero_grad()

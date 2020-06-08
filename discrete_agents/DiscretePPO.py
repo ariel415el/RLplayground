@@ -4,9 +4,9 @@
 import os
 from dnn_models import *
 import torch.distributions as D
-from utils import FastMemory, measure_time
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 import copy
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 
 class Memory:
     def __init__(self):
@@ -101,20 +101,24 @@ class Descrete_CNN_PPO_actor_critic(nn.Module):
 
 
 class PPO_descrete_action(object):
-    def __init__(self, state_dim, action_dim, train=True):
+    def __init__(self, state_dim, action_dim, hp, train=True):
         self.name = 'PPO'
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.train= train
-        self.batch_size = 400
-        self.discount = 0.99
-
+        self.hp = {
+            'epoch_size':4000,
+            'batch_size':4000,
+            'discount':0.99,
+            'lr':0.01,
+            'lr_decay':0.95,
+            'epsiolon_clip':0.2,
+            'epochs':32,
+        }
+        self.hp.update(hp)
+        self.hp['batch_size'] = min(self.hp['epoch_size'], self.hp['batch_size'])
         self.samples = Memory()
-        self.steps_per_iteration=32
-        self.epsilon_clip = 0.2
 
-        self.lr = 0.01
-        self.lr_decay = 0.95
         if type(self.state_dim) == tuple:
             feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
             self.policy = Descrete_CNN_PPO_actor_critic(feature_extractor, self.action_dim, 512).to(device)
@@ -125,13 +129,13 @@ class PPO_descrete_action(object):
         with torch.no_grad():
             self.policy_old = copy.deepcopy(self.policy)
 
-        self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr)
+        self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.hp['lr'])
         self.optimizer.zero_grad()
         self.MseLoss = nn.MSELoss()
         self.learn_steps = 0
         self.completed_episodes = 0
 
-        self.name += "_lr[%.4f]_b[%d]"%(self.lr, self.batch_size)
+        self.name += "_lr[%.4f]_b[%d]"%(self.hp['lr'], self.hp['batch_size'])
 
     def process_new_state(self, state):
         state = torch.from_numpy(np.array(state)).to(device).float()
@@ -150,14 +154,14 @@ class PPO_descrete_action(object):
     def process_output(self, new_state, reward, is_finale_state):
         self.samples.add_sample(self.last_state , self.last_action, self.last_action_log_prob, reward, is_finale_state)
 
-        if len(self.samples) == self.batch_size:
+        if len(self.samples) == self.hp['epoch_size']:
             self._learn()
             self.samples.clear_memory()
             self.learn_steps += 1
 
             if (self.learn_steps+1) % 10 == 0:
                 for param_group in self.optimizer.param_groups:
-                    param_group['lr'] *= self.lr_decay
+                    param_group['lr'] *= self.hp['lr_decay']
 
     def _learn(self):
         old_states, old_actions, old_logprobs, raw_rewards, is_terminals = self.samples.get_as_tensors(device)
@@ -168,7 +172,7 @@ class PPO_descrete_action(object):
         for reward, is_terminal in zip(reversed(raw_rewards), reversed(is_terminals)):
             if is_terminal:
                 discounted_reward = 0
-            discounted_reward = reward + (self.discount * discounted_reward)
+            discounted_reward = reward + (self.hp['discount'] * discounted_reward)
             rewards.insert(0, discounted_reward)
 
         # Normalizing the rewards:
@@ -176,7 +180,7 @@ class PPO_descrete_action(object):
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
 
         # Optimize policy for K epochs:
-        for _ in range(self.steps_per_iteration):
+        for _ in range(self.hp['epochs']):
             # Evaluating old actions and values :
             probs, values = self.policy(old_states)
             dists = D.Categorical(probs)
@@ -190,7 +194,7 @@ class PPO_descrete_action(object):
             # Finding Surrogate Loss:
             advantages = rewards - state_values.detach()
             surr1 = ratios * advantages
-            surr2 = torch.clamp(ratios, 1 - self.epsilon_clip, 1 + self.epsilon_clip) * advantages
+            surr2 = torch.clamp(ratios, 1 - self.hp['epsiolon_clip'], 1 + self.hp['epsiolon_clip']) * advantages
             loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values.float(), rewards.float()) - 0.01 * dist_entropies
             # take gradient step
             self.optimizer.zero_grad()
