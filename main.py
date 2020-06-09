@@ -121,7 +121,7 @@ def solve_pendulum():
     # agent = GenericActorCritic.ActorCritic(s, a,hp)
 
     # With PPO
-    hp = {'lr':0.00001, 'epoch_size':1000, 'epochs':4, 'hidden_layer_size':32}
+    hp = {'lr':0.00025, 'epoch_size':5000, 'epochs':32, 'hidden_layer_size':32}
     agent = PPO.HybridPPO(s, a, hp)
 
     # # With TD3
@@ -143,6 +143,21 @@ def solve_lunar_lander():
     # With PPO
     hp = {'lr':0.005, 'epoch_size':4000, 'epochs':32, 'hidden_layer_size':64}
     agent = PPO.HybridPPO(s, a, hp)
+
+    return env_name, env, agent, score_scope, solved_score
+
+def solve_continous_lunar_lander():
+    env_name="LunarLanderContinuous-v2"; s=8; score_scope=100; solved_score=200
+    env = gym.make(env_name)
+    a = [env.action_space.low, env.action_space.high]
+
+    # With PPO
+    hp = {'lr':0.005, 'epoch_size':4000, 'epochs':32, 'hidden_layer_size':64}
+    agent = PPO.HybridPPO(s, a, hp)
+
+    # With TD3
+    hp = {'actor_lr':0.0003, 'critic_lr':0.00025, "exploration_steps":5000, "min_memory_for_learning":10000, "batch_size": 128}
+    agent = TD3.TD3(s, env.action_space, a, hp, train=True)
 
     return env_name, env, agent, score_scope, solved_score
 
@@ -169,7 +184,7 @@ def solve_pong():
 
 def solve_breakout():
     env_name="BreakoutNoFrameskip-v4"
-    env_name="BreakoutDeterministic-v4"
+    # env_name="BreakoutDeterministic-v4"
     s=(4,84,84)
     a=4
     score_scope=100
@@ -181,6 +196,24 @@ def solve_breakout():
 
     return env_name, env, agent, score_scope, solved_score
 
+def solve_seaquest():
+    env_name="SeaquestNoFrameskip-v4"
+    s=(1,84,84)
+    env = get_final_env(env_name, frame_stack=False, episode_life=True)
+    a=4
+    score_scope=100
+    solved_score=20
+
+    # With DQN
+    # hp = {'lr':0.00001, "min_playback":50000, "max_playback":1000000, "update_freq": 10000, 'learn_freq':4, "normalize_state":True, 'epsilon_decay':5000000}
+    # agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
+
+    # With actor-critic
+    hp = {'lr':0.0007, 'batch_size':4000}
+    agent = GenericActorCritic.ActorCritic(s, a, hp)
+
+    return env_name, env, agent, score_scope, solved_score
+
 if  __name__ == '__main__':
     SEED=2
     random.seed(SEED)
@@ -189,10 +222,12 @@ if  __name__ == '__main__':
 
     # env_name, env, agent, score_scope, solved_score = solve_cart_pole()
     # env_name, env, agent, score_scope, solved_score = solve_pendulum()
-    env_name, env, agent, score_scope, solved_score = solve_lunar_lander()
+    # env_name, env, agent, score_scope, solved_score = solve_lunar_lander()
+    # env_name, env, agent, score_scope, solved_score = solve_continous_lunar_lander()
     # env_name, env, agent, score_scope, solved_score = solve_bipedal_walker()
     # env_name, env, agent, score_scope, solved_score = solve_pong()
     # env_name, env, agent, score_scope, solved_score = solve_breakout()
+    env_name, env, agent, score_scope, solved_score = solve_seaquest()
 
     # Train
     os.makedirs("Training", exist_ok=True)
@@ -201,7 +236,7 @@ if  __name__ == '__main__':
 
     train(env, agent, score_scope, solved_score)
 
-    # Test
+    # # Test
     # render=True
     # if render:
     #     from pyglet.gl import *  # Fixes rendering issues of openAi gym with wrappers

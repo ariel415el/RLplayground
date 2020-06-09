@@ -72,7 +72,7 @@ class ActorCritic(object):
         self.last_state_value = value[0,0]
         self.last_action_log_prob = dist.log_prob(action)[0]
 
-        action = action.detach().numpy()[0]
+        action = action.detach().cpu().numpy()[0]
         return action
 
     def process_output(self, new_state, reward, is_finale_state):
@@ -101,10 +101,11 @@ class ActorCritic(object):
 
         # Normalizing the rewards:
         rewards = torch.tensor(rewards).to(device)
-        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
+        # rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
 
         # for _ in range(self.hp['epochs']):
         advantage = rewards.detach() - state_values.detach()
+        advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-5)
         actor_loss = -logprobs*advantage
         critic_loss = (0.5*(state_values - rewards).pow(2))
         # critic_loss = torch.nn.functional.smooth_l1_loss(state_values, rewards)

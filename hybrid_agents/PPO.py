@@ -70,9 +70,6 @@ class HybridPPO(object):
         else:
             self.policy = DiscreteActorCriticModel(feature_extractor, self.action_dim, self.hp['hidden_layer_size']).to(device)
 
-        with torch.no_grad():
-            self.policy_old = copy.deepcopy(self.policy)
-
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.hp['lr'])
         self.optimizer.zero_grad()
         self.MseLoss = nn.MSELoss()
@@ -83,7 +80,7 @@ class HybridPPO(object):
 
     def process_new_state(self, state):
         state = torch.from_numpy(np.array(state)).to(device).float()
-        dist = self.policy_old.get_action_dist(state.unsqueeze(0))
+        dist = self.policy.get_action_dist(state.unsqueeze(0))
 
         action = dist.sample()[0]
 
@@ -120,7 +117,7 @@ class HybridPPO(object):
 
         # Normalizing the rewards:
         rewards = torch.tensor(rewards).to(device)
-        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
+        # rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
 
         # Optimize policy for K epochs:
         for _ in range(self.hp['epochs']):
@@ -135,6 +132,8 @@ class HybridPPO(object):
 
             # Finding Surrogate Loss:
             advantages = rewards - state_values.detach()
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
+
             surr1 = ratios * advantages
             surr2 = torch.clamp(ratios, 1 - self.hp['epsiolon_clip'], 1 + self.hp['epsiolon_clip']) * advantages
             loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values.float(), rewards.float()) - self.hp['entropy_weight'] * dist_entropies
@@ -143,14 +142,11 @@ class HybridPPO(object):
             loss.mean().backward()
             self.optimizer.step()
 
-            # Copy new weights into old policy:
-        self.policy_old.load_state_dict(self.policy.state_dict())
-
     def load_state(self, path):
         if os.path.exists(path):
             # self.policy_old.load_state_dict(torch.load(path))
             # if trained on gpu but test on cpu use:
-            self.policy_old.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage))
+            self.policy.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage))
 
     def save_state(self, path):
         torch.save(self.policy.state_dict(), path)
