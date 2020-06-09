@@ -123,11 +123,19 @@ class DiscreteActorCriticModel(nn.Module):
                 nn.Linear(hidden_layer_size, 1)
                 )
 
+    def _create_dist(self, features):
+        probs = self.actor(features)
+        dist = D.Categorical(probs)
+        return dist
+
+    def get_action_dist(self, x):
+        features = self.features(x)
+        return self._create_dist(features)
+
     def forward(self, x):
         features = self.features(x)
-        probs = self.actor(features)
+        dist = self._create_dist(features)
         value = self.critic(features)
-        dist = D.Categorical(probs)
         return dist, value
 
 class ContinousActorCriticModdel(torch.nn.Module):
@@ -148,11 +156,19 @@ class ContinousActorCriticModdel(torch.nn.Module):
                 nn.Linear(hidden_layer_size, 1)
                 )
 
-    def forward(self, x):
-        features = self.features(x)
+    def _create_dist(self, features):
         mu_sigma = self.actor(features)
-        value = self.critic(features)
         mu = torch.tanh(mu_sigma[:, self.action_dim:])
         sigma = torch.nn.functional.softplus(mu_sigma[:, :self.action_dim])
-        dist = D.multivariate_normal.MultivariateNormal(mu, torch.diag(sigma[0]))
+        dist = D.multivariate_normal.MultivariateNormal(mu, torch.diag_embed(sigma))
+        return dist
+
+    def get_action_dist(self, x):
+        features = self.features(x)
+        return self._create_dist(features)
+
+    def forward(self, x):
+        features = self.features(x)
+        dist = self._create_dist(features)
+        value = self.critic(features)
         return dist, value

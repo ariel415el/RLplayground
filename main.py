@@ -5,7 +5,7 @@ import random
 import gym
 from discrete_agents import *
 from continous_agents import *
-from hybrid_agents import GenericActorCritic
+from hybrid_agents import *
 import train_logger
 import torch
 from ExternalAtariWrappers import get_final_env
@@ -97,13 +97,16 @@ def solve_cart_pole():
     # hp = {'lr':0.001, "min_playback":0, "max_playback":1000000, "update_freq": 100, 'hiden_layer_size':32, 'epsilon_decay':500}
     # agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
 
-    # # With PPO
-    # hp = {'lr':0.001, 'epoch_size':400, 'epochs':4}
-    # agent = DiscretePPO.PPO_descrete_action(s, a, hp)
 
-    # With Vanila Actor-Critic
-    hp = {'lr':0.003, 'batch_size':150}
-    agent = GenericActorCritic.ActorCritic(s,a,hp)
+    # # With Vanila Actor-Critic
+    # hp = {'lr':0.003, 'batch_size':150}
+    # agent = GenericActorCritic.ActorCritic(s,a,hp)
+
+    # With PPO
+    hp = {'lr':0.001, 'epoch_size':400, 'epochs':4}
+    agent = PPO.HybridPPO(s, a, hp)
+
+
     return env_name, env, agent, score_scope, solved_score
 
 
@@ -112,13 +115,20 @@ def solve_pendulum():
     env = gym.make(env_name)
     a = [env.action_space.low, env.action_space.high]
 
-    # # With TD3
-    # hp = {'actor_lr':0.00025, 'critic_lr':0.0002, "exploration_steps":5000, "min_memory_for_learning":10000, "batch_size": 256}
-    # agent = TD3.TD3(s, env.action_space, a, hp, train=True)
 
-    # With Vanila Actor-Critic
-    hp = {'lr':0.0003, 'batch_size':150}
-    agent = GenericActorCritic.ActorCritic(s, a,hp)
+    # # With Vanila Actor-Critic
+    # hp = {'lr':0.0005, 'batch_size':1000}
+    # agent = GenericActorCritic.ActorCritic(s, a,hp)
+
+    # # With PPO
+    # hp = {'lr':0.01, 'epoch_size':1000, 'epochs':4}
+    # agent = PPO.HybridPPO(s, a, hp)
+
+    # With TD3
+    hp = {'actor_lr':0.00025, 'critic_lr':0.0002, "exploration_steps":5000, "min_memory_for_learning":10000, "batch_size": 256}
+    agent = TD3.TD3(s, env.action_space, a, hp, train=True)
+
+
     return env_name, env, agent, score_scope, solved_score
 
 
@@ -171,8 +181,8 @@ if  __name__ == '__main__':
     np.random.seed(SEED)
     torch.manual_seed(SEED)
 
-    env_name, env, agent, score_scope, solved_score = solve_cart_pole()
-    # env_name, env, agent, score_scope, solved_score = solve_pendulum()
+    # env_name, env, agent, score_scope, solved_score = solve_cart_pole()
+    env_name, env, agent, score_scope, solved_score = solve_pendulum()
     # env_name, env, agent, score_scope, solved_score = solve_lunar_lander()
     # env_name, env, agent, score_scope, solved_score = solve_bipedal_walker()
     # env_name, env, agent, score_scope, solved_score = solve_pong()

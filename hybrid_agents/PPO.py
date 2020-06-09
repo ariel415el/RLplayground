@@ -29,7 +29,7 @@ class Memory:
     def get_as_tensors(self, device):
         states = torch.stack(self.states).to(device)
         actions = torch.stack(self.actions).to(device)
-        logprobs = torch.tensor(self.logprobs).to(device)
+        logprobs = torch.stack(self.logprobs).to(device)
         return states, actions, logprobs, self.rewards, self.is_terminals
 
     def clear_memory(self):
@@ -40,67 +40,7 @@ class Memory:
         del self.is_terminals[:]
 
 
-class Descrete_PPO_actor_critic(nn.Module):
-    def __init__(self, state_dim, action_dim, layers_dims):
-        super(Descrete_PPO_actor_critic, self).__init__()
-        # action mean range -1 to 1
-        self.actor =  nn.Sequential(
-                nn.Linear(state_dim, layers_dims[0]),
-                nn.Tanh(),
-                nn.Linear(layers_dims[0], layers_dims[1]),
-                nn.Tanh(),
-                nn.Linear(layers_dims[1], action_dim),
-                nn.Softmax(dim=1)
-                )
-        # critic
-        self.critic = nn.Sequential(
-                nn.Linear(state_dim, layers_dims[0]),
-                nn.Tanh(),
-                nn.Linear(layers_dims[0], layers_dims[1]),
-                nn.Tanh(),
-                nn.Linear(layers_dims[1], 1)
-                )
-
-    def get_probs(self, x):
-        probs = self.actor(x)
-        return probs
-
-    def forward(self, x):
-        probs = self.actor(x)
-        value = self.critic(x)
-        return probs, value
-
-class Descrete_CNN_PPO_actor_critic(nn.Module):
-    def __init__(self, feature_extractor, action_dim, hidden_layer_size):
-        super(Descrete_CNN_PPO_actor_critic, self).__init__()
-        # action mean range -1 to 1
-        self.features = feature_extractor
-        self.actor =  nn.Sequential(
-                nn.Linear(self.features.features_space, hidden_layer_size),
-                nn.Tanh(),
-                nn.Linear(hidden_layer_size, action_dim),
-                nn.Softmax(dim=1)
-                )
-        # critic
-        self.critic = nn.Sequential(
-                nn.Linear(self.features.features_space, hidden_layer_size),
-                nn.Tanh(),
-                nn.Linear(hidden_layer_size, 1)
-                )
-
-    def get_probs(self, x):
-        features = self.features(x)
-        probs = self.actor(features)
-        return probs
-
-    def forward(self, x):
-        features = self.features(x)
-        probs = self.actor(features)
-        value = self.critic(features)
-        return probs, value
-
-
-class PPO_descrete_action(object):
+class HybridPPO(object):
     def __init__(self, state_dim, action_dim, hp, train=True):
         self.name = 'PPO'
         self.state_dim = state_dim
@@ -111,9 +51,11 @@ class PPO_descrete_action(object):
             'batch_size':4000,
             'discount':0.99,
             'lr':0.01,
-            'lr_decay':0.95,
+            'lr_decay':0.995,
             'epsiolon_clip':0.2,
             'epochs':32,
+            'hidden_layer_size':128,
+            'entropy_weight':0.01
         }
         self.hp.update(hp)
         self.hp['batch_size'] = min(self.hp['epoch_size'], self.hp['batch_size'])
@@ -121,10 +63,12 @@ class PPO_descrete_action(object):
 
         if type(self.state_dim) == tuple:
             feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
-            self.policy = Descrete_CNN_PPO_actor_critic(feature_extractor, self.action_dim, 512).to(device)
         else:
-            layers = [64, 64]
-            self.policy = Descrete_PPO_actor_critic(state_dim, self.action_dim, layers).to(device)
+            feature_extractor = LinearFeatureExtracor(self.state_dim, self.hp['hidden_layer_size'])
+        if type(self.action_dim) == list:
+            self.policy = ContinousActorCriticModdel(feature_extractor, len(self.action_dim), self.hp['hidden_layer_size']).to(device)
+        else:
+            self.policy = DiscreteActorCriticModel(feature_extractor, self.action_dim, self.hp['hidden_layer_size']).to(device)
 
         with torch.no_grad():
             self.policy_old = copy.deepcopy(self.policy)
@@ -139,8 +83,7 @@ class PPO_descrete_action(object):
 
     def process_new_state(self, state):
         state = torch.from_numpy(np.array(state)).to(device).float()
-        probs = self.policy_old.get_probs(state.unsqueeze(0))
-        dist = D.Categorical(probs)
+        dist = self.policy_old.get_action_dist(state.unsqueeze(0))
 
         action = dist.sample()[0]
 
@@ -181,9 +124,8 @@ class PPO_descrete_action(object):
 
         # Optimize policy for K epochs:
         for _ in range(self.hp['epochs']):
-            # Evaluating old actions and values :
-            probs, values = self.policy(old_states)
-            dists = D.Categorical(probs)
+            # Evaluating old actions and values with the target policy:
+            dists, values = self.policy(old_states)
             logprobs = dists.log_prob(old_actions)
             dist_entropies = dists.entropy()
             state_values = values.view(-1)
@@ -195,7 +137,7 @@ class PPO_descrete_action(object):
             advantages = rewards - state_values.detach()
             surr1 = ratios * advantages
             surr2 = torch.clamp(ratios, 1 - self.hp['epsiolon_clip'], 1 + self.hp['epsiolon_clip']) * advantages
-            loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values.float(), rewards.float()) - 0.01 * dist_entropies
+            loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values.float(), rewards.float()) - self.hp['entropy_weight'] * dist_entropies
             # take gradient step
             self.optimizer.zero_grad()
             loss.mean().backward()

@@ -113,7 +113,6 @@ class ActorCritic(object):
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        x=1
 
     def load_state(self, path):
         if os.path.exists(path):
