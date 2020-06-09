@@ -56,13 +56,14 @@ class NoisyLinear(nn.Module):
         return x
 
 class LinearFeatureExtracor(nn.Module):
-    def __init__(self, num_inputs, num_outputs):
+    def __init__(self, num_inputs, num_outputs, activation=torch.relu):
         super(LinearFeatureExtracor, self).__init__()
         self.linear = nn.Linear(num_inputs, num_outputs)
         self.features_space = num_outputs
+        self.activation = activation
 
     def forward(self, x):
-        x = torch.nn.functional.relu(self.linear(x))
+        x = self.activation(self.linear(x))
         return x
 
 class ConvNetFeatureExtracor(nn.Module):

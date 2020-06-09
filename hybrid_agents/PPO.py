@@ -64,7 +64,7 @@ class HybridPPO(object):
         if type(self.state_dim) == tuple:
             feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
         else:
-            feature_extractor = LinearFeatureExtracor(self.state_dim, self.hp['hidden_layer_size'])
+            feature_extractor = LinearFeatureExtracor(self.state_dim, self.hp['hidden_layer_size'], activation=torch.tanh)
         if type(self.action_dim) == list:
             self.policy = ContinousActorCriticModdel(feature_extractor, len(self.action_dim), self.hp['hidden_layer_size']).to(device)
         else:
