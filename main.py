@@ -115,20 +115,18 @@ def solve_pendulum():
     env = gym.make(env_name)
     a = [env.action_space.low, env.action_space.high]
 
-
     # # With Vanila Actor-Critic
     # hp = {'lr':0.0005, 'batch_size':1000}
     # agent = GenericActorCritic.ActorCritic(s, a,hp)
 
     # With PPO
-    hp = {'lr':0.00025, 'epoch_size':5000, 'epochs':32, 'hidden_layer_size':32}
+    hp = {'epsiolon_clip': 0.3, 'entropy_weight':0.02, 'lr':0.0001, 'epoch_size':500, 'epochs':64, 'hidden_layer_size':32}
     agent = PPO.HybridPPO(s, a, hp)
 
     # # With TD3
     # hp = {'actor_lr':0.0003, 'critic_lr':0.00025, "exploration_steps":5000, "min_memory_for_learning":10000, "batch_size": 128}
     # hp = {'actor_lr':0.0005, 'critic_lr':0.0005, "exploration_steps":1000, "min_memory_for_learning":5000, "batch_size": 64}
     # agent = TD3.TD3(s, env.action_space, a, hp, train=True)
-
 
     return env_name, env, agent, score_scope, solved_score
 
@@ -142,7 +140,7 @@ def solve_lunar_lander():
 
     # With PPO
     hp = {'lr':0.005, 'epoch_size':4000, 'epochs':32, 'hidden_layer_size':64}
-    agent = PPO.HybridPPO(s, a, hp)
+    agent = PPO.HybridPPO(s, a, hp, value_clip=True, grad_clip=False)
 
     return env_name, env, agent, score_scope, solved_score
 
@@ -155,9 +153,9 @@ def solve_continous_lunar_lander():
     hp = {'lr':0.005, 'epoch_size':4000, 'epochs':32, 'hidden_layer_size':64}
     agent = PPO.HybridPPO(s, a, hp)
 
-    # With TD3
-    hp = {'actor_lr':0.0003, 'critic_lr':0.00025, "exploration_steps":5000, "min_memory_for_learning":10000, "batch_size": 128}
-    agent = TD3.TD3(s, env.action_space, a, hp, train=True)
+    # # With TD3
+    # hp = {'actor_lr':0.0003, 'critic_lr':0.00025, "exploration_steps":5000, "min_memory_for_learning":10000, "batch_size": 128}
+    # agent = TD3.TD3(s, env.action_space, a, hp, train=True)
 
     return env_name, env, agent, score_scope, solved_score
 
@@ -222,12 +220,12 @@ if  __name__ == '__main__':
 
     # env_name, env, agent, score_scope, solved_score = solve_cart_pole()
     # env_name, env, agent, score_scope, solved_score = solve_pendulum()
-    # env_name, env, agent, score_scope, solved_score = solve_lunar_lander()
+    env_name, env, agent, score_scope, solved_score = solve_lunar_lander()
     # env_name, env, agent, score_scope, solved_score = solve_continous_lunar_lander()
     # env_name, env, agent, score_scope, solved_score = solve_bipedal_walker()
     # env_name, env, agent, score_scope, solved_score = solve_pong()
     # env_name, env, agent, score_scope, solved_score = solve_breakout()
-    env_name, env, agent, score_scope, solved_score = solve_seaquest()
+    # env_name, env, agent, score_scope, solved_score = solve_seaquest()
 
     # Train
     os.makedirs("Training", exist_ok=True)

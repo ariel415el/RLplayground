@@ -11,6 +11,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 class Memory:
     def __init__(self):
         self.states = []
+        self.state_values = []
         self.actions = []
         self.logprobs = []
         self.rewards = []
@@ -19,21 +20,24 @@ class Memory:
     def __len__(self):
         return len(self.states)
 
-    def add_sample(self, state, action, action_log_prob, reward, is_terminals):
-        self.actions += [action]
+    def add_sample(self, state, value, action, action_log_prob, reward, is_terminals):
         self.states += [state]
+        self.state_values += [value]
+        self.actions += [action]
         self.logprobs += [action_log_prob]
         self.rewards += [reward]
         self.is_terminals += [is_terminals]
 
     def get_as_tensors(self, device):
         states = torch.stack(self.states).to(device)
+        values = torch.tensor(self.state_values).to(device)
         actions = torch.stack(self.actions).to(device)
         logprobs = torch.stack(self.logprobs).to(device)
-        return states, actions, logprobs, self.rewards, self.is_terminals
+        return states, values, actions, logprobs, self.rewards, self.is_terminals
 
     def clear_memory(self):
         del self.states[:]
+        del self.state_values[:]
         del self.actions[:]
         del self.logprobs[:]
         del self.rewards[:]
@@ -41,18 +45,21 @@ class Memory:
 
 
 class HybridPPO(object):
-    def __init__(self, state_dim, action_dim, hp, train=True):
+    def __init__(self, state_dim, action_dim, hp, train=True, value_clip=True, grad_clip=False):
         self.name = 'PPO'
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.train= train
+        self.value_clip = value_clip
+        self.grad_clip = grad_clip
         self.hp = {
             'epoch_size':4000,
             'batch_size':4000,
             'discount':0.99,
             'lr':0.01,
-            'lr_decay':0.995,
+            'lr_decay':0.95,
             'epsiolon_clip':0.2,
+            'value_clip':0.5,
             'epochs':32,
             'hidden_layer_size':128,
             'entropy_weight':0.01
@@ -72,19 +79,24 @@ class HybridPPO(object):
 
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.hp['lr'])
         self.optimizer.zero_grad()
-        self.MseLoss = nn.MSELoss()
         self.learn_steps = 0
         self.completed_episodes = 0
 
         self.name += "_lr[%.4f]_b[%d]"%(self.hp['lr'], self.hp['batch_size'])
+        if value_clip:
+            self.name += "_vc"
+        if grad_clip:
+            self.name += "_gc"
 
     def process_new_state(self, state):
         state = torch.from_numpy(np.array(state)).to(device).float()
-        dist = self.policy.get_action_dist(state.unsqueeze(0))
+        # dist = self.policy.get_action_dist(state.unsqueeze(0))
+        dist, value = self.policy(state.unsqueeze(0))
 
         action = dist.sample()[0]
 
         self.last_state = state
+        self.last_value = value[0,0].item() # no need gradient
         self.last_action = action
         self.last_action_log_prob = dist.log_prob(action)[0]
 
@@ -92,7 +104,7 @@ class HybridPPO(object):
         return action
 
     def process_output(self, new_state, reward, is_finale_state):
-        self.samples.add_sample(self.last_state , self.last_action, self.last_action_log_prob, reward, is_finale_state)
+        self.samples.add_sample(self.last_state, self.last_value, self.last_action, self.last_action_log_prob, reward, is_finale_state)
 
         if len(self.samples) == self.hp['epoch_size']:
             self._learn()
@@ -104,8 +116,7 @@ class HybridPPO(object):
                     param_group['lr'] *= self.hp['lr_decay']
 
     def _learn(self):
-        old_states, old_actions, old_logprobs, raw_rewards, is_terminals = self.samples.get_as_tensors(device)
-
+        old_states, old_values, old_actions, old_logprobs, raw_rewards, is_terminals = self.samples.get_as_tensors(device)
         # Monte Carlo estimate of rewards:
         rewards = []
         discounted_reward = 0
@@ -117,29 +128,39 @@ class HybridPPO(object):
 
         # Normalizing the rewards:
         rewards = torch.tensor(rewards).to(device)
-        # rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
+        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
 
         # Optimize policy for K epochs:
         for _ in range(self.hp['epochs']):
             # Evaluating old actions and values with the target policy:
             dists, values = self.policy(old_states)
-            logprobs = dists.log_prob(old_actions)
-            dist_entropies = dists.entropy()
-            state_values = values.view(-1)
+
+            exploration_loss = -self.hp['entropy_weight'] * dists.entropy()
+
+            values = values.view(-1)
+            value_loss = 0.5 * (values - rewards).pow(2)
+            if self.value_clip:
+                clipped_values = old_values + (values - old_values).clamp(-self.hp['value_clip'], -self.hp['value_clip'])
+                clipepd_value_loss = 0.5*(reward - clipped_values).pow(2)
+                critic_loss = torch.min(value_loss, clipepd_value_loss).mean()
+            else:
+                critic_loss = value_loss
 
             # Finding the ratio (pi_theta / pi_theta__old):
+            logprobs = dists.log_prob(old_actions)
             ratios = torch.exp(logprobs - old_logprobs.detach())
-
-            # Finding Surrogate Loss:
-            advantages = rewards - state_values.detach()
-            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
-
+            # Finding Surrogate actor Loss:
+            advantages = rewards - values.detach()
+            # advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
             surr1 = ratios * advantages
             surr2 = torch.clamp(ratios, 1 - self.hp['epsiolon_clip'], 1 + self.hp['epsiolon_clip']) * advantages
-            loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values.float(), rewards.float()) - self.hp['entropy_weight'] * dist_entropies
-            # take gradient step
+            actor_loss = -torch.min(surr1, surr2)
+
+            loss = actor_loss + critic_loss +exploration_loss
             self.optimizer.zero_grad()
             loss.mean().backward()
+            if self.grad_clip:
+                torch.nn.utils.clip_grad_norm_(self.policy.parameters(), 0.5)
             self.optimizer.step()
 
     def load_state(self, path):
