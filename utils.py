@@ -26,7 +26,9 @@ def GenerelizedAdvantageEstimate(gae_param, values, rewards, is_terminals, disco
     deltas = -values + rewards
     deltas[:-1] += (1-is_terminals[:-1])*discount*values[1:]
     running_sum = 0
-    for delta in reversed(deltas):
+    for delta, is_terminal in zip(reversed(deltas), reversed(is_terminals)):
+        if is_terminal:
+            running_sum = 0
         running_sum = delta + discount*gae_param * running_sum
         res.insert(0, running_sum)
 
