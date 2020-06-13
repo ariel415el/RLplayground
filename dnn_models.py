@@ -92,8 +92,10 @@ class DiscreteActor(nn.Module):
         self.features = feature_extractor
         self.head =  nn.Sequential(
                 nn.Linear(self.features.features_space, hidden_layer_size),
+                # NoisyLinear(self.features.features_space, hidden_layer_size),
                 nn.Tanh(),
                 nn.Linear(hidden_layer_size, action_dim),
+                # NoisyLinear(hidden_layer_size, action_dim),
                 nn.Softmax(dim=1)
                 )
 

@@ -146,10 +146,6 @@ class HybridPPO(object):
             logprobs = dists.log_prob(old_actions)
             ratios = torch.exp(logprobs - old_logprobs.detach())
             # Finding Surrogate actor Loss:
-            # advantages = rewards - values.detach()
-            # advantages = GenerelizedAdvantageEstimate(self.hp['GAE'], values, raw_rewards, is_terminals,
-            #                                           self.hp['discount'], device).detach()
-            # advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
             surr1 = ratios * advantages
             surr2 = torch.clamp(ratios, 1 - self.hp['epsiolon_clip'], 1 + self.hp['epsiolon_clip']) * advantages
             actor_loss = -torch.min(surr1, surr2)

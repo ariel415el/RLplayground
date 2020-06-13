@@ -13,7 +13,6 @@ from ExternalAtariWrappers import get_final_env
 MAX_TRAIN_EPISODES = 1000000
 TEST_EPISODES=1
 CHECKPOINT_STEPS=0.2
-
 def run_episode(env, agent):
     episode_rewards = []
     done = False
@@ -31,11 +30,10 @@ def run_episode(env, agent):
             is_terminal = done and len(episode_rewards) < env._max_episode_steps
         agent.process_output(state, reward, is_terminal)
         episode_rewards += [reward]
-
     return episode_rewards
 
 
-def train(env, agent, score_scope, solved_score, log_frequency=10, test_frequency=500):
+def train(env, agent, score_scope, solved_score, log_frequency=10, test_frequency=100):
     next_progress_checkpoint = 1
     next_test_progress_checkpoint = 1
 
@@ -142,13 +140,13 @@ def solve_lunar_lander():
     # hp = {'lr':0.001, "min_playback":1000, "max_playback":1000000, "update_freq": 500, 'hiden_layer_size':256, 'epsilon_decay':10000}
     # agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=True)
 
-    # # With Actor-Critic
-    # hp = {'lr':0.001, 'batch_episodes':16, 'GAE': 0.9}
-    # agent = GenericActorCritic.ActorCritic(s,a,hp)
+    # With Actor-Critic
+    hp = {'lr':0.001, 'batch_episodes':32, 'GAE': 0.9, 'hidden_layer_size':128}
+    agent = GenericActorCritic.ActorCritic(s,a,hp)
 
-    # With PPO
-    hp = {'lr':0.005, 'batch_episodes':32, 'epochs':16, 'GAE':0.9, 'epsiolon_clip': 0.3, 'value_clip':True, 'grad_clip':None, 'entropy_weight':0.02, 'hidden_layer_size':128}
-    agent = PPO.HybridPPO(s, a, hp)
+    # # With PPO
+    # hp = {'lr':0.001, 'batch_episodes':32, 'epochs':16, 'GAE':0.9, 'epsiolon_clip': 0.2, 'value_clip':0.5, 'grad_clip':None, 'entropy_weight':0.001, 'hidden_layer_size':256}
+    # agent = PPO.HybridPPO(s, a, hp)
 
     return env_name, env, agent, score_scope, solved_score
 
@@ -158,7 +156,7 @@ def solve_continous_lunar_lander():
     a = [env.action_space.low, env.action_space.high]
 
     # With PPO
-    hp = {'lr':0.001, 'batch_episodes':4, 'epochs':4, 'GAE':1.0, 'epsiolon_clip': 0.2, 'value_clip':None, 'grad_clip':None, 'entropy_weight':0.01, 'hidden_layer_size':128}
+    hp = {'lr':0.001, 'batch_episodes':16, 'epochs':32, 'GAE':1.0, 'epsiolon_clip': 0.2, 'value_clip':None, 'grad_clip':None, 'entropy_weight':0.01, 'hidden_layer_size':256}
     agent = PPO.HybridPPO(s, a, hp)
 
     # # With TD3
@@ -170,8 +168,17 @@ def solve_continous_lunar_lander():
 def solve_bipedal_walker():
     env_name="BipedalWalker-v3"; s=24; score_scope=100; solved_score=500
     env = gym.make(env_name)
+    a = [env.action_space.low, env.action_space.high]
+
+    # With PPO
+    # With PPO
+    hp = {'lr':0.00025, 'batch_episodes':16, 'epochs':32, 'GAE':1.0, 'epsiolon_clip': 0.2, 'value_clip':None, 'grad_clip':None, 'entropy_weight':0.01, 'hidden_layer_size':256}
+    agent = PPO.HybridPPO(s, a, hp)
+
+    # With TD3
     hp = {'actor_lr':0.00025, 'critic_lr':0.00025}#, "exploration_steps":5000, "min_memory_for_learning":10000, "batch_size": 256}
-    agent = TD3.TD3(s, env.action_space, [env.action_space.low, env.action_space.high], hp, train=True)
+    agent = TD3.TD3(s, env.action_space, a, hp, train=True)
+
     # agent.load_state('Trained_models/BipedalWalker-v3/TD3_lr[0.0003]_b[256]_tau[0.0050]_uf[2]/TD3_lr[0.0003]_b[256]_tau[0.0050]_uf[2]_test_309.12538_weights.pt')
     return env_name, env, agent, score_scope, solved_score
 
