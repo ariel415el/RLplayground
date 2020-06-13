@@ -56,7 +56,7 @@ class new_DuelingDQN(nn.Module):
 
 class LinearClassifier(nn.Module):
     def __init__(self, feature_extractor, num_outputs, hidden_layer_size):
-        super(MLP, self).__init__()
+        super(LinearClassifier, self).__init__()
         self.feature_extractor = feature_extractor
         self.linear1 = nn.Linear(self.feature_extractor.features_space, hidden_layer_size)
         self.linear2 = nn.Linear(hidden_layer_size, num_outputs)
@@ -145,19 +145,19 @@ class DQN_agent(object):
         self.action_counter = 0
         self.gs_num=0
 
-        # if type(self.state_dim) == tuple:
-        #     feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
-        #     state_dtype = np.uint8
-        # else:
-        #     feature_extractor = LinearFeatureExtracor(self.state_dim, 64)
-        #     state_dtype = np.float32
-        # if self.dueling_dqn:
-        #     self.trainable_model = DuelingDQN(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
-        # elif self.noisy_MLP:
-        #     self.trainable_model = NoisyMLP(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
-        # else:
-        #     # self.trainable_model = LinearClassifier(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
-        self.trainable_model = new_DuelingDQN(self.state_dim[0]).to(device)
+        if type(self.state_dim) == tuple:
+            feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
+            state_dtype = np.uint8
+        else:
+            feature_extractor = LinearFeatureExtracor(self.state_dim, 64)
+            state_dtype = np.float32
+        if self.dueling_dqn:
+            self.trainable_model = DuelingDQN(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
+        elif self.noisy_MLP:
+            self.trainable_model = NoisyMLP(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
+        else:
+            self.trainable_model = LinearClassifier(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
+            # self.trainable_model = new_DuelingDQN(self.state_dim[0]).to(device)
 
 
         if self.prioritized_memory:

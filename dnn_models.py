@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 import torch.distributions as D
 
+
 class NoisyLinear(nn.Module):
     # implements https://arxiv.org/abs/1706.10295
     def __init__(self, in_features, out_features, std_init=0.4):
@@ -55,6 +56,7 @@ class NoisyLinear(nn.Module):
         x = x.sign().mul(x.abs().sqrt())
         return x
 
+
 class LinearFeatureExtracor(nn.Module):
     def __init__(self, num_inputs, num_outputs, activation=torch.relu):
         super(LinearFeatureExtracor, self).__init__()
@@ -65,6 +67,7 @@ class LinearFeatureExtracor(nn.Module):
     def forward(self, x):
         x = self.activation(self.linear(x))
         return x
+
 
 class ConvNetFeatureExtracor(nn.Module):
     def __init__(self, input_channels):
@@ -81,95 +84,90 @@ class ConvNetFeatureExtracor(nn.Module):
         x = x.view(-1, self.features_space)
         return x
 
-# class MLP(torch.nn.Module):
-#     def __init__(self, input_dim, output_dim, hidden_layer_sizes):
-#         super(MLP, self).__init__()
-#         layers = [torch.nn.Linear(input_dim, hidden_layer_sizes[0]), torch.nn.ReLU()]
-#
-#         for i in range(1, len(hidden_layer_sizes)):
-#             layers += [torch.nn.Linear(hidden_layer_sizes[i - 1], hidden_layer_sizes[i]), torch.nn.ReLU()]
-#
-#         layers += [torch.nn.Linear(hidden_layer_sizes[-1], output_dim)]
-#
-#         self.model = torch.nn.Sequential(*layers)
-#
-#     def forward(self, x):
-#         x = self.model(x)
-#         return x
-#
-# class MLP_softmax(MLP):
-#     def __init__(self, input_dim, output_dim, hidden_layer_sizes):
-#         MLP.__init__(self, input_dim, output_dim, hidden_layer_sizes)
-#
-#     def forward(self, x):
-#         x = super().forward(x)
-#         x = torch.nn.functional.softmax(x, dim=1)
-#         return x
 
-class DiscreteActorCriticModel(nn.Module):
+class DiscreteActor(nn.Module):
     def __init__(self, feature_extractor, action_dim, hidden_layer_size):
-        super(DiscreteActorCriticModel, self).__init__()
+        super(DiscreteActor, self).__init__()
         # action mean range -1 to 1
         self.features = feature_extractor
-        self.actor =  nn.Sequential(
+        self.head =  nn.Sequential(
                 nn.Linear(self.features.features_space, hidden_layer_size),
                 nn.Tanh(),
                 nn.Linear(hidden_layer_size, action_dim),
                 nn.Softmax(dim=1)
                 )
-        # critic
-        self.critic = nn.Sequential(
-                nn.Linear(self.features.features_space, hidden_layer_size),
-                nn.Tanh(),
-                nn.Linear(hidden_layer_size, 1)
-                )
 
-    def _create_dist(self, features):
-        probs = self.actor(features)
+    def get_dist(self, features):
+        probs = self.head(features)
         dist = D.Categorical(probs)
         return dist
 
-    def get_action_dist(self, x):
-        features = self.features(x)
-        return self._create_dist(features)
-
     def forward(self, x):
         features = self.features(x)
-        dist = self._create_dist(features)
-        value = self.critic(features)
-        return dist, value
+        dist = self.get_dist(features)
+        return dist
 
-class ContinousActorCriticModdel(torch.nn.Module):
+
+class CountinousActor(nn.Module):
     def __init__(self, feature_extractor, action_dim, hidden_layer_size):
-        super(ContinousActorCriticModdel, self).__init__()
+        super(CountinousActor, self).__init__()
         # action mean range -1 to 1
         self.action_dim = action_dim
         self.features = feature_extractor
-        self.actor =  nn.Sequential(
+        self.head = nn.Sequential(
                 nn.Linear(self.features.features_space, hidden_layer_size),
                 nn.Tanh(),
                 nn.Linear(hidden_layer_size, 2*action_dim),
                 )
-        # critic
-        self.critic = nn.Sequential(
-                nn.Linear(self.features.features_space, hidden_layer_size),
-                nn.Tanh(),
-                nn.Linear(hidden_layer_size, 1)
-                )
 
-    def _create_dist(self, features):
-        mu_sigma = self.actor(features)
+    def get_dist(self, features):
+        mu_sigma = self.head(features)
         mu = torch.tanh(mu_sigma[:, self.action_dim:])
         sigma = torch.nn.functional.softplus(mu_sigma[:, :self.action_dim])
         dist = D.multivariate_normal.MultivariateNormal(mu, torch.diag_embed(sigma))
         return dist
 
-    def get_action_dist(self, x):
+    def forward(self, x):
         features = self.features(x)
-        return self._create_dist(features)
+        dist = self.get_dist(features)
+        return dist
+
+
+class Critic(nn.Module):
+    def __init__(self, feature_extractor, action_dim, hidden_layer_size):
+        super(Critic, self).__init__()
+        # action mean range -1 to 1
+        self.features = feature_extractor
+        self.head = nn.Sequential(
+                nn.Linear(self.features.features_space, hidden_layer_size),
+                nn.Tanh(),
+                nn.Linear(hidden_layer_size, 1)
+                )
+
+    def get_value(self, features):
+        return self.head(features)
 
     def forward(self, x):
         features = self.features(x)
-        dist = self._create_dist(features)
-        value = self.critic(features)
+        value = self.get_value(features)
+        return value
+
+class ActorCriticModel(nn.Module):
+    def __init__(self, feature_extractor, action_dim, hidden_layer_size, discrete=True):
+        super(ActorCriticModel, self).__init__()
+        # action mean range -1 to 1
+        self.features = feature_extractor
+        if discrete:
+            self.actor = DiscreteActor(self.features, action_dim, hidden_layer_size)
+        else:
+            self.actor = CountinousActor(self.features, action_dim, hidden_layer_size)
+        self.critic = Critic(self.features, action_dim, hidden_layer_size)
+
+    def get_action_dist(self, x):
+        return self.actor(x)
+
+    def forward(self, x):
+        features = self.features(x)
+        dist = self.actor.get_dist(features)
+        value = self.critic.get_value(features)
         return dist, value

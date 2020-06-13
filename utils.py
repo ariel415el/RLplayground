@@ -1,8 +1,38 @@
 import numpy as np
 import torch
 from time import time
-from _collections import deque
 import random
+
+
+def monte_carlo_reward(rewards, is_terminals, discount, device):
+    res = []
+    discounted_reward = 0
+    for reward, is_terminal in zip(reversed(rewards), reversed(is_terminals)):
+        if is_terminal:
+            discounted_reward = 0
+        discounted_reward = reward + discount * discounted_reward
+        res.insert(0, discounted_reward)
+
+    # Normalizing the rewards:
+    res = torch.tensor(res).to(device)
+
+    return res
+
+def GenerelizedAdvantageEstimate(gae_param, values, rewards, is_terminals, discount, device):
+    assert(is_terminals[-1])
+    res = []
+    rewards = torch.tensor(rewards).to(device)
+    is_terminals = torch.tensor(is_terminals).to(device).float()
+    deltas = -values + rewards
+    deltas[:-1] += (1-is_terminals[:-1])*discount*values[1:]
+    running_sum = 0
+    for delta in reversed(deltas):
+        running_sum = delta + discount*gae_param * running_sum
+        res.insert(0, running_sum)
+
+    # Normalizing the rewards:
+    res = torch.tensor(res).to(device)
+    return res
 
 class ListMemory:
     # Credit to Adrien Lucas Ecoffet
@@ -26,6 +56,7 @@ class ListMemory:
         for i in range(batch_arrays.shape[1]):
             res += [torch.from_numpy(np.stack(batch_arrays[:, i])).to(device)]
         return tuple(res)
+
 
 class FastMemory:
     "Pre alocates a numpy array for fast acess"
@@ -68,6 +99,7 @@ class FastMemory:
         for storage in self.storages:
             del storage[:]
 
+
 class PrioritizedMemory(FastMemory):
     def __init__(self, max_size, storage_sizes_and_types, alpha=0.6):
         super().__init__(max_size, storage_sizes_and_types)
@@ -94,6 +126,7 @@ class PrioritizedMemory(FastMemory):
 
     def update_priorities(self, batch_priorities):
         self.priorities[self.last_ind] = batch_priorities
+
 
 def update_net(model_to_change, reference_model, tau):
     for target_param, local_param in zip(model_to_change.parameters(), reference_model.parameters()):
