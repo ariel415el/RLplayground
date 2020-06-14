@@ -47,7 +47,7 @@ class VanilaPolicyGradient(object):
         else:
             feature_extractor = LinearFeatureExtracor(self.state_dim, self.hp['hidden_layer_size'])
         if type(self.action_dim) == list:
-            self.policy = CountinousActor(feature_extractor, len(self.action_dim), self.hp['hidden_layer_size']).to(device)
+            self.policy = CountinousActor(feature_extractor, len(self.action_dim[0]), self.hp['hidden_layer_size']).to(device)
         else:
             self.policy = DiscreteActor(feature_extractor, self.action_dim, self.hp['hidden_layer_size']).to(device)
 

@@ -73,7 +73,7 @@ class HybridPPO(object):
             feature_extractor = LinearFeatureExtracor(self.state_dim, self.hp['hidden_layer_size'], activation=torch.tanh)
 
         if type(self.action_dim) == list:
-            self.policy = ActorCriticModel(feature_extractor, len(self.action_dim), self.hp['hidden_layer_size'], discrete=False).to(device)
+            self.policy = ActorCriticModel(feature_extractor, len(self.action_dim[0]), self.hp['hidden_layer_size'], discrete=False).to(device)
         else:
             self.policy = ActorCriticModel(feature_extractor, self.action_dim, self.hp['hidden_layer_size'], discrete=True).to(device)
 

@@ -13,6 +13,8 @@ from ExternalAtariWrappers import get_final_env
 MAX_TRAIN_EPISODES = 1000000
 TEST_EPISODES=1
 CHECKPOINT_STEPS=0.2
+SAVE_VIDEOS=True
+
 def run_episode(env, agent):
     episode_rewards = []
     done = False
@@ -26,14 +28,14 @@ def run_episode(env, agent):
         # if cur_life < lives:
         #     is_terminal = True
         #     lives = cur_life
-        if hasattr(env, '_max_episode_steps'):
-            is_terminal = done and len(episode_rewards) < env._max_episode_steps
+        # if hasattr(env, '_max_episode_steps'):
+        #     is_terminal = done and len(episode_rewards) < env._max_episode_steps
         agent.process_output(state, reward, is_terminal)
         episode_rewards += [reward]
     return episode_rewards
 
 
-def train(env, agent, score_scope, solved_score, log_frequency=10, test_frequency=100):
+def train(env, agent, score_scope, solved_score, log_frequency=10, test_frequency=500):
     next_progress_checkpoint = 1
     next_test_progress_checkpoint = 1
 
@@ -46,7 +48,8 @@ def train(env, agent, score_scope, solved_score, log_frequency=10, test_frequenc
         episode_rewards = run_episode(env, agent)
 
         if (i+1) % test_frequency == 0:
-            env = gym.wrappers.Monitor(env, os.path.join(TRAIN_DIR, agent.name, "test_%d_weights.pt" % (i+1)), video_callable=lambda episode_id: True, force=True)
+            if SAVE_VIDEOS:
+                env = gym.wrappers.Monitor(env, os.path.join(TRAIN_DIR, agent.name, "test_%d_weights.pt" % (i+1)), video_callable=lambda episode_id: True, force=True)
             last_test_score = test(env, agent, TEST_EPISODES)
             logger.log_test(last_test_score)
             if last_test_score >= next_test_progress_checkpoint * CHECKPOINT_STEPS * solved_score:
@@ -138,15 +141,16 @@ def solve_lunar_lander():
     env = gym.make(env_name)
     # # With DQN
     # hp = {'lr':0.001, "min_playback":1000, "max_playback":1000000, "update_freq": 500, 'hiden_layer_size':256, 'epsilon_decay':10000}
-    # agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=True)
+    # agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
 
-    # With Actor-Critic
-    hp = {'lr':0.001, 'batch_episodes':32, 'GAE': 0.9, 'hidden_layer_size':128}
-    agent = GenericActorCritic.ActorCritic(s,a,hp)
+    # # With Actor-Critic
+    # hp = {'lr':0.001, 'batch_episodes':32, 'GAE': 0.9, 'hidden_layer_size':128}
+    # agent = GenericActorCritic.ActorCritic(s,a,hp)
 
-    # # With PPO
-    # hp = {'lr':0.001, 'batch_episodes':32, 'epochs':16, 'GAE':0.9, 'epsiolon_clip': 0.2, 'value_clip':0.5, 'grad_clip':None, 'entropy_weight':0.001, 'hidden_layer_size':256}
-    # agent = PPO.HybridPPO(s, a, hp)
+    # With PPO
+    # hp = {'lr':0.002, 'batch_episodes':4, 'epochs':4, 'GAE':0.95, 'epsiolon_clip': 0.2, 'value_clip':0.5, 'grad_clip':None, 'entropy_weight':0.01, 'hidden_layer_size':64}
+    hp = {'lr':0.00025, 'batch_episodes':8, 'epochs':3, 'GAE':0.95, 'epsiolon_clip': 0.1, 'value_clip':None, 'grad_clip':0.5, 'entropy_weight':0.01, 'hidden_layer_size':64}
+    agent = PPO.HybridPPO(s, a, hp)
 
     return env_name, env, agent, score_scope, solved_score
 
@@ -171,13 +175,12 @@ def solve_bipedal_walker():
     a = [env.action_space.low, env.action_space.high]
 
     # With PPO
-    # With PPO
     hp = {'lr':0.00025, 'batch_episodes':16, 'epochs':32, 'GAE':1.0, 'epsiolon_clip': 0.2, 'value_clip':None, 'grad_clip':None, 'entropy_weight':0.01, 'hidden_layer_size':256}
     agent = PPO.HybridPPO(s, a, hp)
 
-    # With TD3
-    hp = {'actor_lr':0.00025, 'critic_lr':0.00025}#, "exploration_steps":5000, "min_memory_for_learning":10000, "batch_size": 256}
-    agent = TD3.TD3(s, env.action_space, a, hp, train=True)
+    # # With TD3
+    # hp = {'actor_lr':0.00025, 'critic_lr':0.00025}#, "exploration_steps":5000, "min_memory_for_learning":10000, "batch_size": 256}
+    # agent = TD3.TD3(s, env.action_space, a, hp, train=True)
 
     # agent.load_state('Trained_models/BipedalWalker-v3/TD3_lr[0.0003]_b[256]_tau[0.0050]_uf[2]/TD3_lr[0.0003]_b[256]_tau[0.0050]_uf[2]_test_309.12538_weights.pt')
     return env_name, env, agent, score_scope, solved_score
