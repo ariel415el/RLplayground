@@ -143,14 +143,14 @@ def solve_lunar_lander():
     # hp = {'lr':0.001, "min_playback":1000, "max_playback":1000000, "update_freq": 500, 'hiden_layer_size':256, 'epsilon_decay':10000}
     # agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
 
-    # # With Actor-Critic
-    # hp = {'lr':0.001, 'batch_episodes':32, 'GAE': 0.9, 'hidden_layer_size':128}
-    # agent = GenericActorCritic.ActorCritic(s,a,hp)
+    # With Actor-Critic
+    hp = {'lr':0.005, 'batch_episodes':8, 'GAE': 0.96, 'hidden_layer_size':16}
+    agent = GenericActorCritic.ActorCritic(s,a,hp)
 
-    # With PPO
-    # hp = {'lr':0.002, 'batch_episodes':4, 'epochs':4, 'GAE':0.95, 'epsiolon_clip': 0.2, 'value_clip':0.5, 'grad_clip':None, 'entropy_weight':0.01, 'hidden_layer_size':64}
-    hp = {'lr':0.00025, 'batch_episodes':8, 'epochs':3, 'GAE':0.95, 'epsiolon_clip': 0.1, 'value_clip':None, 'grad_clip':0.5, 'entropy_weight':0.01, 'hidden_layer_size':64}
-    agent = PPO.HybridPPO(s, a, hp)
+    # # With PPO
+    # # hp = {'lr':0.00025, 'batch_episodes':8, 'epochs':3, 'GAE':0.95, 'epsiolon_clip': 0.1, 'value_clip':None, 'grad_clip':0.5, 'entropy_weight':0.01, 'hidden_layer_size':64}
+    # hp = {'lr':0.02, 'batch_episodes':8, 'epochs':3, 'GAE':0.95, 'epsiolon_clip': 0.1, 'value_clip':0.5, 'grad_clip':0.5, 'entropy_weight':0.01, 'hidden_layer_size':16}
+    # agent = PPO.HybridPPO(s, a, hp)
 
     return env_name, env, agent, score_scope, solved_score
 

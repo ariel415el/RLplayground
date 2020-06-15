@@ -33,7 +33,6 @@ class Memory:
         del self.is_terminals[:]
 
 
-
 class ActorCritic(object):
     def __init__(self, state_dim, action_dim, hp, train=True):
         self.name = 'ActorCritic'
