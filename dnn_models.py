@@ -86,18 +86,18 @@ class ConvNetFeatureExtracor(nn.Module):
 
 
 class DiscreteActor(nn.Module):
-    def __init__(self, feature_extractor, action_dim, hidden_layer_size):
+    def __init__(self, feature_extractor, action_dim, hidden_layers):
         super(DiscreteActor, self).__init__()
         # action mean range -1 to 1
         self.features = feature_extractor
-        self.head =  nn.Sequential(
-                nn.Linear(self.features.features_space, hidden_layer_size),
-                # NoisyLinear(self.features.features_space, hidden_layer_size),
-                nn.Tanh(),
-                nn.Linear(hidden_layer_size, action_dim),
-                # NoisyLinear(hidden_layer_size, action_dim),
-                nn.Softmax(dim=1)
-                )
+
+        layers = []
+        last_features_space = self.features.features_space
+        for layer_size in hidden_layers:
+            layers += [nn.Linear(last_features_space, layer_size), nn.Tanh()]
+            last_features_space = layer_size
+        layers += [nn.Linear(last_features_space, action_dim), nn.Softmax(dim=1)]
+        self.head = nn.Sequential(*layers)
 
     def get_dist(self, features):
         probs = self.head(features)
@@ -111,16 +111,18 @@ class DiscreteActor(nn.Module):
 
 
 class CountinousActor(nn.Module):
-    def __init__(self, feature_extractor, action_dim, hidden_layer_size):
+    def __init__(self, feature_extractor, action_dim, hidden_layers):
         super(CountinousActor, self).__init__()
         # action mean range -1 to 1
         self.action_dim = action_dim
         self.features = feature_extractor
-        self.head = nn.Sequential(
-                nn.Linear(self.features.features_space, hidden_layer_size),
-                nn.Tanh(),
-                nn.Linear(hidden_layer_size, 2*action_dim),
-                )
+        layers = []
+        last_features_space = self.features.features_space
+        for layer_size in hidden_layers:
+            layers += [nn.Linear(last_features_space, layer_size), nn.Tanh()]
+            last_features_space = layer_size
+        layers += [nn.Linear(last_features_space, 2*action_dim)]
+        self.head = nn.Sequential(*layers)
 
     def get_dist(self, features):
         mu_sigma = self.head(features)
@@ -136,15 +138,16 @@ class CountinousActor(nn.Module):
 
 
 class Critic(nn.Module):
-    def __init__(self, feature_extractor, action_dim, hidden_layer_size):
+    def __init__(self, feature_extractor, action_dim, hidden_layers):
         super(Critic, self).__init__()
-        # action mean range -1 to 1
         self.features = feature_extractor
-        self.head = nn.Sequential(
-                nn.Linear(self.features.features_space, hidden_layer_size),
-                nn.Tanh(),
-                nn.Linear(hidden_layer_size, 1)
-                )
+        layers = []
+        last_features_space = self.features.features_space
+        for layer_size in hidden_layers:
+            layers += [nn.Linear(last_features_space, layer_size), nn.Tanh()]
+            last_features_space = layer_size
+        layers += [nn.Linear(last_features_space, 1)]
+        self.head = nn.Sequential(*layers)
 
     def get_value(self, features):
         return self.head(features)
@@ -155,15 +158,15 @@ class Critic(nn.Module):
         return value
 
 class ActorCriticModel(nn.Module):
-    def __init__(self, feature_extractor, action_dim, hidden_layer_size, discrete=True):
+    def __init__(self, feature_extractor, action_dim, hidden_layers, discrete=True):
         super(ActorCriticModel, self).__init__()
         # action mean range -1 to 1
         self.features = feature_extractor
         if discrete:
-            self.actor = DiscreteActor(self.features, action_dim, hidden_layer_size)
+            self.actor = DiscreteActor(self.features, action_dim, hidden_layers)
         else:
-            self.actor = CountinousActor(self.features, action_dim, hidden_layer_size)
-        self.critic = Critic(self.features, action_dim, hidden_layer_size)
+            self.actor = CountinousActor(self.features, action_dim, hidden_layers)
+        self.critic = Critic(self.features, action_dim, hidden_layers)
 
     def get_action_dist(self, x):
         return self.actor(x)
