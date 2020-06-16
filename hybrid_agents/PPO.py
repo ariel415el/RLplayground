@@ -4,6 +4,7 @@
 import os
 from dnn_models import *
 from utils import *
+from GenericAgent import GenericAgent
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
@@ -43,8 +44,9 @@ class Memory:
         del self.is_terminals[:]
 
 
-class HybridPPO(object):
+class HybridPPO(GenericAgent):
     def __init__(self, state_dim, action_dim, hp, train=True):
+        super(HybridPPO, self).__init__(train)
         self.name = 'PPO'
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -58,7 +60,7 @@ class HybridPPO(object):
             'lr_decay':0.95,
             'epsiolon_clip':0.2,
             'value_clip':0.5,
-            'hidden_layer_size':128,
+            'hidden_layers':[128,128],
             'entropy_weight':0.01,
             'grad_clip':0.5,
             'GAE': 1 # 1 for MC, 0 for TD
@@ -70,17 +72,18 @@ class HybridPPO(object):
         if type(self.state_dim) == tuple:
             feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
         else:
-            feature_extractor = LinearFeatureExtracor(self.state_dim, self.hp['hidden_layer_size'], activation=torch.tanh)
+            feature_extractor = LinearFeatureExtracor(self.state_dim, self.hp['hidden_layers'][0], activation=torch.tanh)
 
         if type(self.action_dim) == list:
-            self.policy = ActorCriticModel(feature_extractor, len(self.action_dim[0]), self.hp['hidden_layer_size'], discrete=False).to(device)
+            self.policy = ActorCriticModel(feature_extractor, len(self.action_dim[0]), self.hp['hidden_layers'], discrete=False).to(device)
         else:
-            self.policy = ActorCriticModel(feature_extractor, self.action_dim, self.hp['hidden_layer_size'], discrete=True).to(device)
+            self.policy = ActorCriticModel(feature_extractor, self.action_dim, self.hp['hidden_layers'][1:], discrete=True).to(device)
 
 
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.hp['lr'])
         self.optimizer.zero_grad()
         self.learn_steps = 0
+        self.num_actions = 0
         self.episodes_in_cur_batch = 0
 
         self.name += "_lr[%.4f]_b[%d]_GAE[%.1f]"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'])
@@ -91,7 +94,6 @@ class HybridPPO(object):
 
     def process_new_state(self, state):
         state = torch.from_numpy(np.array(state)).to(device).float()
-        # dist = self.policy.get_action_dist(state.unsqueeze(0))
         dist, value = self.policy(state.unsqueeze(0))
 
         action = dist.sample()[0]
@@ -102,6 +104,9 @@ class HybridPPO(object):
         self.last_action_log_prob = dist.log_prob(action)[0]
 
         action = action.detach().cpu().numpy()
+        if type(self.action_dim) == list:
+            action = np.clip(action, self.action_dim[0], self.action_dim[1])
+        self.num_actions += 1
         return action
 
     def process_output(self, new_state, reward, is_finale_state):
@@ -117,6 +122,7 @@ class HybridPPO(object):
             if (self.learn_steps+1) % 10 == 0:
                 for param_group in self.optimizer.param_groups:
                     param_group['lr'] *= self.hp['lr_decay']
+                self.reporter.update_agent_stats("lr", self.learn_steps, self.optimizer.param_groups[0]['lr'])
 
     def _learn(self):
         old_states, old_values, old_actions, old_logprobs, raw_rewards, is_terminals = self.samples.get_as_tensors(device)
@@ -126,6 +132,10 @@ class HybridPPO(object):
         advantages = GenerelizedAdvantageEstimate(self.hp['GAE'], old_values, raw_rewards, is_terminals, self.hp['discount'], device).detach()
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
 
+        debug_actor_loss = []
+        debug_critic_loss = []
+        debug_entropy_loss = []
+        debug_total_loss= []
         # Optimize policy for K epochs:
         for _ in range(self.hp['epochs']):
             # Evaluating old actions and values with the target policy:
@@ -156,6 +166,15 @@ class HybridPPO(object):
             if self.hp['grad_clip'] is not None:
                 torch.nn.utils.clip_grad_norm_(self.policy.parameters(), self.hp['grad_clip'])
             self.optimizer.step()
+            debug_actor_loss += [actor_loss.mean().item()]
+            debug_critic_loss += [critic_loss.mean().item()]
+            debug_entropy_loss += [exploration_loss.mean().item()]
+            debug_total_loss += [loss.mean().item()]
+
+        self.reporter.update_agent_stats("actor_loss", self.num_actions, np.mean(debug_actor_loss))
+        self.reporter.update_agent_stats("critic_loss", self.num_actions, np.mean(debug_critic_loss))
+        self.reporter.update_agent_stats("dist_entropy", self.num_actions, -np.mean(debug_entropy_loss))
+        self.reporter.update_agent_stats("total_loss", self.num_actions, np.mean(debug_total_loss))
 
     def load_state(self, path):
         if os.path.exists(path):

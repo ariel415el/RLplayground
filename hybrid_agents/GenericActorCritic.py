@@ -44,7 +44,7 @@ class ActorCritic(object):
             'discount':0.99,
             'lr':0.01,
             'lr_decay':0.95,
-            'hidden_layer_size':128,
+            'hidden_layers':[128,128],
             "GAE": 1
         }
         self.hp.update(hp)
@@ -53,12 +53,12 @@ class ActorCritic(object):
         if type(self.state_dim) == tuple:
             feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
         else:
-            feature_extractor = LinearFeatureExtracor(self.state_dim, self.hp['hidden_layer_size'])
+            feature_extractor = LinearFeatureExtracor(self.state_dim, self.hp['hidden_layers'][0])
 
         if type(self.action_dim) == list:
-            self.policy = ActorCriticModel(feature_extractor, len(self.action_dim[0]), self.hp['hidden_layer_size'], discrete=False).to(device)
+            self.policy = ActorCriticModel(feature_extractor, len(self.action_dim[0]), self.hp['hidden_layers'], discrete=False).to(device)
         else:
-            self.policy = ActorCriticModel(feature_extractor, self.action_dim, self.hp['hidden_layer_size'], discrete=True).to(device)
+            self.policy = ActorCriticModel(feature_extractor, self.action_dim, self.hp['hidden_layers'][1:], discrete=True).to(device)
 
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.hp['lr'])
         self.optimizer.zero_grad()
@@ -109,6 +109,9 @@ class ActorCritic(object):
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+
+        self.reporter.update_agent_stats("actor_loss", self.learn_steps, actor_loss.mean().item())
+        self.reporter.update_agent_stats("critic_loss", self.learn_steps, critic_loss.mean().item())
 
     def load_state(self, path):
         if os.path.exists(path):

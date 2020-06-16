@@ -1,6 +1,7 @@
 import os
 from dnn_models import *
 from utils import *
+from GenericAgent import GenericAgent
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class Memory:
@@ -26,8 +27,9 @@ class Memory:
         del self.rewards[:]
         del self.is_terminals[:]
 
-class VanilaPolicyGradient(object):
+class VanilaPolicyGradient(GenericAgent):
     def __init__(self, state_dim, action_dim, hp, train=True):
+        super(VanilaPolicyGradient, self).__init__(train)
         self.name = 'Vanila-PG'
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -37,19 +39,19 @@ class VanilaPolicyGradient(object):
             'discount':0.99,
             'lr':0.01,
             'lr_decay':0.95,
-            'hidden_layer_size':128
+            'hidden_layers':[128,128]
         }
         self.hp.update(hp)
         self.samples = Memory()
-
+        self.reporter = None
         if type(self.state_dim) == tuple:
             feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
         else:
-            feature_extractor = LinearFeatureExtracor(self.state_dim, self.hp['hidden_layer_size'])
+            feature_extractor = LinearFeatureExtracor(self.state_dim, self.hp['hidden_layers'][0])
         if type(self.action_dim) == list:
-            self.policy = CountinousActor(feature_extractor, len(self.action_dim[0]), self.hp['hidden_layer_size']).to(device)
+            self.policy = CountinousActor(feature_extractor, len(self.action_dim[0]), self.hp['hidden_layers']).to(device)
         else:
-            self.policy = DiscreteActor(feature_extractor, self.action_dim, self.hp['hidden_layer_size']).to(device)
+            self.policy = DiscreteActor(feature_extractor, self.action_dim, self.hp['hidden_layers'][1:]).to(device)
 
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.hp['lr'])
         self.optimizer.zero_grad()
@@ -57,6 +59,10 @@ class VanilaPolicyGradient(object):
         self.episodes_in_cur_batch = 0
 
         self.name += "_lr[%.4f]_b[%d]"%(self.hp['lr'], self.hp['batch_episodes'])
+
+        self.logs = {"loss":{"x_axis":'#Steps', 'y_axis':'loss','xs':[], 'ys':[]},
+                     "lr":{ "x_axis": '#Steps', 'y_axis': 'lr', 'xs': [], 'ys': []}
+        }
 
     def process_new_state(self, state):
         state = torch.from_numpy(np.array(state)).to(device).float()
@@ -73,12 +79,11 @@ class VanilaPolicyGradient(object):
         self.samples.add_sample(self.last_action_log_prob, reward, is_finale_state)
         if is_finale_state:
             self.episodes_in_cur_batch += 1
-        if self.episodes_done == self.hp['batch_episodes']:
+        if self.episodes_in_cur_batch == self.hp['batch_episodes']:
             self._learn()
             self.samples.clear_memory()
             self.learn_steps += 1
             self.episodes_in_cur_batch = 0
-
 
             if (self.learn_steps+1) % 10 == 0:
                 for param_group in self.optimizer.param_groups:
@@ -89,12 +94,15 @@ class VanilaPolicyGradient(object):
 
         # Monte Carlo estimate of rewards:
         rewards = monte_carlo_reward(raw_rewards, is_terminals, self.hp['discount'], device)
+        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
         actor_loss = (-logprobs*rewards).mean()
 
         # take gradient step
         self.optimizer.zero_grad()
         actor_loss.backward()
         self.optimizer.step()
+
+        self.reporter.update_agent_stats("loss", self.learn_steps, actor_loss.item())
 
     def load_state(self, path):
         if os.path.exists(path):
@@ -105,6 +113,7 @@ class VanilaPolicyGradient(object):
 
     def get_stats(self):
         return "Gs: %d; LR: %.5f"%(self.learn_steps, self.optimizer.param_groups[0]['lr'])
+
 
 
 

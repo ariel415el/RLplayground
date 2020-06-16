@@ -2,7 +2,7 @@
 class GenericAgent(object):
     def __init__(self,train=True):
         self.train=train
-        raise NotImplementedError
+        self.reporter=None
 
     def process_new_state(self, state):
         raise NotImplementedError
@@ -24,3 +24,6 @@ class GenericAgent(object):
 
     def eval(self):
         self.train = False
+
+    def set_reporter(self, reporter):
+         self.reporter = reporter

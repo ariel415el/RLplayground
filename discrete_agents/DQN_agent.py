@@ -13,7 +13,7 @@ import copy
 from torch import nn
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)
-
+from GenericAgent import GenericAgent
 
 class new_DuelingDQN(nn.Module):
     def __init__(self, input_features):
@@ -115,8 +115,9 @@ class DuelingDQN(nn.Module):
 def normalize_states(states):
     return (states - 127) / 255
 
-class DQN_agent(object):
+class DQN_agent(GenericAgent):
     def __init__(self, state_dim, action_dim, hp=None, train=True, double_dqn=False, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False):
+        super(DQN_agent, self).__init__(train)
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.train = train
@@ -198,7 +199,6 @@ class DQN_agent(object):
                 torch_state = normalize_states(torch_state)
             q_vals = self.trainable_model(torch_state)
             action_index = np.argmax(q_vals.detach().cpu().numpy())
-
         self.last_state = state
         self.last_action = action_index
 
@@ -258,6 +258,7 @@ class DQN_agent(object):
                 self.trainable_model.reset_noise()
                 self.target_model.reset_noise()
 
+            self.reporter.update_agent_stats("Loss", self.action_counter, loss.item())
 
     def load_state(self, path):
         if os.path.exists(path):

@@ -1,41 +1,63 @@
 from _collections import deque
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
-import torch
 import os
 import matplotlib.pyplot as plt
 from time import time
+
+class train_stats(object):
+    def __init__(self, name, x, y):
+        self.name = name
+        self.xs = [x]
+        self.ys = [y]
+
+    def add(self, x, y):
+        self.xs += [x]
+        self.ys += [y]
+
+    def plot(self, path):
+        plt.plot(self.xs, self.ys, label=self.name)
+        plt.legend()
+        plt.savefig(path)
+        plt.clf()
+
 
 class logger(object):
     def __init__(self, k, log_frequency=10):
         self.log_frequency = log_frequency
         self.last_episodes_total_rewards = deque(maxlen=k)
         self.train_start = time()
-        self.total_steps  = 0
+        self.total_steps = 0
         self.done_episodes = 0
         self.last_time = self.train_start
         self.last_steps = 0
+        self.agent_train_stats = {}
 
     def get_last_k_episodes_mean(self):
         return np.mean(self.last_episodes_total_rewards)
+
+    def update_agent_stats(self, name, x, y):
+        if name in self.agent_train_stats:
+            self.agent_train_stats[name].add(x,y)
+        else:
+            self.agent_train_stats[name] = train_stats(name, x, y)
 
     def update_train_episode(self, episode_rewards):
         self.last_episodes_total_rewards.append(np.sum(episode_rewards))
         self.total_steps += len(episode_rewards)
         self.done_episodes += 1
+        if self.done_episodes % self.log_frequency == 0 :
+            self.output_stats()
 
-    def output_stats(self, actor_stats=None):
+    def output_stats(self):
         time_passed = time() - self.train_start
-        last_k_score = self.get_last_k_episodes_mean()
         print('Episodes done: ', self.done_episodes)
-        print("\t# Steps %d, time %d mins; avg-%d %.2f:" % (self.total_steps, time_passed / 60, len(self.last_episodes_total_rewards), last_k_score))
+        print("\t# Steps %d, time %d mins; avg-%d %.2f:" % (self.total_steps, time_passed / 60, len(self.last_episodes_total_rewards), self.get_last_k_episodes_mean()))
         print("\t# steps/sec avg: %.3f " % (self.total_steps / time_passed))
         # print("\t# steps/sec avg: %.3f " % ((self.total_steps- self.last_steps) / (time_passed - self.last_time)))
-        print("\t# Agent stats: ", actor_stats)
+        # print("\t# Agent stats: ", ";".join([name+" : "+str(self.agent_train_stats[name].ys[-1]) for name in self.agent_train_stats]))
         self.last_steps = self.total_steps
         self.last_time = time_passed
-
-        return last_k_score
 
     def log_test(self, score):
         print("Test score: %.3f "%score)
@@ -66,10 +88,10 @@ class plt_logger(logger):
         self.test_scores = []
 
     def update_train_episode(self, episode_rewards):
-        super(plt_logger, self).update_train_episode(episode_rewards)
         self.all_episode_lengths += [len(episode_rewards)]
         self.all_episode_total_scores += [np.sum(episode_rewards)]
         self.all_avg_last_k += [self.get_last_k_episodes_mean()]
+        super(plt_logger, self).update_train_episode(episode_rewards)
 
     def output_stats(self, actor_stats=None, by_step=False):
         xs = np.arange(1, len(self.all_episode_lengths) + 1)
@@ -77,7 +99,7 @@ class plt_logger(logger):
         if by_step:
             xs = np.cumsum(self.all_episode_lengths)
             x_label = 'Step #'
-        last_k_scores = super(plt_logger, self).output_stats(actor_stats)
+        super(plt_logger, self).output_stats()
         plt.plot(xs, self.all_episode_lengths)
         plt.ylabel('Length')
         plt.xlabel(x_label)
@@ -92,14 +114,9 @@ class plt_logger(logger):
         plt.savefig(os.path.join(self.logdir, "Episode-scores.png"))
         plt.clf()
 
-        # plt.plot(np.cumsum(self.all_episode_lengths), self.all_episode_total_scores)
-        # plt.ylabel('Score')
-        # plt.xlabel('Step #')
-        # plt.savefig(os.path.join(self.logdir, "Episode-scores-by-step.png"))
-        # plt.clf()
+        for train_stats in self.agent_train_stats:
+            self.agent_train_stats[train_stats].plot(os.path.join(self.logdir, train_stats+".png"))
 
-
-        return last_k_scores
 
     def log_test(self, score):
         super(plt_logger, self).log_test(score)
