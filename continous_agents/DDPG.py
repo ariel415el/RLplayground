@@ -1,10 +1,13 @@
 import torch
 import random
-from collections import deque
+from utils import ListMemory
 import numpy as np
 import os
 from torch import nn
 from utils import update_net
+from dnn_models import ConvNetFeatureExtracor, LinearFeatureExtracor
+import copy
+from GenericAgent import GenericAgent
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)
@@ -100,47 +103,58 @@ class OUNoise:
         return 'OrnsteinUhlenbeckActionNoise(mu={}, sigma={})'.format(self.mu, self.sigma)
 
 
-class DDPG(object):
-    def __init__(self, state_dim, bounderies, max_episodes, train = True):
+class DDPG(GenericAgent):
+    def __init__(self, state_dim, bounderies, hp, train = True):
+        super(DDPG, self).__init__(train)
         self.state_dim = state_dim
         self.bounderies = bounderies
         self.action_dim = len(bounderies[0])
-        self.max_episodes = max_episodes
         self.train = train
-        self.tau=0.005
-        self.actor_lr = 0.0005
-        self.critic_lr = 0.005
-        self.critic_weight_decay=0.001
-        self.min_epsilon = 0.01
-        self.discount = 0.99
-        self.update_freq = 1
-        self.batch_size = 100
-        self.max_playback = 1000000
+        self.hp = {
+            'tau':0.05,
+            'actor_lr':0.0005,
+            'critic_lr':0.005,
+            'critic_weight_decay':0.001,
+            'min_epsilon':0.01,
+            'discount':0.99,
+            'update_freq':1,
+            'batch_size':100,
+            'max_playback':1000000,
+            'min_playback':0,
+            'learn_freq':1,
+            'layer_dims':[128,64],
+            'batch_norm':True
+        }
+        self.hp.update(hp)
+        self.playback_memory = ListMemory(self.hp['max_playback'])
+
         self.random_process = OUNoise(self.action_dim)
+
+        # if type(self.state_dim) == tuple:
+        #     feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
+        #     state_dtype = np.uint8
+        # else:
+        #     feature_extractor = LinearFeatureExtracor(self.state_dim, 64)
+        #     state_dtype = np.float32
+
+        self.trainable_actor = D_Actor(self.state_dim, self.action_dim, self.hp['layer_dims'], self.hp['batch_norm']).to(device)
+        self.trainable_critic = D_Critic(self.state_dim, self.action_dim, self.hp['layer_dims'], self.hp['batch_norm']).to(device)
+
+        with torch.no_grad():
+            self.target_actor = copy.deepcopy(self.trainable_actor)
+            self.target_critic = copy.deepcopy(self.trainable_critic)
+
+        self.actor_optimizer = torch.optim.Adam(self.trainable_actor.parameters(), lr=self.hp['actor_lr'])
+        self.critic_optimizer = torch.optim.Adam(self.trainable_critic.parameters(), lr=self.hp['critic_lr'], weight_decay=self.hp['critic_weight_decay'])
 
         self.action_counter = 0
         self.completed_episodes = 0
         self.gs_num=0
-        self.playback_deque = deque(maxlen=self.max_playback)
 
-        layer_dims = [128,64]
-        batch_norm=True
-        self.trainable_actor = D_Actor(self.state_dim, self.action_dim, layer_dims, batch_norm).to(device)
-        self.target_actor = D_Actor(self.state_dim, self.action_dim, layer_dims, batch_norm).to(device)
-
-        self.trainable_critic = D_Critic(self.state_dim, self.action_dim, layer_dims, batch_norm).to(device)
-        self.target_critic = D_Critic(self.state_dim, self.action_dim, layer_dims, batch_norm).to(device)
-
-        update_net(self.target_actor, self.trainable_actor, 1)
-        update_net(self.target_critic, self.trainable_critic, 1)
-
-        self.actor_optimizer = torch.optim.Adam(self.trainable_actor.parameters(), lr=self.actor_lr)
-        self.critic_optimizer = torch.optim.Adam(self.trainable_critic.parameters(), lr=self.critic_lr, weight_decay=self.critic_weight_decay)
-
-        self.name = "DDPG_%s_"%str(layer_dims)
-        if batch_norm:
+        self.name = "DDPG_%s_"%str(self.hp['layer_dims'])
+        if self.hp['batch_norm']:
             self.name += "BN_"
-        self.name += "lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]"%(self.actor_lr, self.batch_size, self.tau, self.update_freq)
+        self.name += "lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]_lf[%d]"%(self.hp['actor_lr'], self.hp['batch_size'], self.hp['tau'], self.hp['update_freq'], self.hp['learn_freq'])
 
     def process_new_state(self, state):
         self.action_counter += 1
@@ -162,38 +176,31 @@ class DDPG(object):
 
     def process_output(self, new_state, reward, is_finale_state):
         if self.train:
-            self.playback_deque.append((self.last_state, self.last_action, new_state, reward, is_finale_state))
+            self.playback_memory.add_sample((self.last_state.astype(np.float32), self.last_action, new_state.astype(np.float32), reward, is_finale_state))
             self._learn()
-            if self.action_counter % self.update_freq == 0:
-                update_net(self.target_actor, self.trainable_actor, self.tau)
-                update_net(self.target_critic, self.trainable_critic, self.tau)
+            if self.action_counter % self.hp['update_freq'] == 0:
+                update_net(self.target_actor, self.trainable_actor, self.hp['tau'])
+                update_net(self.target_critic, self.trainable_critic, self.hp['tau'])
                 # self.epsilon =max(self.min_epsilon, self.epsilon*self.epsilon_decay)
         # if is_finale_state:
         #     self.random_process.reset()
 
     def _learn(self):
-        if len(self.playback_deque) > self.batch_size:
-            batch_arrays = np.array(random.sample(self.playback_deque, k=self.batch_size))
-            states = torch.from_numpy(np.stack(batch_arrays[:, 0], axis=0)).to(device).float()
-            actions = torch.from_numpy(np.stack(batch_arrays[:, 1], axis=0)).to(device).float()
-            next_states = torch.from_numpy(np.stack(batch_arrays[:, 2], axis=0)).to(device).float()
-            rewards = torch.from_numpy(np.stack(batch_arrays[:, 3], axis=0)).to(device).float()
-            is_finale_states = np.stack(batch_arrays[:, 4], axis=0)
+        if len(self.playback_memory) >= max(self.hp['min_playback'], self.hp['batch_size']) and self.action_counter % self.hp['learn_freq'] == 0:
+            states, actions, next_states, rewards, is_finale_states = self.playback_memory.sample(self.hp['batch_size'], device)
 
             # update critic
             with torch.no_grad():
                 next_target_action = self.target_actor(next_states)
-                next_target_q_values = self.target_critic(next_states, next_target_action).view(-1)
+                next_target_q_values = self.target_critic(next_states, next_target_action)
 
-                target_values = rewards
-                mask = np.logical_not(is_finale_states)
-                target_values[mask] += self.discount*next_target_q_values[mask]
+                not_final = (1 - is_finale_states.float().view(-1, 1))
+                target_values = rewards.view(-1, 1) + self.hp['discount'] * next_target_q_values * not_final
 
-            self.trainable_critic.train()
             self.critic_optimizer.zero_grad()
             q_values = self.trainable_critic(states, actions)
-            loss = torch.nn.functional.mse_loss(q_values.view(-1), target_values)
-            loss.backward()
+            loss = 0.5*(q_values - target_values).pow(2)
+            loss.mean().backward()
             self.critic_optimizer.step()
 
             # update actor

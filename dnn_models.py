@@ -138,7 +138,7 @@ class CountinousActor(nn.Module):
 
 
 class Critic(nn.Module):
-    def __init__(self, feature_extractor, action_dim, hidden_layers):
+    def __init__(self, feature_extractor, hidden_layers):
         super(Critic, self).__init__()
         self.features = feature_extractor
         layers = []
@@ -166,7 +166,7 @@ class ActorCriticModel(nn.Module):
             self.actor = DiscreteActor(self.features, action_dim, hidden_layers)
         else:
             self.actor = CountinousActor(self.features, action_dim, hidden_layers)
-        self.critic = Critic(self.features, action_dim, hidden_layers)
+        self.critic = Critic(self.features, hidden_layers)
 
     def get_action_dist(self, x):
         return self.actor(x)
