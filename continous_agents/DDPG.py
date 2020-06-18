@@ -1,5 +1,4 @@
 import torch
-import random
 from utils import ListMemory
 import numpy as np
 import os
@@ -58,7 +57,9 @@ class D_Critic(nn.Module):
         super(D_Critic, self).__init__()
         self.batch_norm = batch_norm
         self.fc1 = nn.Linear(nb_states, layer_dims[0])
-        self.fc2 = nn.Linear(layer_dims[0] + nb_actions, layer_dims[1])
+        # self.fc2 = nn.Linear(layer_dims[0] + nb_actions, layer_dims[1])
+        self.fc2_state = nn.Linear(layer_dims[0], layer_dims[1])
+        self.fc2_action = nn.Linear(nb_actions, layer_dims[1])
         self.fc3 = nn.Linear(layer_dims[1], 1)
         if batch_norm:
             self.bn1 = torch.nn.BatchNorm1d(layer_dims[0])
@@ -67,7 +68,9 @@ class D_Critic(nn.Module):
 
     def init_weights(self, init_w):
         self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
-        self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
+        # self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
+        self.fc2_action.weight.data.uniform_(*hidden_init(self.fc2_action))
+        self.fc2_state.weight.data.uniform_(*hidden_init(self.fc2_state))
         self.fc3.weight.data.uniform_(-init_w, init_w)
 
     def forward(self, s, a):
@@ -75,7 +78,8 @@ class D_Critic(nn.Module):
         if self.batch_norm:
             out = self.bn1(out)
         out = self.relu(out)
-        out = self.fc2(torch.cat([out, a], 1))
+        # out = self.fc2(torch.cat([out, a], 1))
+        out = self.fc2_action(a) + self.fc2_state(out)
         out = self.relu(out)
         out = self.fc3(out)
         return out
@@ -170,7 +174,6 @@ class DDPG(GenericAgent):
         self.last_state = state
         self.last_action = action
 
-        # action = action.detach().cpu().numpy()
         action = np.clip(action, self.bounderies[0], self.bounderies[1])
         return action
 
@@ -199,9 +202,10 @@ class DDPG(GenericAgent):
 
             self.critic_optimizer.zero_grad()
             q_values = self.trainable_critic(states, actions)
-            loss = 0.5*(q_values - target_values).pow(2)
-            loss.mean().backward()
+            loss = (0.5*(q_values - target_values).pow(2)).mean()
+            loss.backward()
             self.critic_optimizer.step()
+            self.reporter.update_agent_stats("Critic-Loss", self.action_counter, loss.item())
 
             # update actor
             self.actor_optimizer.zero_grad()
@@ -209,6 +213,7 @@ class DDPG(GenericAgent):
             actor_obj = -self.trainable_critic(states, actions).mean()
             actor_obj.backward()
             self.actor_optimizer.step()
+            self.reporter.update_agent_stats("Actor-Loss", self.action_counter, actor_obj.item())
 
             self.gs_num += 1
 
@@ -225,8 +230,5 @@ class DDPG(GenericAgent):
     def save_state(self, path):
         dict = {'actor':self.trainable_actor.state_dict(), 'critic': self.trainable_critic.state_dict()}
         torch.save(dict, path)
-
-    def get_stats(self):
-        return "GS: %d; LR: a-%.5f\c-%.5f"%(self.gs_num, self.actor_optimizer.param_groups[0]['lr'],self.critic_optimizer.param_groups[0]['lr'])
 
 

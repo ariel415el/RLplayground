@@ -4,6 +4,8 @@ from torch.utils.tensorboard import SummaryWriter
 import os
 import matplotlib.pyplot as plt
 from time import time
+from tensorboardX import SummaryWriter
+import torch
 
 class train_stats(object):
     def __init__(self, name, x, y):
@@ -62,19 +64,29 @@ class logger(object):
     def log_test(self, score):
         print("Test score: %.3f "%score)
 
-# class TB_logger(logger):
-#     def __init__(self, k, tb_writer):
-#         super(TB_logger, self).__init__(k)
-#         self.tb_writer = tb_writer
-#
-#     def log_traine_episode(self, episode_number, episode_rewards, actor_stats):
-#         last_k_scores = super(TB_logger, self).log_train_episode(episode_number, episode_rewards, actor_stats)
-#         self.tb_writer.add_scalar('1.last_%s_episodes_avg'%len(self.last_episodes_total_rewards), torch.tensor(last_k_scores), global_step=episode_number)
-#         self.tb_writer.add_scalar('2.episode_score', torch.tensor(np.sum(episode_rewards)), global_step=episode_number)
-#         self.tb_writer.add_scalar('3.episode_length', len(episode_rewards), global_step=episode_number)
-#         self.tb_writer.add_scalar('4.avg_rewards', torch.tensor(np.mean(episode_rewards)), global_step=episode_number)
-#         # cur_time = max(1, int(time() - train_start))
-#         # self.tb_writer.add_scalar('5.episode_score_time_scaled', torch.tensor(episode_score), global_step=cur_time)
+class TB_logger(logger):
+    def __init__(self, k, log_frequency, logdir):
+        super(TB_logger, self).__init__(k, log_frequency)
+        self.log_frequency = log_frequency
+        self.k = k
+        self.tb_writer = SummaryWriter(os.path.join(logdir,'tensorboard'))
+
+    def update_agent_stats(self, name, x, y):
+        self.tb_writer.add_scalar(name, torch.tensor(y), global_step=x)
+
+    def update_train_episode(self, episode_rewards):
+        self.done_episodes += 1
+        if self.done_episodes % self.log_frequency ==0:
+            self.output_stats()
+        self.total_steps += len(episode_rewards)
+        episode_total_score = np.sum(episode_rewards)
+        self.last_episodes_total_rewards.append(episode_total_score)
+        self.tb_writer.add_scalars('Episode_score',{"Score": torch.tensor(episode_total_score),
+                                                   'Last-%d episode'%self.k: torch.tensor(self.get_last_k_episodes_mean())},
+                                  global_step=self.done_episodes)
+
+        self.tb_writer.add_scalar('Episode-Length', torch.tensor(len(episode_rewards)),
+                                  global_step=self.done_episodes)
 
 class plt_logger(logger):
     def __init__(self, k, log_frequency, logdir):
@@ -90,16 +102,16 @@ class plt_logger(logger):
     def update_train_episode(self, episode_rewards):
         self.all_episode_lengths += [len(episode_rewards)]
         self.all_episode_total_scores += [np.sum(episode_rewards)]
-        self.all_avg_last_k += [self.get_last_k_episodes_mean()]
         super(plt_logger, self).update_train_episode(episode_rewards)
+        self.all_avg_last_k += [self.get_last_k_episodes_mean()]
 
     def output_stats(self, actor_stats=None, by_step=False):
+        super(plt_logger, self).output_stats()
         xs = np.arange(1, len(self.all_episode_lengths) + 1)
         x_label = 'Episode #'
         if by_step:
             xs = np.cumsum(self.all_episode_lengths)
             x_label = 'Step #'
-        super(plt_logger, self).output_stats()
         plt.plot(xs, self.all_episode_lengths)
         plt.ylabel('Length')
         plt.xlabel(x_label)
