@@ -34,5 +34,16 @@ Agent are sorted by the the action space types they can work with: Discrete, Con
 - PPO: <img src=Trained_models/PongNoFrameskip-v4/PPO_lr%5B0.0001%5D_b%5B8%5D_GAE%5B1.0%5D/Episode-scores_pong.png width="400">
 ## AtariBreakout
 
-### Credits
-Credit to all those Github repository I aspired from
+# Credits
+Credit to all those Github repository I aspired from. I consulted a lot of repositories in order while implementing the algorithms, defining architectures and finetuning hyperparameters
+- https://github.com/sfujim/TD3.git
+- https://github.com/iKintosh/DQN-breakout-Pytorch.git
+- https://github.com/Anjum48/rl-examples.git
+- https://github.com/chagmgang/pytorch_ppo_rl.git
+- https://github.com/shivaverma/OpenAIGym.git
+- https://github.com/plopd/deep-reinforcement-learning.git
+- https://github.com/adik993/ppo-pytorch.git
+- https://github.com/higgsfield/RL-Adventure.git
+- https://github.com/Adriel-M/OpenAI-Gym-Solutions.git
+- https://github.com/nikhilbarhate99/PPO-PyTorch.git
+
