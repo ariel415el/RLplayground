@@ -3,7 +3,7 @@ Playing around reinforcement learning algorithms
 
 This is a project acompanies my catching of the recent years developements in the Reinforecement learning domain. It gathers simple implementations of state-of-art RL algorithms under the same API.
 
-# Algorithms Implemented
+# Available algorithms 
 - DQN: With variants (Double, Dueling PriorityMemory, NoisyNets)
 - VanilaPG
 - A2C
@@ -12,9 +12,10 @@ This is a project acompanies my catching of the recent years developements in th
 - TD3
 - ICM: In progress
 - Evolution Methods: (ES CEM Etc..) Todo
+
 Agent are sorted by the the action space types they can work with: Discrete, Continuous and Hybrid (Both)
 
-# Accomplishments
+# Enviroments
 ## CartPole
 - DQN
 - PG
