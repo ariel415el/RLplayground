@@ -4,8 +4,9 @@ from torch.utils.tensorboard import SummaryWriter
 import os
 import matplotlib.pyplot as plt
 from time import time
-from tensorboardX import SummaryWriter
 import torch
+import pickle
+
 
 class train_stats(object):
     def __init__(self, name, x, y):
@@ -25,18 +26,19 @@ class train_stats(object):
 
 
 class logger(object):
-    def __init__(self, k, log_frequency=10):
+    def __init__(self, k, log_frequency, logdir):
+        self.k = k
+        self.logdir = logdir
         self.log_frequency = log_frequency
-        self.last_episodes_total_rewards = deque(maxlen=k)
+        self.all_episodes_total_rewards = []
         self.train_start = time()
         self.total_steps = 0
         self.done_episodes = 0
         self.last_time = self.train_start
-        self.last_steps = 0
         self.agent_train_stats = {}
 
     def get_last_k_episodes_mean(self):
-        return np.mean(self.last_episodes_total_rewards)
+        return np.mean(self.all_episodes_total_rewards[-self.k:])
 
     def update_agent_stats(self, name, x, y):
         if name in self.agent_train_stats:
@@ -45,7 +47,7 @@ class logger(object):
             self.agent_train_stats[name] = train_stats(name, x, y)
 
     def update_train_episode(self, episode_rewards):
-        self.last_episodes_total_rewards.append(np.sum(episode_rewards))
+        self.all_episodes_total_rewards += [np.sum(episode_rewards)]
         self.total_steps += len(episode_rewards)
         self.done_episodes += 1
         if self.done_episodes % self.log_frequency == 0 :
@@ -54,21 +56,22 @@ class logger(object):
     def output_stats(self):
         time_passed = time() - self.train_start
         print('Episodes done: ', self.done_episodes)
-        print("\t# Steps %d, time %d mins; avg-%d %.2f:" % (self.total_steps, time_passed / 60, len(self.last_episodes_total_rewards), self.get_last_k_episodes_mean()))
+        print("\t# Steps %d, time %d mins; avg-%d %.2f:" % (self.total_steps, time_passed / 60, self.k, self.get_last_k_episodes_mean()))
         print("\t# steps/sec avg: %.3f " % (self.total_steps / time_passed))
-        # print("\t# steps/sec avg: %.3f " % ((self.total_steps- self.last_steps) / (time_passed - self.last_time)))
         print("\t# Agent stats: ", ";".join([name+" : %.5f"%self.agent_train_stats[name].ys[-1] for name in self.agent_train_stats]))
-        self.last_steps = self.total_steps
         self.last_time = time_passed
 
     def log_test(self, score):
         print("Test score: %.3f "%score)
 
+    def pickle_episode_scores(self):
+        f = open(os.path.join(self.logdir, "episode_scores.pkl"), 'wb')
+        pickle.dump(self.all_episodes_total_rewards, f)
+
 class TB_logger(logger):
     def __init__(self, k, log_frequency, logdir):
-        super(TB_logger, self).__init__(k, log_frequency)
-        self.log_frequency = log_frequency
-        self.k = k
+        super(TB_logger, self).__init__(k, log_frequency, logdir)
+        from tensorboardX import SummaryWriter
         self.tb_writer = SummaryWriter(os.path.join(logdir,'tensorboard'))
 
     def update_agent_stats(self, name, x, y):
@@ -80,7 +83,7 @@ class TB_logger(logger):
             self.output_stats()
         self.total_steps += len(episode_rewards)
         episode_total_score = np.sum(episode_rewards)
-        self.last_episodes_total_rewards.append(episode_total_score)
+        self.all_episodes_total_rewards += [np.sum(episode_rewards)]
         self.tb_writer.add_scalars('Episode_score',{"Score": torch.tensor(episode_total_score),
                                                    'Last-%d episode'%self.k: torch.tensor(self.get_last_k_episodes_mean())},
                                   global_step=self.done_episodes)
@@ -90,20 +93,20 @@ class TB_logger(logger):
 
 class plt_logger(logger):
     def __init__(self, k, log_frequency, logdir):
-        super(plt_logger, self).__init__(k, log_frequency)
+        super(plt_logger, self).__init__(k, log_frequency, logdir)
         os.makedirs(logdir, exist_ok=True)
-        self.k = k
-        self.logdir=logdir
         self.all_episode_lengths = []
-        self.all_episode_total_scores = []
         self.all_avg_last_k = []
         self.test_scores = []
 
     def update_train_episode(self, episode_rewards):
+        self.all_episodes_total_rewards += [np.sum(episode_rewards)]
         self.all_episode_lengths += [len(episode_rewards)]
-        self.all_episode_total_scores += [np.sum(episode_rewards)]
-        super(plt_logger, self).update_train_episode(episode_rewards)
         self.all_avg_last_k += [self.get_last_k_episodes_mean()]
+        self.total_steps += len(episode_rewards)
+        self.done_episodes += 1
+        if self.done_episodes % self.log_frequency == 0:
+            self.output_stats()
 
     def output_stats(self, actor_stats=None, by_step=False):
         super(plt_logger, self).output_stats()
@@ -118,7 +121,7 @@ class plt_logger(logger):
         plt.savefig(os.path.join(self.logdir, "Episode-lengths.png"))
         plt.clf()
 
-        plt.plot(xs, self.all_episode_total_scores, label='Episode-score')
+        plt.plot(xs, self.all_episodes_total_rewards, label='Episode-score')
         plt.plot(xs, self.all_avg_last_k, label='Score-last %d' % self.k)
         plt.ylabel('Score')
         plt.xlabel(x_label)
@@ -138,3 +141,4 @@ class plt_logger(logger):
         plt.xlabel('Episode #')
         plt.savefig(os.path.join(self.logdir, "Test_scores.png"))
         plt.clf()
+

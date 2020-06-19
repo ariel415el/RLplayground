@@ -1,6 +1,7 @@
 import gym
 import os
 import numpy as np
+
 def run_episode(env, agent):
     episode_rewards = []
     done = False
@@ -53,6 +54,7 @@ def train_agent(env, agent, solved_score, train_dir, logger, test_frequency, tra
             print("Solved in %d episodes" % i)
             break
 
+    logger.pickle_episode_scores()
     env.close()
 
 def test(env,  actor, test_episodes=1, render=False, delay=0.0):
