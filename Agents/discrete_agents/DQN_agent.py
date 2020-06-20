@@ -8,7 +8,7 @@ from collections import deque
 import numpy as np
 import os
 from dnn_models import *
-from utils import update_net, FastMemory, PrioritizedMemory, ListMemory
+from utils import update_net, FastMemory, PrioritizedMemory, ListMemory, PrioritizedListMemory
 import copy
 from torch import nn
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -162,8 +162,10 @@ class DQN_agent(GenericAgent):
 
 
         if self.prioritized_memory:
-            storage_sizes_and_types = [(self.state_dim, state_dtype), (1, np.uint8), (self.state_dim, state_dtype), (1, np.float32), (1, bool)]
-            self.playback_memory = PrioritizedMemory(self.hp['max_playback'], storage_sizes_and_types)
+            # storage_sizes_and_types = [(self.state_dim, state_dtype), (1, np.uint8), (self.state_dim, state_dtype), (1, np.float32), (1, bool)]
+            # storage_sizes_and_types = [(self.state_dim, state_dtype), (np.uint8, ), (self.state_dim, state_dtype), (np.float32, ), (bool,)]
+            # self.playback_memory = PrioritizedMemory(self.hp['max_playback'], storage_sizes_and_types)
+            self.playback_memory = PrioritizedListMemory(self.hp['max_playback'])
         else:
             self.playback_memory = ListMemory(self.hp['max_playback'])
 
@@ -187,7 +189,9 @@ class DQN_agent(GenericAgent):
         self.name += "lr[%.5f]_b[%d]_lf[%d]_uf[%d]"%(self.hp['lr'], self.hp['batch_size'], self.hp['learn_freq'], self.hp['update_freq'])
 
     def _get_cur_epsilon(self):
-        return self.hp['min_epsilon'] + (self.hp['epsilon'] - self.hp['min_epsilon']) * np.exp(-1. * self.action_counter / self.hp['epsilon_decay'])
+        cur_epsilon = self.hp['min_epsilon'] + (self.hp['epsilon'] - self.hp['min_epsilon']) * np.exp(-1. * self.action_counter / self.hp['epsilon_decay'])
+        self.reporter.update_agent_stats("Epsilon", self.action_counter, cur_epsilon)
+        return cur_epsilon
 
     def process_new_state(self, state):
         self.action_counter += 1

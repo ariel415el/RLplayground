@@ -1,7 +1,7 @@
 import os
 from dnn_models import *
 from utils import *
-
+from GenericAgent import GenericAgent
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
@@ -33,8 +33,9 @@ class Memory:
         del self.is_terminals[:]
 
 
-class ActorCritic(object):
+class ActorCritic(GenericAgent):
     def __init__(self, state_dim, action_dim, hp, train=True):
+        super(ActorCritic, self).__init__( train)
         self.name = 'ActorCritic'
         self.state_dim = state_dim
         self.action_dim = action_dim

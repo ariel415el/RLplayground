@@ -102,6 +102,37 @@ class FastMemory:
             del storage[:]
 
 
+class PrioritizedListMemory(ListMemory):
+    def __init__(self, max_size, alpha=0.6):
+        super().__init__(max_size)
+        self.priorities = np.ones((max_size,), np.float32)
+        self.alpha = alpha
+
+    def add_sample(self, sample):
+        super().add_sample(sample)
+        self.priorities[self.next_index - 1] = self.priorities.max()
+
+    def sample(self, batch_size, device, beta=0.4):
+        probs  = self.priorities[:self.size] ** self.alpha
+        probs /= probs.sum()
+
+
+        res = []
+        self.last_ind = np.random.choice(self.size, batch_size, p=probs)
+        batch_arrays = np.array([self.mem[i] for i in self.last_ind], dtype=object) # TODO: OPTIMIZE
+        for i in range(batch_arrays.shape[1]):
+            res += [torch.from_numpy(np.stack(batch_arrays[:, i])).to(device)]
+        res = tuple(res)
+
+        # Compute sample weights
+        weights = (self.size * probs[self.last_ind]) ** (-beta)
+        weights /= weights.max()
+
+        return res + (weights,)
+
+    def update_priorities(self, batch_priorities):
+        self.priorities[self.last_ind] = batch_priorities
+
 class PrioritizedMemory(FastMemory):
     def __init__(self, max_size, storage_sizes_and_types, alpha=0.6):
         super().__init__(max_size, storage_sizes_and_types)

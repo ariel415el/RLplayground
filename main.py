@@ -13,36 +13,36 @@ import train
 def solve_cart_pole():
     env_name="CartPole-v1"; s=4; a=2;score_scope=100; solved_score=195
     env = gym.make(env_name)
-    ## With DQN
-    hp = {'lr':0.001, "min_playback":0, "max_playback":1000000, "update_freq": 100, 'hiden_layer_size':32, 'epsilon_decay':500}
-    agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
-    #
+    # ## With DQN
+    # hp = {'lr':0.001, "min_playback":0, "max_playback":1000000, "update_freq": 100, 'hiden_layer_size':32, 'epsilon_decay':500}
+    # agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
+
     # # With VanilaPG
     # hp = {'lr':0.001, 'batch_episodes':1}
     # agent = VanilaPolicyGradient.VanilaPolicyGradient(s, a, hp)
 
     # # With Actor-Critic
-    # hp = {'lr':0.001, 'batch_episodes':1, 'GAE': 0.9}
+    # hp = {'lr':0.001, 'batch_episodes':1, 'GAE': 0.98}
     # agent = GenericActorCritic.ActorCritic(s,a,hp)
 
-    # # With PPO
-    # hp = {'lr':0.001, 'batch_episodes':1, 'epochs':4, 'GAE':1.0, 'value_clip':0.3, 'grad_clip':None}
-    # agent = PPO.HybridPPO(s, a, hp)
+    # With PPO
+    hp = {'lr':0.001, 'batch_episodes':1, 'epochs':4, 'GAE':1.0, 'value_clip':0.3, 'grad_clip':None}
+    agent = PPO.HybridPPO(s, a, hp)
 
 
     return env_name, env, agent, score_scope, solved_score
 
 
 def solve_mountain_car():
-    env_name="MountainCar-v0"; s=2; a=3;score_scope=100; solved_score=195
+    env_name="MountainCar-v0"; s=2; a=3;score_scope=100; solved_score=-110
     env = gym.make(env_name)
-    # ## With DQN
-    # hp = {'lr':0.001, "min_playback":0, "max_playback":1000000, "update_freq": 100, 'hiden_layer_size':32, 'epsilon_decay':500}
-    # agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
+    ## With DQN
+    hp = {'lr':0.0002, "min_playback":0, "max_playback":10000, "update_freq": 16, 'hiden_layer_size':128, 'epsilon_decay':1000}
+    agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=True, noisy_MLP=False)
 
-    # With VanilaPG
-    hp = {'lr':0.001, 'batch_episodes':8}
-    agent = VanilaPolicyGradient.VanilaPolicyGradient(s, a, hp)
+    # # With VanilaPG
+    # hp = {'lr':0.001, 'batch_episodes':8}
+    # agent = VanilaPolicyGradient.VanilaPolicyGradient(s, a, hp)
 
     # # With Actor-Critic
     # hp = {'lr':0.001, 'batch_episodes':1, 'GAE': 0.9}
@@ -216,8 +216,8 @@ if  __name__ == '__main__':
     np.random.seed(SEED)
     torch.manual_seed(SEED)
 
-    env_name, env, agent, score_scope, solved_score = solve_cart_pole()
-    # env_name, env, agent, score_scope, solved_score = solve_mountain_car()
+    # env_name, env, agent, score_scope, solved_score = solve_cart_pole()
+    env_name, env, agent, score_scope, solved_score = solve_mountain_car()
     # env_name, env, agent, score_scope, solved_score = solve_pendulum()
     # env_name, env, agent, score_scope, solved_score = solve_lunar_lander()
     # env_name, env, agent, score_scope, solved_score = solve_continous_lunar_lander()
@@ -240,7 +240,7 @@ if  __name__ == '__main__':
     # logger = train_logger.logger(score_scope, log_frequency=10)
 
     agent.set_reporter(logger)
-    train.train_agent(env, agent, solved_score, train_dir, logger, test_frequency=100, train_episodes=10000, test_episodes=2, save_videos=True, checkpoint_steps=0.2)
+    train.train_agent(env, agent, solved_score, train_dir, logger, test_frequency=500, train_episodes=10000, test_episodes=2, save_videos=True, checkpoint_steps=0.2)
 
     # # Test
     # agent.load_state('/projects/RL/RL_implementations/Trained_models/LunarLanderContinuous-v2/DDPG_[400, 200]_BN_lr[0.0001]_b[64]_tau[0.0050]_uf[1]_lf[1]/DDPG_[400, 200]_BN_lr[0.0001]_b[64]_tau[0.0050]_uf[1]_lf[1]_204.60898_weights.pt')
