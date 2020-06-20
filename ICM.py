@@ -17,6 +17,8 @@ class ICM(nn.Module):
                                                     )
         self.inverted_model = nn.Sequential(nn.Linear(2*self.state_features, self.state_features),
                                             nn.ReLU(inplace=True),
+                                            nn.Linear(self.state_features, self.state_features),
+                                            nn.ReLU(inplace=True),
                                             nn.Linear(self.state_features, action_dim)
                                             ) # softmax in cross entropy loss
         self.forward_module = nn.Sequential(nn.Linear(self.state_features + action_dim, self.state_features),
@@ -37,9 +39,9 @@ class ICM(nn.Module):
         estimated_ns_features = self.forward_module(torch.cat((s_featues, action_vecs), dim=-1))
 
         loss_i = self.cross_entropy_loss(estimated_actions, actions)
-        features_dist = (0.5*(ns_featues - estimated_ns_features).pow(2)).mean(1)
-        loss_f = features_dist.mean()
+        features_dists = (0.5*(ns_featues - estimated_ns_features).pow(2)).mean(1)
+        loss_f = features_dists.mean()
 
-        intrisic_reward = self._intrinsic_reward_scale*features_dist.detach()
-        curiosity_loss = (1-self._beta)*loss_i - self._beta*loss_f
-        return intrisic_reward, curiosity_loss
+        intrisic_rewards = self._intrinsic_reward_scale*features_dists.detach()
+        curiosity_loss = (1-self._beta)*loss_i + self._beta*loss_f
+        return intrisic_rewards, curiosity_loss

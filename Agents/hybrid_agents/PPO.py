@@ -58,7 +58,7 @@ class HybridPPO(GenericAgent):
             'discount':0.99,
             'lr':0.01,
             'lr_decay':0.95,
-            'epsiolon_clip':0.2,
+            'epsilon_clip':0.2,
             'value_clip':0.5,
             'hidden_layers':[128,128],
             'entropy_weight':0.01,
@@ -86,7 +86,7 @@ class HybridPPO(GenericAgent):
         self.num_actions = 0
         self.episodes_in_cur_batch = 0
 
-        self.name += "_lr[%.4f]_b[%d]_GAE[%.1f]"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'])
+        self.name += "_lr[%.4f]_b[%d]_GAE[%.2f]_ec[%.1f]"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'], self.hp['epsilon_clip'])
         if self.hp['value_clip'] is not None:
             self.name += "_vc[%.1f]"%self.hp['value_clip']
         if  self.hp['grad_clip'] is not None:
@@ -157,7 +157,7 @@ class HybridPPO(GenericAgent):
             ratios = torch.exp(logprobs - old_logprobs.detach())
             # Finding Surrogate actor Loss:
             surr1 = ratios * advantages
-            surr2 = torch.clamp(ratios, 1 - self.hp['epsiolon_clip'], 1 + self.hp['epsiolon_clip']) * advantages
+            surr2 = torch.clamp(ratios, 1 - self.hp['epsilon_clip'], 1 + self.hp['epsilon_clip']) * advantages
             actor_loss = -torch.min(surr1, surr2)
 
             loss = actor_loss + critic_loss + exploration_loss

@@ -58,7 +58,7 @@ class logger(object):
         print('Episodes done: ', self.done_episodes)
         print("\t# Steps %d, time %d mins; avg-%d %.2f:" % (self.total_steps, time_passed / 60, self.k, self.get_last_k_episodes_mean()))
         print("\t# steps/sec avg: %.3f " % (self.total_steps / time_passed))
-        print("\t# Agent stats: ", ";".join([name+" : %.5f"%self.agent_train_stats[name].ys[-1] for name in self.agent_train_stats]))
+        print("\t# Agent stats:", "; ".join([name+":%.5f"%self.agent_train_stats[name].ys[-1] for name in self.agent_train_stats]))
         self.last_time = time_passed
 
     def log_test(self, score):

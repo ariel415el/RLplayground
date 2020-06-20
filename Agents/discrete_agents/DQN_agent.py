@@ -128,6 +128,7 @@ class DQN_agent(GenericAgent):
         self.hp = {
             'tau': 1.0,
             'lr' : 0.00025,
+            'lr_decay': 1.0,
             'min_epsilon' : 0.01,
             'discount' : 0.99,
             'update_freq' : 10000,
@@ -214,6 +215,10 @@ class DQN_agent(GenericAgent):
         self._learn()
         if self.action_counter % self.hp['update_freq'] == 0:
             update_net(self.target_model, self.trainable_model, self.hp['tau'])
+
+        if self.hp['lr_decay'] < 1 and (self.gs_num + 1) % 10 == 0:
+            for param_group in self.optimizer.param_groups:
+                param_group['lr'] *= self.hp['lr_decay']
 
     def _learn(self):
         if len(self.playback_memory) >= max(self.hp['min_playback'], self.hp['batch_size']) and self.action_counter % self.hp['learn_freq'] == 0:

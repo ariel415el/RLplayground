@@ -242,7 +242,7 @@ def wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=False, 
     return env
 
 
-def get_final_env(env_name, episode_life=True, clip_rewards=True, frame_stack=False, scale=False, no_op_reset=True):
+def get_final_env(env_name, episode_life=True, clip_rewards=True, frame_stack=1, scale=False, no_op_reset=True):
     env = gym.make(env_name)
     if no_op_reset:
         env = NoopResetEnv(env, noop_max=30)
@@ -262,5 +262,5 @@ def get_final_env(env_name, episode_life=True, clip_rewards=True, frame_stack=Fa
     if clip_rewards:
         env = ClipRewardEnv(env)
     if frame_stack:
-        env = FrameStack(env, 4)
+        env = FrameStack(env, frame_stack)
     return env

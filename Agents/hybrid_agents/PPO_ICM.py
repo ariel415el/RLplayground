@@ -64,7 +64,8 @@ class HybridPPO_ICM(GenericAgent):
             'hidden_layers':[128,128],
             'entropy_weight':0.01,
             'grad_clip':0.5,
-            'GAE': 1 # 1 for MC, 0 for TD
+            'GAE': 1, # 1 for MC, 0 for TD
+            'use_extrinsic_reward':True
 
         }
         self.hp.update(hp)
@@ -95,7 +96,8 @@ class HybridPPO_ICM(GenericAgent):
             self.name += "_vc[%.1f]"%self.hp['value_clip']
         if  self.hp['grad_clip'] is not None:
             self.name += "_gc[%.1f]"%self.hp['grad_clip']
-
+        if self.hp['use_extrinsic_reward']:
+            self.name += '_ER'
     def process_new_state(self, state):
         state = torch.from_numpy(np.array(state)).to(device).float()
         dist, value = self.policy(state.unsqueeze(0))
@@ -134,8 +136,8 @@ class HybridPPO_ICM(GenericAgent):
         intrinsic_reward, curiosity_loss = self.curiosity.compute_reward_and_loss(old_states[:-1], old_states[1:], old_actions[:-1])
         curiosity_loss.backward()
         self.curiosity_optimizer.step()
-
         self.reporter.update_agent_stats("curiosity_loss", self.num_actions, curiosity_loss)
+
         total_r = 0
         scores = []
         for r,t in zip(intrinsic_reward, is_terminals):
@@ -143,16 +145,19 @@ class HybridPPO_ICM(GenericAgent):
             if t :
                 scores += [total_r]
                 total_r = 0
-        self.reporter.update_agent_stats("initrisic_rewards", self.num_actions, np.mean(scores))
+        scores += [total_r]
+        self.reporter.update_agent_stats("total_initrisic_rewards", self.num_actions, np.mean(scores))
 
 
         raw_rewards = np.array(raw_rewards)
-        raw_rewards[:-1] += intrinsic_reward.numpy()
+        if self.hp['use_extrinsic_reward']:
+            raw_rewards[:-1] += intrinsic_reward.numpy()
+        else:
+            raw_rewards[:-1] = intrinsic_reward.numpy()
         rewards = monte_carlo_reward(raw_rewards, is_terminals, self.hp['discount'], device)
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
         advantages = GenerelizedAdvantageEstimate(self.hp['GAE'], old_values, raw_rewards, is_terminals, self.hp['discount'], device).detach()
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
-
 
         debug_actor_loss = []
         debug_critic_loss = []

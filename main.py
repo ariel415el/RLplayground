@@ -13,6 +13,9 @@ import train
 def solve_cart_pole():
     env_name="CartPole-v1"; s=4; a=2;score_scope=100; solved_score=195
     env = gym.make(env_name)
+    train_kwargs = {'solved_score': solved_score, 'test_frequency':500, 'checkpoint_steps':0.2}
+    train_kwargs['train_episodes'] = 500
+
     # ## With DQN
     # hp = {'lr':0.001, "min_playback":0, "max_playback":1000000, "update_freq": 100, 'hiden_layer_size':32, 'epsilon_decay':500}
     # agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
@@ -28,38 +31,73 @@ def solve_cart_pole():
     # With PPO
     hp = {'lr':0.001, 'batch_episodes':1, 'epochs':4, 'GAE':1.0, 'value_clip':0.3, 'grad_clip':None}
     agent = PPO.HybridPPO(s, a, hp)
+    # hp = {'lr':0.001, 'batch_episodes':1, 'epochs':4, 'GAE':1.0, 'value_clip':0.3, 'grad_clip':None, 'use_extrinsic_reward':False}
+    # agent = PPO_ICM.HybridPPO_ICM(s, a, hp)
+
+    return env_name, env, agent, score_scope, train_kwargs
 
 
-    return env_name, env, agent, score_scope, solved_score
+def solve_acrobot():
+    env_name="Acrobot-v1"; s=6; a=3;score_scope=100; solved_score=-80
+    env = gym.make(env_name)
+    train_kwargs = {'solved_score': solved_score, 'test_frequency':500, 'checkpoint_steps':0.2}
+
+    # ## With DQN
+    # hp = {'lr':0.001, "min_playback":0, "max_playback":1000000, "update_freq": 100, 'hiden_layer_size':32, 'epsilon_decay':500}
+    # train_kwargs = {'solved_score': solved_score, 'test_frequency':500, 'train_episodes':300, 'checkpoint_steps':0.2}
+    # agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
+    # train_kwargs['train_episodes'] = 500
+
+    # # With VanilaPG
+    # hp = {'lr':0.001, 'batch_episodes':1}
+    # agent = VanilaPolicyGradient.VanilaPolicyGradient(s, a, hp)
+    # train_kwargs['train_episodes'] = 500
+
+    # # With Actor-Critic
+    # hp = {'lr':0.001, 'batch_episodes':1, 'GAE': 0.98}
+    # agent = GenericActorCritic.ActorCritic(s,a,hp)
+
+    # With PPO
+    hp = {'lr':0.001, 'epsilon_clip':0.3, 'batch_episodes':1, 'epochs':4, 'GAE':0.95, 'value_clip':None, 'grad_clip':None}
+    agent = PPO.HybridPPO(s, a, hp)
+    train_kwargs['train_episodes'] = 500
+
+    return env_name, env, agent, score_scope, train_kwargs
 
 
 def solve_mountain_car():
     env_name="MountainCar-v0"; s=2; a=3;score_scope=100; solved_score=-110
     env = gym.make(env_name)
-    ## With DQN
-    hp = {'lr':0.0002, "min_playback":0, "max_playback":10000, "update_freq": 16, 'hiden_layer_size':128, 'epsilon_decay':1000}
-    agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=True, noisy_MLP=False)
+    train_kwargs = {'solved_score': solved_score, 'test_frequency':500, 'checkpoint_steps':0.2}
+    # ## With DQN
+    # hp = {'lr':0.001, "min_playback":0, "max_playback":1000000, "update_freq": 100, 'hiden_layer_size':32, 'epsilon_decay':500}
+    # agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
+    # train_kwargs['train_episodes'] = 1500
 
     # # With VanilaPG
-    # hp = {'lr':0.001, 'batch_episodes':8}
+    # hp = {'lr':0.001, 'batch_episodes':2}
     # agent = VanilaPolicyGradient.VanilaPolicyGradient(s, a, hp)
+    # train_kwargs['train_episodes'] = 1500
 
     # # With Actor-Critic
     # hp = {'lr':0.001, 'batch_episodes':1, 'GAE': 0.9}
     # agent = GenericActorCritic.ActorCritic(s,a,hp)
 
-    # # With PPO
-    # hp = {'lr':0.001, 'batch_episodes':4, 'epochs':8, 'GAE':0.95, 'value_clip':None, 'grad_clip':None, 'hidden_layers':[128,128]}
-    # # agent = PPO.HybridPPO(s, a, hp)
-    # agent = PPO_ICM.HybridPPO_ICM(s, a, hp)
+    # With PPO
+    hp = {'lr':0.002, 'batch_episodes':16, 'epochs':3, 'GAE':0.95, 'epsilon_clip':0.2, 'value_clip': 0.2, 'grad_clip':0.5, 'hidden_layers':[32, 32]}
+    # agent = PPO.HybridPPO(s, a, hp)
+    agent = PPO_ICM.HybridPPO_ICM(s, a, hp)
+    train_kwargs['train_episodes'] = 1500
 
 
-    return env_name, env, agent, score_scope, solved_score
+    return env_name, env, agent, score_scope, train_kwargs
 
 
 def solve_pendulum():
     env_name="Pendulum-v0";s=3; score_scope=100; solved_score=-200
     env = gym.make(env_name)
+    train_kwargs = {'solved_score': solved_score, 'test_frequency':500, 'checkpoint_steps':0.2}
+    train_kwargs['train_episodes'] = 500
     a = [env.action_space.low, env.action_space.high]
 
     # With VanilaPG
@@ -70,9 +108,10 @@ def solve_pendulum():
     # hp = {'lr':0.0001, 'batch_episodes':64, 'GAE':0.95, 'hidden_layers':[400,400]}
     # agent = GenericActorCritic.ActorCritic(s, a,hp)
 
-    # # With PPO
-    # hp = {'lr':0.001, 'batch_episodes':45, 'epochs':10, 'GAE':0.95, 'epsiolon_clip': 0.1, 'value_clip':0.1, 'grad_clip':None, 'entropy_weight':0.01, 'hidden_layer_size':512}
+    # With PPO
+    hp = {'lr':0.001, 'batch_episodes':45, 'epochs':10, 'GAE':0.95, 'epsilon_clip': 0.1, 'value_clip':0.1, 'grad_clip':None, 'entropy_weight':0.01, 'hidden_layer_size':512}
     # agent = PPO.HybridPPO(s, a, hp)
+    agent = PPO_ICM.HybridPPO_ICM(s, a, hp)
 
     # # DDPG
     # hp ={'actor_lr':0.0001, 'critic_lr':0.001, 'batch_size':64, 'min_playback':1000, 'layer_dims':[400,300], 'tau':0.001, "update_freq":1, 'learn_freq':1}
@@ -102,8 +141,8 @@ def solve_lunar_lander():
     # agent = GenericActorCritic.ActorCritic(s,a,hp)
 
     # With PPO
-    # hp = {'lr':0.00025, 'batch_episodes':8, 'epochs':3, 'GAE':0.95, 'epsiolon_clip': 0.1, 'value_clip':None, 'grad_clip':0.5, 'entropy_weight':0.01, 'hidden_layer_size':64}
-    hp = {'lr':0.0005, 'batch_episodes':32, 'epochs':10, 'GAE':0.95, 'epsiolon_clip': 0.5, 'value_clip':None, 'grad_clip':None, 'entropy_weight':0.01, 'hidden_layer_size':[64,64,128]}
+    # hp = {'lr':0.00025, 'batch_episodes':8, 'epochs':3, 'GAE':0.95, 'epsilon_clip': 0.1, 'value_clip':None, 'grad_clip':0.5, 'entropy_weight':0.01, 'hidden_layer_size':64}
+    hp = {'lr':0.0005, 'batch_episodes':32, 'epochs':10, 'GAE':0.95, 'epsilon_clip': 0.5, 'value_clip':None, 'grad_clip':None, 'entropy_weight':0.01, 'hidden_layer_size':[64,64,128]}
     # agent = PPO.HybridPPO(s, a, hp)
     agent = PPO_ICM.HybridPPO_ICM(s, a, hp)
 
@@ -116,7 +155,7 @@ def solve_continous_lunar_lander():
     a = [env.action_space.low, env.action_space.high]
 
     # # With PPO
-    # hp = {'lr':0.001, 'batch_episodes':16, 'epochs':32, 'GAE':1.0, 'epsiolon_clip': 0.2, 'value_clip':None, 'grad_clip':None, 'entropy_weight':0.01, 'hidden_layer_size':256}
+    # hp = {'lr':0.001, 'batch_episodes':16, 'epochs':32, 'GAE':1.0, 'epsilon_clip': 0.2, 'value_clip':None, 'grad_clip':None, 'entropy_weight':0.01, 'hidden_layer_size':256}
     # agent = PPO.HybridPPO(s, a, hp)
 
     # # DDPG
@@ -140,7 +179,7 @@ def solve_bipedal_walker():
     a = [env.action_space.low, env.action_space.high]
 
     # With PPO
-    hp = {'lr':0.00025, 'batch_episodes':16, 'epochs':32, 'GAE':1.0, 'epsiolon_clip': 0.2, 'value_clip':None, 'grad_clip':None, 'entropy_weight':0.01, 'hidden_layer_size':256}
+    hp = {'lr':0.00025, 'batch_episodes':16, 'epochs':32, 'GAE':1.0, 'epsilon_clip': 0.2, 'value_clip':None, 'grad_clip':None, 'entropy_weight':0.01, 'hidden_layer_size':256}
     agent = PPO.HybridPPO(s, a, hp)
 
     # DDPG
@@ -169,7 +208,7 @@ def solve_pong():
     # agent = DQN_agent.DQN_agent(s, a, hp , double_dqn=True, dueling_dqn=True, prioritized_memory=False, noisy_MLP=False)
 
     # With PPO
-    hp = {'lr': 0.0001, 'batch_episodes': 8, 'epochs': 4, 'GAE': 1.0, 'epsiolon_clip': 0.2, 'value_clip': None, 'grad_clip': None, 'entropy_weight': 0.01, 'hidden_dims': [400,200]}
+    hp = {'lr': 0.0001, 'batch_episodes': 8, 'epochs': 4, 'GAE': 1.0, 'epsilon_clip': 0.2, 'value_clip': None, 'grad_clip': None, 'entropy_weight': 0.01, 'hidden_dims': [400,200]}
     agent = PPO.HybridPPO(s, a, hp)
 
     return env_name, env, agent, score_scope, solved_score
@@ -178,14 +217,20 @@ def solve_pong():
 def solve_breakout():
     env_name="BreakoutNoFrameskip-v4"
     # env_name="BreakoutDeterministic-v4"
-    s=(4,84,84)
+    s=(2,84,84)
     a=4
     score_scope=100
     solved_score=20
     hp = {'lr':0.00001, "min_playback":50000, "max_playback":1000000, "update_freq": 10000, 'learn_freq':4, "normalize_state":True, 'epsilon_decay':5000000}
     hp = {'lr':0.00001, "min_playback":32, "max_playback":1000000, "update_freq": 10000, 'learn_freq':4, "normalize_state":True, 'epsilon_decay':5000000}
     agent = DQN_agent.DQN_agent(s, a, hp, double_dqn=True, dueling_dqn=False, prioritized_memory=False, noisy_MLP=False)
-    env = get_final_env(env_name, frame_stack=True, episode_life=False)
+
+
+    # With PPO
+    hp = {'lr': 0.00005, 'batch_episodes': 16, 'epochs': 8, 'GAE': 0.98, 'epsilon_clip': 0.1, 'value_clip': 0.1, 'grad_clip': None, 'entropy_weight': 0.01, 'hidden_dims': [400,200]}
+    agent = PPO.HybridPPO(s, a, hp)
+
+    env = get_final_env(env_name, frame_stack=2, episode_life=True)
 
     return env_name, env, agent, score_scope, solved_score
 
@@ -216,8 +261,9 @@ if  __name__ == '__main__':
     np.random.seed(SEED)
     torch.manual_seed(SEED)
 
-    # env_name, env, agent, score_scope, solved_score = solve_cart_pole()
-    env_name, env, agent, score_scope, solved_score = solve_mountain_car()
+    env_name, env, agent, score_scope, train_kwargs = solve_cart_pole()
+    # env_name, env, agent, score_scope, train_kwargs = solve_acrobot()
+    # env_name, env, agent, score_scope, train_kwargs = solve_mountain_car()
     # env_name, env, agent, score_scope, solved_score = solve_pendulum()
     # env_name, env, agent, score_scope, solved_score = solve_lunar_lander()
     # env_name, env, agent, score_scope, solved_score = solve_continous_lunar_lander()
@@ -240,7 +286,7 @@ if  __name__ == '__main__':
     # logger = train_logger.logger(score_scope, log_frequency=10)
 
     agent.set_reporter(logger)
-    train.train_agent(env, agent, solved_score, train_dir, logger, test_frequency=500, train_episodes=10000, test_episodes=2, save_videos=True, checkpoint_steps=0.2)
+    train.train_agent(env, agent, train_dir, logger, test_episodes=2, save_videos=True, **train_kwargs)
 
     # # Test
     # agent.load_state('/projects/RL/RL_implementations/Trained_models/LunarLanderContinuous-v2/DDPG_[400, 200]_BN_lr[0.0001]_b[64]_tau[0.0050]_uf[1]_lf[1]/DDPG_[400, 200]_BN_lr[0.0001]_b[64]_tau[0.0050]_uf[1]_lf[1]_204.60898_weights.pt')

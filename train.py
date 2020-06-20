@@ -21,7 +21,7 @@ def run_episode(env, agent):
         episode_rewards += [reward]
     return episode_rewards
 
-def train_agent(env, agent, solved_score, train_dir, logger, test_frequency, train_episodes, test_episodes, save_videos, checkpoint_steps):
+def train_agent(env, agent, train_dir, logger, solved_score, test_frequency, train_episodes, test_episodes, save_videos, checkpoint_steps):
     next_progress_checkpoint = 1
     next_test_progress_checkpoint = 1
 
