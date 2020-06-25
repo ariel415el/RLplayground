@@ -45,6 +45,29 @@ class Memory:
         del self.is_terminals[:]
 
 
+class temp_actor_critic(torch.nn.Module):
+    def __init__(self, state_dim, action_dim):
+        super().__init__()
+        self.input = nn.Sequential(
+            nn.Linear(state_dim, 64),
+            nn.Tanh(),
+            nn.Linear(64, 64),
+            nn.Tanh()
+        )
+        self.policy_out = nn.Linear(64,action_dim)
+        self.value_out = nn.Linear(64, 1)
+
+    def get_dist(self, features):
+        probs = self.policy_out(features)
+        dist = D.Categorical(probs)
+        return dist
+
+    def forward(self, state):
+        x = self.input(state)
+        dist = self.get_dist(x)
+        value = self.value_out(x)
+        return dist, value
+
 class HybridPPO_ICM(GenericAgent):
     def __init__(self, state_dim, action_dim, hp, train=True):
         super(HybridPPO_ICM, self).__init__(train)
@@ -65,7 +88,10 @@ class HybridPPO_ICM(GenericAgent):
             'entropy_weight':0.01,
             'grad_clip':0.5,
             'GAE': 1, # 1 for MC, 0 for TD
-            'use_extrinsic_reward':True
+            'use_extrinsic_reward':True,
+            'intrinsic_reward_scale':1.0,
+            'curiosity_hidden_dim':128,
+            'curiosity_lr':0.001
 
         }
         self.hp.update(hp)
@@ -78,12 +104,10 @@ class HybridPPO_ICM(GenericAgent):
         if type(self.action_dim) == list:
             self.policy = ActorCriticModel(feature_extractor, len(self.action_dim[0]), self.hp['hidden_layers'], discrete=False).to(device)
         else:
-            self.policy = ActorCriticModel(feature_extractor, self.action_dim, self.hp['hidden_layers'][1:], discrete=True).to(device)
+            # self.policy = ActorCriticModel(feature_extractor, self.action_dim, self.hp['hidden_layers'][1:], discrete=True).to(device)
+            self.policy = temp_actor_critic(self.state_dim, self.action_dim)
 
-        self.curiosity = ICM(self.state_dim, self.action_dim, 32)
-        self.curiosity_optimizer = torch.optim.Adam(self.curiosity.parameters(), lr=self.hp['lr'])
-        self.curiosity_optimizer.zero_grad()
-
+        self.curiosity = ICM(self.state_dim, self.action_dim, self.hp['curiosity_hidden_dim'], lr=self.hp['curiosity_lr'], intrinsic_reward_scale=self.hp['intrinsic_reward_scale'])
 
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.hp['lr'])
         self.optimizer.zero_grad()
@@ -91,13 +115,14 @@ class HybridPPO_ICM(GenericAgent):
         self.num_actions = 0
         self.episodes_in_cur_batch = 0
 
-        self.name += "_lr[%.4f]_b[%d]_GAE[%.1f]"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'])
+        self.name += "_lr[%.4f]_b[%d]_GAE[%.2f]"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'])
         if self.hp['value_clip'] is not None:
             self.name += "_vc[%.1f]"%self.hp['value_clip']
         if  self.hp['grad_clip'] is not None:
             self.name += "_gc[%.1f]"%self.hp['grad_clip']
         if self.hp['use_extrinsic_reward']:
             self.name += '_ER'
+
     def process_new_state(self, state):
         state = torch.from_numpy(np.array(state)).to(device).float()
         dist, value = self.policy(state.unsqueeze(0))
@@ -133,10 +158,8 @@ class HybridPPO_ICM(GenericAgent):
     def _learn(self):
         old_states, old_values, old_actions, old_logprobs, raw_rewards, is_terminals = self.samples.get_as_tensors(device)
 
-        intrinsic_reward, curiosity_loss = self.curiosity.compute_reward_and_loss(old_states[:-1], old_states[1:], old_actions[:-1])
-        curiosity_loss.backward()
-        self.curiosity_optimizer.step()
-        self.reporter.update_agent_stats("curiosity_loss", self.num_actions, curiosity_loss)
+        intrinsic_reward = self.curiosity.get_intrinsic_loss(old_states[:-1], old_states[1:], old_actions[:-1])
+        self.reporter.update_agent_stats("curiosity_loss", self.num_actions, self.curiosity.get_last_debug_loss())
 
         total_r = 0
         scores = []
@@ -147,7 +170,6 @@ class HybridPPO_ICM(GenericAgent):
                 total_r = 0
         scores += [total_r]
         self.reporter.update_agent_stats("total_initrisic_rewards", self.num_actions, np.mean(scores))
-
 
         raw_rewards = np.array(raw_rewards)
         if self.hp['use_extrinsic_reward']:
@@ -172,7 +194,7 @@ class HybridPPO_ICM(GenericAgent):
 
             values = values.view(-1)
             value_loss = 0.5 * (values - rewards).pow(2)
-            if self.hp['value_clip']:
+            if self.hp['value_clip'] is not None:
                 clipped_values = old_values + (values - old_values).clamp(-self.hp['value_clip'], -self.hp['value_clip'])
                 clipepd_value_loss = 0.5*(clipped_values - rewards).pow(2)
                 critic_loss = torch.min(value_loss, clipepd_value_loss).mean()

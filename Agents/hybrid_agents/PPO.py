@@ -145,7 +145,7 @@ class HybridPPO(GenericAgent):
 
             values = values.view(-1)
             value_loss = 0.5 * (values - rewards).pow(2)
-            if self.hp['value_clip']:
+            if self.hp['value_clip'] is not None:
                 clipped_values = old_values + (values - old_values).clamp(-self.hp['value_clip'], -self.hp['value_clip'])
                 clipepd_value_loss = 0.5*(clipped_values - rewards).pow(2)
                 critic_loss = torch.min(value_loss, clipepd_value_loss).mean()

@@ -137,7 +137,7 @@ class DQN_agent(GenericAgent):
             'max_playback' : 1000000,
             'min_playback' : 50000,
             'epsilon': 1.0,
-            'epsilon_decay' : 0.0001,
+            'epsilon_decay' : 500,
             'hiden_layer_size' : 512,
             'normalize_state':False
         }
@@ -219,6 +219,7 @@ class DQN_agent(GenericAgent):
         if self.hp['lr_decay'] < 1 and (self.gs_num + 1) % 10 == 0:
             for param_group in self.optimizer.param_groups:
                 param_group['lr'] *= self.hp['lr_decay']
+            self.reporter.update_agent_stats("lr", self.action_counter, self.optimizer.param_groups[0]['lr'])
 
     def _learn(self):
         if len(self.playback_memory) >= max(self.hp['min_playback'], self.hp['batch_size']) and self.action_counter % self.hp['learn_freq'] == 0:
