@@ -51,22 +51,22 @@ class ActorCritic(GenericAgent):
         self.hp.update(hp)
         self.samples = Memory()
 
-        if type(self.state_dim) == tuple:
+        if len(self.state_dim) > 1:
             feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
         else:
-            feature_extractor = LinearFeatureExtracor(self.state_dim, self.hp['hidden_layers'][0])
+            feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['hidden_layers'][0])
 
         if type(self.action_dim) == list:
             self.policy = ActorCriticModel(feature_extractor, len(self.action_dim[0]), self.hp['hidden_layers'], discrete=False).to(device)
         else:
-            self.policy = ActorCriticModel(feature_extractor, self.action_dim, self.hp['hidden_layers'][1:], discrete=True).to(device)
+            self.policy = ActorCriticModel(feature_extractor, self.action_dim[0], self.hp['hidden_layers'][1:], discrete=True).to(device)
 
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.hp['lr'])
         self.optimizer.zero_grad()
         self.learn_steps = 0
         self.episodes_in_cur_batch = 0
 
-        self.name += "_lr[%.4f]_b[%d]_GAE[%.1f]"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'])
+        self.name += "_lr[%.5f]_b[%d]_GAE[%.1f]"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'])
 
     def process_new_state(self, state):
         state = torch.from_numpy(np.array(state)).to(device).float()

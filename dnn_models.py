@@ -70,6 +70,7 @@ class LinearFeatureExtracor(nn.Module):
 
 
 class ConvNetFeatureExtracor(nn.Module):
+    ## Assumes input is input_channelsx84x84
     def __init__(self, input_channels):
         super(ConvNetFeatureExtracor, self).__init__()
         self.conv1 = nn.Conv2d(input_channels, 32, kernel_size=8, stride=4)

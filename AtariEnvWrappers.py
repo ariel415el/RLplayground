@@ -146,7 +146,7 @@ class WarpFrame(gym.ObservationWrapper):
         self.width = 84
         self.height = 84
         self.observation_space = spaces.Box(low=0, high=255,
-                                            shape=(self.height, self.width, 1), dtype=np.uint8)
+                                            shape=(1, self.height, self.width), dtype=np.uint8)
 
     def observation(self, frame):
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
@@ -166,7 +166,7 @@ class FrameStack(gym.Wrapper):
         self.k = k
         self.frames = deque([], maxlen=k)
         shp = env.observation_space.shape
-        self.observation_space = spaces.Box(low=0, high=255, shape=(shp[0], shp[1], shp[2] * k), dtype=np.uint8)
+        self.observation_space = spaces.Box(low=0, high=255, shape=(shp[0] * k, shp[1], shp[2]), dtype=np.uint8)
 
     def reset(self):
         ob = self.env.reset()
@@ -202,27 +202,10 @@ class LazyFrames(object):
         buffers.
         This object should only be converted to numpy array before being passed to the model.
         You'd not believe how complex the previous solution was."""
-        self._frames = frames
-        # self._out = None
-
-    # def _force(self):
-    #     if self._out is None:
-    #         self._out = np.concatenate(self._frames, axis=0)
-    #         # self._frames = None
-    #     return self._out
+        self._frames = frames # should be a list of frames
 
     def __array__(self, dtype=None):
-        # out = self._force()
-        # if dtype is not None:
-        #     out = out.astype(dtype)
         return np.concatenate(self._frames, axis=0)
-
-    # def __len__(self):
-    #     return len(self._force())
-    #
-    # def __getitem__(self, i):
-    #     return self._force()[i]
-
 
 
 def wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=False, scale=False):

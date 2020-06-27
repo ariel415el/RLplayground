@@ -134,15 +134,8 @@ class DDPG(GenericAgent):
 
         self.random_process = OUNoise(self.action_dim)
 
-        # if type(self.state_dim) == tuple:
-        #     feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
-        #     state_dtype = np.uint8
-        # else:
-        #     feature_extractor = LinearFeatureExtracor(self.state_dim, 64)
-        #     state_dtype = np.float32
-
-        self.trainable_actor = D_Actor(self.state_dim, self.action_dim, self.hp['layer_dims'], self.hp['batch_norm']).to(device)
-        self.trainable_critic = D_Critic(self.state_dim, self.action_dim, self.hp['layer_dims'], self.hp['batch_norm']).to(device)
+        self.trainable_actor = D_Actor(self.state_dim[0], self.action_dim, self.hp['layer_dims'], self.hp['batch_norm']).to(device)
+        self.trainable_critic = D_Critic(self.state_dim[0], self.action_dim, self.hp['layer_dims'], self.hp['batch_norm']).to(device)
 
         with torch.no_grad():
             self.target_actor = copy.deepcopy(self.trainable_actor)

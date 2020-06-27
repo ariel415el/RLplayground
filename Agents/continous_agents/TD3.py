@@ -5,7 +5,7 @@ import os
 from dnn_models import *
 import copy
 from utils import update_net, ListMemory
-
+from GenericAgent import GenericAgent
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)
 
@@ -61,8 +61,9 @@ class TD3_paper_critic(nn.Module):
         return q1
 
 
-class TD3(object):
+class TD3(GenericAgent):
     def __init__(self, state_dim, action_space, bounderies, hp, train=True):
+        super(TD3, self).__init__(train)
         self.action_space = action_space
         self.state_dim = state_dim
         self.bounderies = torch.tensor(bounderies).float().to(device)
@@ -85,18 +86,15 @@ class TD3(object):
             'exploration_noise_sigma':0.1
         }
         self.hp.update(hp)
-        # storage_sizes_and_types = [self.state_dim, self.action_dim, self.state_dim, 1, (1, bool)]
-        # self.playback_memory = FastMemory(self.hp['max_playback'], storage_sizes_and_types)
         self.playback_memory = ListMemory(self.hp['max_playback'])
 
-        self.trainable_actor = TD3_paper_actor(self.state_dim, self.action_dim).to(device)
+        self.trainable_actor = TD3_paper_actor(self.state_dim[0], self.action_dim).to(device)
         self.target_actor = copy.deepcopy(self.trainable_actor)
         self.actor_optimizer = torch.optim.Adam(self.trainable_actor.parameters(), lr=self.hp['actor_lr'])
 
-        self.trainable_critics = TD3_paper_critic(self.state_dim, self.action_dim).to(device)
+        self.trainable_critics = TD3_paper_critic(self.state_dim[0], self.action_dim).to(device)
         self.target_critics = copy.deepcopy(self.trainable_critics)
         self.critics_optimizer = torch.optim.Adam(self.trainable_critics.parameters(), lr=self.hp['critic_lr'])
-
 
         self.name = "TD3_lr[%.4f]_b[%d]_tau[%.4f]_uf[%d]"%(
             self.hp['actor_lr'], self.hp['batch_size'],

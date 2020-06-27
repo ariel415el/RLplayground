@@ -56,9 +56,10 @@ class temp_actor_critic(torch.nn.Module):
         )
         self.policy_out = nn.Linear(64,action_dim)
         self.value_out = nn.Linear(64, 1)
-
+        self.softmax = torch.nn.Softmax(dim=1)
     def get_dist(self, features):
         probs = self.policy_out(features)
+        probs = self.softmax(probs)
         dist = D.Categorical(probs)
         return dist
 
@@ -105,7 +106,7 @@ class HybridPPO_ICM(GenericAgent):
             self.policy = ActorCriticModel(feature_extractor, len(self.action_dim[0]), self.hp['hidden_layers'], discrete=False).to(device)
         else:
             # self.policy = ActorCriticModel(feature_extractor, self.action_dim, self.hp['hidden_layers'][1:], discrete=True).to(device)
-            self.policy = temp_actor_critic(self.state_dim, self.action_dim)
+            self.policy = temp_actor_critic(self.state_dim, self.action_dim).to(device)
 
         self.curiosity = ICM(self.state_dim, self.action_dim, self.hp['curiosity_hidden_dim'], lr=self.hp['curiosity_lr'], intrinsic_reward_scale=self.hp['intrinsic_reward_scale'])
 
@@ -120,8 +121,8 @@ class HybridPPO_ICM(GenericAgent):
             self.name += "_vc[%.1f]"%self.hp['value_clip']
         if  self.hp['grad_clip'] is not None:
             self.name += "_gc[%.1f]"%self.hp['grad_clip']
-        if self.hp['use_extrinsic_reward']:
-            self.name += '_ER'
+        if not self.hp['use_extrinsic_reward']:
+            self.name += '_no-ER'
 
     def process_new_state(self, state):
         state = torch.from_numpy(np.array(state)).to(device).float()

@@ -34,11 +34,13 @@ def _test_ple():
 def test_gym():
     from time import sleep
     import gym
-    import gym_ple
+    import pybulletgym  # register PyBullet enviroments with open ai gym
+    # import gym_ple
     from gym.wrappers.pixel_observation import PixelObservationWrapper
     from gym.wrappers.atari_preprocessing import AtariPreprocessing
     # env = gym.make("BreakoutNoFrameskip-v4")
-    env = gym.make("BreakoutDeterministic-v4")
+    # env = gym.make("BreakoutDeterministic-v4")
+    env = gym.make("HumanoidPyBulletEnv-v0")
     # env = gym.make("PongNoFrameskip-v0")
     # env = gym.make("FlappyBird-v0")
     # env = PixelObservationWrapper(env, pixels_only=True)
@@ -57,19 +59,18 @@ def test_gym():
         steps = 0
         while not done:
             t += 1
-            sleep(0.001)
-            env.render()
-            # cv2.imshow("img",state)
-            # k = cv2.waitKey(0)
-            # if k == 27:         # wait for ESC key to exit
-            #     cv2.destroyAllWindows()
+            # sleep(0.001)
+            img = env.render(mode='rgb_array')
+            cv2.imshow("preview", img)
+            k = cv2.waitKey(0)
+            cv2.destroyAllWindows()
             action = env.action_space.sample()
             # action = 1
             # print(action)
             state, reward, done, info = env.step(action)
             total_reward += reward
             steps+=1
-        print(steps)
+        # print(steps)
         # print(t, t / (time() - start))
 
 if __name__ == '__main__':

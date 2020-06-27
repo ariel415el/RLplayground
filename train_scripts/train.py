@@ -21,7 +21,7 @@ def run_episode(env, agent):
         episode_rewards += [reward]
     return episode_rewards
 
-def train_agent(env, agent, train_dir, logger, solved_score, test_frequency, train_episodes, test_episodes, save_videos, checkpoint_steps):
+def train_agent(env, agent, train_dir, logger, solved_score, test_frequency=1000, train_episodes=10000, test_episodes=1, save_videos=False, checkpoint_steps=0.2):
     next_progress_checkpoint = 1
     next_test_progress_checkpoint = 1
 
@@ -73,6 +73,6 @@ def test(env,  actor, test_episodes=1, render=False, delay=0.0):
 
         episodes_total_rewards += [np.sum(all_rewards)]
     score = np.mean(episodes_total_rewards)
-    env.close()
+    # env.close()
     actor.train=True
     return score

@@ -44,10 +44,10 @@ class VanilaPolicyGradient(GenericAgent):
         self.hp.update(hp)
         self.samples = Memory()
         self.reporter = None
-        if type(self.state_dim) == tuple:
+        if len(self.state_dim) > 1:
             feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
         else:
-            feature_extractor = LinearFeatureExtracor(self.state_dim, self.hp['hidden_layers'][0])
+            feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['hidden_layers'][0])
         if type(self.action_dim) == list:
             self.policy = CountinousActor(feature_extractor, len(self.action_dim[0]), self.hp['hidden_layers']).to(device)
         else:

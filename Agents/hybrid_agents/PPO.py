@@ -69,10 +69,10 @@ class HybridPPO(GenericAgent):
         self.hp.update(hp)
         self.samples = Memory()
 
-        if type(self.state_dim) == tuple:
+        if len(self.state_dim) > 1:
             feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
         else:
-            feature_extractor = LinearFeatureExtracor(self.state_dim, self.hp['hidden_layers'][0], activation=torch.tanh)
+            feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['hidden_layers'][0], activation=torch.tanh)
 
         if type(self.action_dim) == list:
             self.policy = ActorCriticModel(feature_extractor, len(self.action_dim[0]), self.hp['hidden_layers'], discrete=False).to(device)

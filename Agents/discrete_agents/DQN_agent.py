@@ -147,12 +147,10 @@ class DQN_agent(GenericAgent):
         self.action_counter = 0
         self.gs_num=0
 
-        if type(self.state_dim) == tuple:
+        if len(self.state_dim) > 1:
             feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
-            state_dtype = np.uint8
         else:
-            feature_extractor = LinearFeatureExtracor(self.state_dim, 64)
-            state_dtype = np.float32
+            feature_extractor = LinearFeatureExtracor(self.state_dim[0], 64)
         if self.dueling_dqn:
             self.trainable_model = DuelingDQN(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
         elif self.noisy_MLP:
@@ -163,9 +161,6 @@ class DQN_agent(GenericAgent):
 
 
         if self.prioritized_memory:
-            # storage_sizes_and_types = [(self.state_dim, state_dtype), (1, np.uint8), (self.state_dim, state_dtype), (1, np.float32), (1, bool)]
-            # storage_sizes_and_types = [(self.state_dim, state_dtype), (np.uint8, ), (self.state_dim, state_dtype), (np.float32, ), (bool,)]
-            # self.playback_memory = PrioritizedMemory(self.hp['max_playback'], storage_sizes_and_types)
             self.playback_memory = PrioritizedListMemory(self.hp['max_playback'])
         else:
             self.playback_memory = ListMemory(self.hp['max_playback'])
