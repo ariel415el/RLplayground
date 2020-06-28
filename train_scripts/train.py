@@ -30,13 +30,17 @@ def train_agent(env, agent, train_dir, logger, solved_score, test_frequency=1000
     for i in range(train_episodes):
 
         episode_rewards = run_episode(env, agent)
-
         # Test model
         if (i+1) % test_frequency == 0:
-            env_copy = env
             if save_videos:
+                # from copy import deepcopy
+                # env_copy = deepcopy(env)
                 env_copy = gym.wrappers.Monitor(env, os.path.join(train_dir, "test_%d" % (i+1)), video_callable=lambda episode_id: True, force=True)
-            last_test_score = test(env_copy, agent, test_episodes)
+                last_test_score = test(env_copy, agent, test_episodes)
+                env_copy.close()
+            else:
+                last_test_score = test(env, agent, test_episodes)
+
             logger.log_test(last_test_score)
             if last_test_score >= next_test_progress_checkpoint * checkpoint_steps * solved_score:
                 agent.save_state(os.path.join(train_dir, "test_%.5f_weights.pt" % last_test_score))

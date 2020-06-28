@@ -219,7 +219,7 @@ def solve_super_mario(agent_name):
     env_name = 'SuperMarioBros-v3'
     env, solved_score = get_env_settings(env_name)
     agent_configs = {
-        "DQN":{'lr':0.0001, "min_playback":1000, "max_playback":100000, "update_freq": 1000, 'hiden_layer_size':512, "normalize_state":True, 'epsilon_decay':30000},
+        "DQN":{'lr':0.0001,'batch_size':1,'learn_freq':9999999, "min_playback":1000, "max_playback":100000, "update_freq": 1000, 'hiden_layer_size':16, "normalize_state":True, 'epsilon_decay':30000},
         "PPO": {'lr': 0.0001, 'batch_episodes': 8, 'epochs': 4, 'GAE': 1.0, 'epsilon_clip': 0.2, 'value_clip': None,
               'grad_clip': None, 'entropy_weight': 0.01, 'hidden_dims': [400, 200]},
     }

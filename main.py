@@ -17,7 +17,7 @@ if  __name__ == '__main__':
 
     # env_name, env, agent, solved_score = solve_cart_pole("PPO")
     # env_name, env, agent, solved_score = solve_acrobot("DQN")
-    # env_name, env, agent, solved_score = solve_mountain_car()
+    # env_name, env, agent, solved_score = solve_mountain_car("PPO_ICM")
     # env_name, env, agent, solved_score = solve_pendulum("TD3")
     # env_name, env, agent, solved_score = solve_lunar_lander()
     # env_name, env, agent, solved_score = solve_continous_lunar_lander("A2C")
