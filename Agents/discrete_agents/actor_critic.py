@@ -1,6 +1,5 @@
-import numpy as np
 import os
-from dnn_models import *
+from Agents.dnn_models import *
 torch.manual_seed(0)
 from torch.distributions import Categorical
 

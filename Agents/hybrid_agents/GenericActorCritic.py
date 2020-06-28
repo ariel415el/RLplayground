@@ -1,7 +1,7 @@
 import os
-from dnn_models import *
+from Agents.dnn_models import *
 from utils import *
-from GenericAgent import GenericAgent
+from Agents.GenericAgent import GenericAgent
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
@@ -66,7 +66,7 @@ class ActorCritic(GenericAgent):
         self.learn_steps = 0
         self.episodes_in_cur_batch = 0
 
-        self.name += "_lr[%.5f]_b[%d]_GAE[%.1f]"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'])
+        self.name += "_lr[%.5f]_b[%d]_GAE[%.2f]_l-%s"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'],self.hp['hidden_layers'])
 
     def process_new_state(self, state):
         state = torch.from_numpy(np.array(state)).to(device).float()

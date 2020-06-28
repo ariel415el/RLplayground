@@ -62,11 +62,12 @@ class FireResetEnv(gym.Wrapper):
 
 
 class EpisodicLifeEnv(gym.Wrapper):
-    def __init__(self, env):
+    def __init__(self, env, is_atari=True):
         """Make end-of-life == end-of-episode, but only reset on true game over.
         Done by DeepMind for the DQN and co. since it helps value estimation.
         """
         gym.Wrapper.__init__(self, env)
+        self.is_atari = is_atari
         self.lives = 0
         self.was_real_done = True
 
@@ -75,7 +76,10 @@ class EpisodicLifeEnv(gym.Wrapper):
         self.was_real_done = done
         # check current lives, make loss of life terminal,
         # then update lives to handle bonus lives
-        lives = self.env.unwrapped.ale.lives()
+        if self.is_atari:
+            lives = self.env.unwrapped.ale.lives()
+        else: # For mariobros
+            lives = info['life']
         if lives < self.lives and lives > 0:
             # for Qbert sometimes we stay in lives == 0 condtion for a few frames
             # so its important to keep lives > 0, so that we only reset once
@@ -89,12 +93,17 @@ class EpisodicLifeEnv(gym.Wrapper):
         This way all states are still reachable even though lives are episodic,
         and the learner need not know about any of this behind-the-scenes.
         """
+        if self.is_atari:
+            self.lives = self.env.unwrapped.ale.lives()
         if self.was_real_done:
             obs = self.env.reset(**kwargs)
+            if not self.is_atari: # For mariobros
+                self.lives = 3 # this is for mariobros
         else:
             # no-op step to advance from terminal/lost life state
-            obs, _, _, _ = self.env.step(0)
-        self.lives = self.env.unwrapped.ale.lives()
+            obs, _, _, info = self.env.step(0)
+            if not self.is_atari: # For mariobros
+                self.lives = info['life']
         return obs
 
 
@@ -225,7 +234,7 @@ def wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=False, 
     return env
 
 
-def get_final_env(env_name, episode_life=True, clip_rewards=True, frame_stack=1, scale=False, no_op_reset=True):
+def get_atari_env(env_name, episode_life=True, clip_rewards=True, frame_stack=1, scale=False, no_op_reset=True):
     env = gym.make(env_name)
     if no_op_reset:
         env = NoopResetEnv(env, noop_max=30)
@@ -246,4 +255,17 @@ def get_final_env(env_name, episode_life=True, clip_rewards=True, frame_stack=1,
         env = ClipRewardEnv(env)
     if frame_stack:
         env = FrameStack(env, frame_stack)
+    return env
+
+def get_super_mario_env(env_name,simple_actions=True):
+    from nes_py.wrappers import JoypadSpace
+    import gym_super_mario_bros
+    from gym_super_mario_bros.actions import SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
+    env = gym_super_mario_bros.make(env_name)
+    if simple_actions:
+        env = JoypadSpace(env, SIMPLE_MOVEMENT)
+    else:
+        env = JoypadSpace(env, COMPLEX_MOVEMENT)
+    env = EpisodicLifeEnv(env, is_atari=False)
+    env = WarpFrame(env)
     return env

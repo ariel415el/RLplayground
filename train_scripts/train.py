@@ -33,9 +33,10 @@ def train_agent(env, agent, train_dir, logger, solved_score, test_frequency=1000
 
         # Test model
         if (i+1) % test_frequency == 0:
+            env_copy = env
             if save_videos:
-                env = gym.wrappers.Monitor(env, os.path.join(train_dir, "test_%d" % (i+1)), video_callable=lambda episode_id: True, force=True)
-            last_test_score = test(env, agent, test_episodes)
+                env_copy = gym.wrappers.Monitor(env, os.path.join(train_dir, "test_%d" % (i+1)), video_callable=lambda episode_id: True, force=True)
+            last_test_score = test(env_copy, agent, test_episodes)
             logger.log_test(last_test_score)
             if last_test_score >= next_test_progress_checkpoint * checkpoint_steps * solved_score:
                 agent.save_state(os.path.join(train_dir, "test_%.5f_weights.pt" % last_test_score))
@@ -73,6 +74,5 @@ def test(env,  actor, test_episodes=1, render=False, delay=0.0):
 
         episodes_total_rewards += [np.sum(all_rewards)]
     score = np.mean(episodes_total_rewards)
-    # env.close()
     actor.train=True
     return score

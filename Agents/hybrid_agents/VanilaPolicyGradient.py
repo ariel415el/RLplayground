@@ -1,7 +1,7 @@
 import os
-from dnn_models import *
+from Agents.dnn_models import *
 from utils import *
-from GenericAgent import GenericAgent
+from Agents.GenericAgent import GenericAgent
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class Memory:
@@ -58,11 +58,8 @@ class VanilaPolicyGradient(GenericAgent):
         self.learn_steps = 0
         self.episodes_in_cur_batch = 0
 
-        self.name += "_lr[%.4f]_b[%d]"%(self.hp['lr'], self.hp['batch_episodes'])
+        self.name += "_lr[%.4f]_b[%d]_l-%s"%(self.hp['lr'], self.hp['batch_episodes'],self.hp['hidden_layers'])
 
-        self.logs = {"loss":{"x_axis":'#Steps', 'y_axis':'loss','xs':[], 'ys':[]},
-                     "lr":{ "x_axis": '#Steps', 'y_axis': 'lr', 'xs': [], 'ys': []}
-        }
 
     def process_new_state(self, state):
         state = torch.from_numpy(np.array(state)).to(device).float()

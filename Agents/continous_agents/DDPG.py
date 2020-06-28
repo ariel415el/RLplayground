@@ -4,9 +4,8 @@ import numpy as np
 import os
 from torch import nn
 from utils import update_net
-from dnn_models import ConvNetFeatureExtracor, LinearFeatureExtracor
 import copy
-from GenericAgent import GenericAgent
+from Agents.GenericAgent import GenericAgent
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)

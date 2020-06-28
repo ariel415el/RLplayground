@@ -2,10 +2,10 @@
 ### Credits to nikhilbarhate99/PPO-PyTorch ###
 ##############################################
 import os
-from dnn_models import *
+from Agents.dnn_models import *
 from utils import *
-from GenericAgent import GenericAgent
-from ICM import ICM
+from Agents.GenericAgent import GenericAgent
+from Agents.ICM import ICM
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
@@ -97,18 +97,18 @@ class HybridPPO_ICM(GenericAgent):
         }
         self.hp.update(hp)
         self.samples = Memory()
-        if type(self.state_dim) == tuple:
+        if len(self.state_dim) > 1:
             feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
         else:
-            feature_extractor = LinearFeatureExtracor(self.state_dim, self.hp['hidden_layers'][0], activation=torch.tanh)
+            feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['hidden_layers'][0], activation=torch.tanh)
 
         if type(self.action_dim) == list:
             self.policy = ActorCriticModel(feature_extractor, len(self.action_dim[0]), self.hp['hidden_layers'], discrete=False).to(device)
         else:
-            # self.policy = ActorCriticModel(feature_extractor, self.action_dim, self.hp['hidden_layers'][1:], discrete=True).to(device)
-            self.policy = temp_actor_critic(self.state_dim, self.action_dim).to(device)
+            self.policy = ActorCriticModel(feature_extractor, self.action_dim, self.hp['hidden_layers'][1:], discrete=True).to(device)
+            # self.policy = temp_actor_critic(self.state_dim[0], self.action_dim).to(device)
 
-        self.curiosity = ICM(self.state_dim, self.action_dim, self.hp['curiosity_hidden_dim'], lr=self.hp['curiosity_lr'], intrinsic_reward_scale=self.hp['intrinsic_reward_scale'])
+        self.curiosity = ICM(self.state_dim[0], self.action_dim, self.hp['curiosity_hidden_dim'], lr=self.hp['curiosity_lr'], intrinsic_reward_scale=self.hp['intrinsic_reward_scale'])
 
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.hp['lr'])
         self.optimizer.zero_grad()

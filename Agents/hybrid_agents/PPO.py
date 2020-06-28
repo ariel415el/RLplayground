@@ -2,9 +2,9 @@
 ### Credits to nikhilbarhate99/PPO-PyTorch ###
 ##############################################
 import os
-from dnn_models import *
+from Agents.dnn_models import *
 from utils import *
-from GenericAgent import GenericAgent
+from Agents.GenericAgent import GenericAgent
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
@@ -86,7 +86,7 @@ class HybridPPO(GenericAgent):
         self.num_actions = 0
         self.episodes_in_cur_batch = 0
 
-        self.name += "_lr[%.4f]_b[%d]_GAE[%.2f]_ec[%.1f]"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'], self.hp['epsilon_clip'])
+        self.name += "_lr[%.4f]_b[%d]_GAE[%.2f]_ec[%.1f]_l-%s"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'], self.hp['epsilon_clip'],self.hp['hidden_layers'])
         if self.hp['value_clip'] is not None:
             self.name += "_vc[%.1f]"%self.hp['value_clip']
         if  self.hp['grad_clip'] is not None:

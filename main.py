@@ -18,16 +18,18 @@ if  __name__ == '__main__':
     # env_name, env, agent, solved_score = solve_cart_pole("PPO")
     # env_name, env, agent, solved_score = solve_acrobot("DQN")
     # env_name, env, agent, solved_score = solve_mountain_car()
-    # env_name, env, agent, solved_score = solve_pendulum("DDPG")
+    # env_name, env, agent, solved_score = solve_pendulum("TD3")
     # env_name, env, agent, solved_score = solve_lunar_lander()
-    # env_name, env, agent, solved_score = solve_continous_lunar_lander("PPO")
+    # env_name, env, agent, solved_score = solve_continous_lunar_lander("A2C")
     # env_name, env, agent, solved_score = solve_bipedal_walker("TD3")
     # env_name, env, agent, solved_score = solve_pong('DQN')
     # env_name, env, agent, solved_score = solve_breakout("DQN")
-    env_name, env, agent, solved_score = solve_2d_walker("PPO")
+    # env_name, env, agent, solved_score = solve_2d_walker("PPO")
     # env_name, env, agent, solved_score = solve_ant("PPO")
     # env_name, env, agent, solved_score = solve_humanoid()
     # env_name, env, agent, solved_score = solve_half_cheetah()
+    env_name, env, agent, solved_score = solve_super_mario("DQN")
+
     env.seed(SEED)
 
     # Train
@@ -41,7 +43,7 @@ if  __name__ == '__main__':
 
     agent.set_reporter(logger)
     train.train_agent(env, agent, train_dir, logger, solved_score=solved_score, test_frequency=100,
-                      train_episodes=10000, test_episodes=1, save_videos=False, checkpoint_steps=0.2)
+                      train_episodes=10000, test_episodes=1, save_videos=True, checkpoint_steps=0.2)
 
     # # Test
     # render=True

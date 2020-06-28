@@ -2,18 +2,15 @@
 # Code inspired from https://github.com/higgsfield/RL-Adventure.git #
 #####################################################################
 
-import torch
 import random
-from collections import deque
-import numpy as np
 import os
-from dnn_models import *
-from utils import update_net, FastMemory, PrioritizedMemory, ListMemory, PrioritizedListMemory
+from Agents.dnn_models import *
+from utils import update_net, ListMemory, PrioritizedListMemory
 import copy
 from torch import nn
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)
-from GenericAgent import GenericAgent
+from Agents.GenericAgent import GenericAgent
 
 class new_DuelingDQN(nn.Module):
     def __init__(self, input_features):

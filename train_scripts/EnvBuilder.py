@@ -1,6 +1,6 @@
 import gym
 import pybulletgym
-from AtariEnvWrappers import get_final_env
+from AtariEnvWrappers import get_atari_env, get_super_mario_env
 from Agents.discrete_agents import *
 from Agents.continous_agents import *
 from Agents.hybrid_agents import *
@@ -8,7 +8,8 @@ from Agents.hybrid_agents import *
 env_goals = {"CartPole-v1":195, "Acrobot-v1":-80, "MountainCar-v0":-110, "Pendulum-v0":-200, "LunarLander-v2":200,
              "LunarLanderContinuous-v2": 200, "BipedalWalker-v3":500, "BipedalWalkerHardcore-v3":500,
              "PongNoFrameskip-v4":20, "BreakoutNoFrameskip-v4":200,
-             'AntPyBulletEnv-v0':6000, "Walker2DMuJoCoEnv-v0":6000, 'HumanoidMuJoCoEnv-v0':6000, 'HalfCheetahMuJoCoEnv-v0':6000 }
+             'AntPyBulletEnv-v0':6000, "Walker2DMuJoCoEnv-v0":6000, 'HumanoidMuJoCoEnv-v0':6000, 'HalfCheetahMuJoCoEnv-v0':6000,
+             'SuperMarioBros-1':5000, 'SuperMarioBros-v2':5000, 'SuperMarioBros-v3':5000}
 
 
 def build_agent(agent_name, env,  hp):
@@ -41,19 +42,14 @@ def get_state_and_action_dim(env):
         action_dim = [env.action_space.low, env.action_space.high]
     return state_dim, action_dim
 
-def get_regular_env_setting(env_name):
-    env = gym.make(env_name)
-    return env, env_goals[env_name]
-
-
-def get_atari_env_setting(env_name, frame_stack):
-    env = get_final_env(env_name, frame_stack=frame_stack)
-    return env, env_goals[env_name]
 
 def get_env_settings(env_name):
     if env_name == "PongNoFrameskip-v4":
-        return get_atari_env_setting(env_name,frame_stack=1)
+        return get_atari_env(env_name, frame_stack=1), env_goals[env_name]
     elif env_name == "BreakoutNoFrameskip-v4":
-        return get_atari_env_setting(env_name, frame_stack=2)
+        return get_atari_env(env_name, frame_stack=2), env_goals[env_name]
+    elif "SuperMarioBros" in env_name:
+        env = get_super_mario_env(env_name)
+        return env, env_goals[env_name]
     else:
-        return get_regular_env_setting(env_name)
+        return gym.make(env_name), env_goals[env_name]
