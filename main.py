@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import random
-import train_logger
+import loggers
 import torch
 from train_scripts.TrainConfigs import *
 from train_scripts import train
@@ -18,7 +18,7 @@ if  __name__ == '__main__':
     # env_name, env, agent, solved_score = solve_cart_pole("PPO")
     # env_name, env, agent, solved_score = solve_acrobot("DQN")
     # env_name, env, agent, solved_score = solve_mountain_car("PPO_ICM")
-    # env_name, env, agent, solved_score = solve_pendulum("TD3")
+    # env_name, env, agent, solved_score = solve_pendulum("PPO")
     # env_name, env, agent, solved_score = solve_lunar_lander()
     # env_name, env, agent, solved_score = solve_continous_lunar_lander("A2C")
     # env_name, env, agent, solved_score = solve_bipedal_walker("TD3")
@@ -28,7 +28,7 @@ if  __name__ == '__main__':
     # env_name, env, agent, solved_score = solve_ant("PPO")
     # env_name, env, agent, solved_score = solve_humanoid()
     # env_name, env, agent, solved_score = solve_half_cheetah()
-    env_name, env, agent, solved_score = solve_super_mario("DQN")
+    env_name, env, agent, solved_score = solve_super_mario("PPO")
 
     env.seed(SEED)
 
@@ -37,7 +37,7 @@ if  __name__ == '__main__':
     os.makedirs(train_dir, exist_ok=True)
     assert(os.path.exists(train_dir))
 
-    logger = train_logger.plt_logger(k=SCORE_SCOPE, log_frequency=LOG_FREQUENCY, logdir=train_dir)
+    logger = loggers.plt_logger(k=SCORE_SCOPE, log_frequency=LOG_FREQUENCY, logdir=train_dir)
     # logger = train_logger.TB_logger(k=score_scope, log_frequency=10, logdir=train_dir)
     # logger = train_logger.logger(score_scope, log_frequency=10)
 

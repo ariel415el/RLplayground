@@ -37,9 +37,9 @@ def solve_mountain_car(agent_name):
     agent_configs = {
         "DQN": {'lr':0.0005, "min_playback":0, "max_playback":1000000, "update_freq": 100, 'hiden_layer_size':64,
                 'epsilon_decay':500, 'batch_size':128, 'lr_decay':0.9999},
-        "PPO_ICM": {'lr': 0.002, 'lr_decay': 0.9999, 'batch_episodes': 1, 'epochs': 3, 'GAE': 0.95, 'epsilon_clip': 0.2, 'value_clip': 0.2,
-              'grad_clip': 0.5, 'hidden_layers': [64], 'intrinsic_reward_scale': 20.0, 'use_extrinsic_reward': True,
-              'curiosity_hidden_dim': 32, 'entropy_weight': 0.005}
+        "PPO_ICM": {'lr': 0.001, 'lr_decay': 0.9999, 'batch_episodes': 1, 'epochs': 3, 'GAE': 0.95, 'epsilon_clip': 0.2, 'value_clip': 0.2,
+              'grad_clip': 0.5, 'hidden_layers': [64], 'intrinsic_reward_scale': 200.0, 'use_extrinsic_reward': False,
+              'curiosity_hidden_dim': 32, 'entropy_weight': 0.01, 'curiosity_lr':0.00001}
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
     return env_name, env, agent, solved_score
@@ -222,6 +222,15 @@ def solve_super_mario(agent_name):
         "DQN":{'lr':0.0001,'batch_size':1,'learn_freq':9999999, "min_playback":1000, "max_playback":100000, "update_freq": 1000, 'hiden_layer_size':16, "normalize_state":True, 'epsilon_decay':30000},
         "PPO": {'lr': 0.0001, 'batch_episodes': 8, 'epochs': 4, 'GAE': 1.0, 'epsilon_clip': 0.2, 'value_clip': None,
               'grad_clip': None, 'entropy_weight': 0.01, 'hidden_dims': [400, 200]},
+    }
+    agent = build_agent(agent_name, env, agent_configs[agent_name])
+    return env_name, env, agent, solved_score
+
+def solve_grid_maze(agent_name):
+    env_name = "MiniGrid-FourRooms-v0"
+    env, solved_score = get_env_settings(env_name)
+    agent_configs = {
+
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
     return env_name, env, agent, solved_score

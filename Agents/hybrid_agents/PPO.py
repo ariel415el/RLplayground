@@ -102,8 +102,10 @@ class HybridPPO(GenericAgent):
         self.last_value = value[0,0].item() # no need gradient
         self.last_action = action
         self.last_action_log_prob = dist.log_prob(action)[0]
-
-        action = action.detach().cpu().numpy()
+        if type(self.action_dim) == list:
+            action = action.detach().cpu().numpy() # Using only this is problematic for super mario since it returns a 0-size np array in discrete action space
+        else:
+            action = action.item()
         if type(self.action_dim) == list:
             action = np.clip(action, self.action_dim[0], self.action_dim[1])
         self.num_actions += 1

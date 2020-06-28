@@ -262,10 +262,21 @@ def get_super_mario_env(env_name,simple_actions=True):
     import gym_super_mario_bros
     from gym_super_mario_bros.actions import SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
     env = gym_super_mario_bros.make(env_name)
+
+    env = EpisodicLifeEnv(env, is_atari=False)
+    env = WarpFrame(env)
+
     if simple_actions:
         env = JoypadSpace(env, SIMPLE_MOVEMENT)
     else:
         env = JoypadSpace(env, COMPLEX_MOVEMENT)
-    env = EpisodicLifeEnv(env, is_atari=False)
-    env = WarpFrame(env)
+    return env
+
+
+def get_grid_maze_env(env_name, image_obs=True):
+    import gym_minigrid
+    env = gym.make(env_name) # state is observable 7x7
+    if image_obs:
+        env = gym_minigrid.wrappers.RGBImgPartialObsWrapper(env)  # Get pixel (image) observations instead of categorical 7x7
+    env = gym_minigrid.wrappers.ImgObsWrapper(env)  # Get rid of the 'mission' field
     return env

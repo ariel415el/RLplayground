@@ -1,6 +1,6 @@
 import gym
 import pybulletgym
-from AtariEnvWrappers import get_atari_env, get_super_mario_env
+from EnvWrappers import get_atari_env, get_super_mario_env, get_grid_maze_env
 from Agents.discrete_agents import *
 from Agents.continous_agents import *
 from Agents.hybrid_agents import *
@@ -9,7 +9,8 @@ env_goals = {"CartPole-v1":195, "Acrobot-v1":-80, "MountainCar-v0":-110, "Pendul
              "LunarLanderContinuous-v2": 200, "BipedalWalker-v3":500, "BipedalWalkerHardcore-v3":500,
              "PongNoFrameskip-v4":20, "BreakoutNoFrameskip-v4":200,
              'AntPyBulletEnv-v0':6000, "Walker2DMuJoCoEnv-v0":6000, 'HumanoidMuJoCoEnv-v0':6000, 'HalfCheetahMuJoCoEnv-v0':6000,
-             'SuperMarioBros-1':5000, 'SuperMarioBros-v2':5000, 'SuperMarioBros-v3':5000}
+             'SuperMarioBros-1':5000, 'SuperMarioBros-v2':5000, 'SuperMarioBros-v3':5000,
+             "MiniGrid-FourRooms-v0":10}
 
 
 def build_agent(agent_name, env,  hp):
@@ -50,6 +51,9 @@ def get_env_settings(env_name):
         return get_atari_env(env_name, frame_stack=2), env_goals[env_name]
     elif "SuperMarioBros" in env_name:
         env = get_super_mario_env(env_name)
+        return env, env_goals[env_name]
+    elif "MiniGrid" in env_name:
+        env = get_grid_maze_env(env_name)
         return env, env_goals[env_name]
     else:
         return gym.make(env_name), env_goals[env_name]
