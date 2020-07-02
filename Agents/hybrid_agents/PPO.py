@@ -136,7 +136,7 @@ class HybridPPO(GenericAgent):
         self.running_stats.update(raw_rewards)
         raw_rewards = np.clip(raw_rewards / self.running_stats.std, -10 , 10) # TODO temporal experiment
         advantages, rewards = GenerelizedAdvantageEstimate(self.hp['GAE'], old_policy_values, raw_rewards, is_next_state_terminals, self.hp['discount'], device)
-        advantages = (advantages - advantages.mean()) / np.maximum(advantages.std(), 1e-6)
+        advantages = (advantages - advantages.mean()) / max(advantages.std(), 1e-6)
 
         # Optimize policy for K epochs:
         dataset = NonSequentialDataset(states, old_policy_values, old_policy_actions, old_policy_loggprobs,  rewards, advantages)

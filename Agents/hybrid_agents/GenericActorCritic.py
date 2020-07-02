@@ -101,7 +101,7 @@ class ActorCritic(GenericAgent):
         raw_rewards = np.array(raw_rewards)
         raw_rewards = raw_rewards / raw_rewards.std()
         advantages, rewards = GenerelizedAdvantageEstimate(self.hp['GAE'], state_values, raw_rewards, is_ns_terminals, self.hp['discount'], device)
-        advantages = (advantages - advantages.mean()) / np.maximum(advantages.std(), 1e-6)
+        advantages = (advantages - advantages.mean()) / max(advantages.std(), 1e-6)
 
         actor_loss = -logprobs*advantages
         critic_loss = 0.5*(state_values - rewards).pow(2)

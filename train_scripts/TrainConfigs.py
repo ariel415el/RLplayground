@@ -52,8 +52,8 @@ def solve_pendulum(agent_name):
     agent_configs = {
         "VanilaPG": {'lr': 0.0001, 'batch_episodes': 32, 'hidden_layers': [400, 300]},
         "A2C": {'lr':0.0004, 'lr_decay':0.99, 'batch_episodes':64, 'GAE':0.95, 'hidden_layers':[400,400]},
-        "PPO": {'lr': 0.0004, "discount":0.99, 'lr_decay':0.9, 'batch_episodes': 10, 'epochs': 10, 'minibatch_size':1000, 'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': 0.1,
-                'grad_clip': None, 'entropy_weight': 0.01, 'hidden_layers':[400,400]},
+        "PPO": {'lr': 0.0001, "discount":0.95, 'lr_decay':0.99, 'batch_episodes': 10, 'epochs': 10, 'minibatch_size':32, 'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None,
+                'grad_clip': None, 'entropy_weight': 0.01, 'hidden_layers':[64,64]},
         "PPO_ICM": {'lr': 0.001, 'batch_episodes': 8, 'epochs': 10, 'GAE': 0.95, 'epsilon_clip': 0.3, 'value_clip': 0.5,
               'grad_clip': 0.5, 'entropy_weight': 0.01, 'hidden_layers': [512]},
         "DDPG": {'actor_lr':0.0001, 'critic_lr':0.001, 'batch_size':64, 'min_playback':1000, 'layer_dims':[400,300],
