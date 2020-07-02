@@ -5,7 +5,10 @@ import os
 from Agents.dnn_models import *
 from utils import *
 from Agents.GenericAgent import GenericAgent
+from torch.utils.data import DataLoader
+from utils import NonSequentialDataset
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 
 
 class Memory:
@@ -15,33 +18,33 @@ class Memory:
         self.actions = []
         self.logprobs = []
         self.rewards = []
-        self.is_terminals = []
+        self.is_ns_terminals = []
 
     def __len__(self):
         return len(self.states)
 
-    def add_sample(self, state, value, action, action_log_prob, reward, is_terminals):
+    def add_sample(self, state, value, action, action_log_prob, reward, is_ns_terminal):
         self.states += [state]
         self.state_values += [value]
         self.actions += [action]
         self.logprobs += [action_log_prob]
         self.rewards += [reward]
-        self.is_terminals += [is_terminals]
+        self.is_ns_terminals += [is_ns_terminal]
 
     def get_as_tensors(self, device):
         states = torch.stack(self.states).to(device)
         values = torch.tensor(self.state_values).to(device)
-        actions = torch.stack(self.actions).to(device)
-        logprobs = torch.stack(self.logprobs).to(device)
-        return states, values, actions, logprobs, self.rewards, self.is_terminals
+        actions = torch.tensor(self.actions).to(device)
+        logprobs = torch.tensor(self.logprobs).to(device)
+        return states, values, actions, logprobs, self.rewards, self.is_ns_terminals
 
     def clear_memory(self):
-        del self.states[:]
-        del self.state_values[:]
-        del self.actions[:]
-        del self.logprobs[:]
-        del self.rewards[:]
-        del self.is_terminals[:]
+        self.states = []
+        self.state_values = []
+        self.actions = []
+        self.logprobs = []
+        self.rewards = []
+        self.is_ns_terminals = []
 
 
 class HybridPPO(GenericAgent):
@@ -53,8 +56,8 @@ class HybridPPO(GenericAgent):
         self.train= train
         self.hp = {
             'batch_episodes':3,
-            'minibatch_size':32,
             'epochs': 4,
+            'minibatch_size':32,
             'discount':0.99,
             'lr':0.01,
             'lr_decay':0.95,
@@ -72,19 +75,20 @@ class HybridPPO(GenericAgent):
         if len(self.state_dim) > 1:
             feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
         else:
-            feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['hidden_layers'][0], activation=torch.tanh)
+            feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['hidden_layers'][0], activation=nn.ReLU())
 
         if type(self.action_dim) == list:
             self.policy = ActorCriticModel(feature_extractor, len(self.action_dim[0]), self.hp['hidden_layers'], discrete=False).to(device)
         else:
             self.policy = ActorCriticModel(feature_extractor, self.action_dim, self.hp['hidden_layers'][1:], discrete=True).to(device)
 
-
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.hp['lr'])
         self.optimizer.zero_grad()
         self.learn_steps = 0
         self.num_actions = 0
         self.episodes_in_cur_batch = 0
+        self.running_stats = RunningStats()
+
 
         self.name += "_lr[%.4f]_b[%d]_GAE[%.2f]_ec[%.1f]_l-%s"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'], self.hp['epsilon_clip'],self.hp['hidden_layers'])
         if self.hp['value_clip'] is not None:
@@ -98,20 +102,20 @@ class HybridPPO(GenericAgent):
 
         action = dist.sample()[0]
 
+        self.last_action_log_prob = dist.log_prob(action)[0].item()
         self.last_state = state
         self.last_value = value[0,0].item() # no need gradient
-        self.last_action = action
-        self.last_action_log_prob = dist.log_prob(action)[0]
         if type(self.action_dim) == list:
             action = action.detach().cpu().numpy() # Using only this is problematic for super mario since it returns a 0-size np array in discrete action space
+            output_action = action = np.clip(action, self.action_dim[0], self.action_dim[1])
         else:
-            action = action.item()
-        if type(self.action_dim) == list:
-            action = np.clip(action, self.action_dim[0], self.action_dim[1])
-        self.num_actions += 1
-        return action
+            action = output_action = action.item()
+        self.last_action = action
 
-    def process_output(self, new_state, reward, is_finale_state):
+        self.num_actions += 1
+        return output_action
+
+    def process_output(self, unused_new_state, reward, is_finale_state):
         self.samples.add_sample(self.last_state, self.last_value, self.last_action, self.last_action_log_prob, reward, is_finale_state)
         if is_finale_state:
             self.episodes_in_cur_batch += 1
@@ -127,60 +131,57 @@ class HybridPPO(GenericAgent):
                 self.reporter.update_agent_stats("lr", self.learn_steps, self.optimizer.param_groups[0]['lr'])
 
     def _learn(self):
-        old_states, old_values, old_actions, old_logprobs, raw_rewards, is_terminals = self.samples.get_as_tensors(device)
+        states, old_policy_values, old_policy_actions, old_policy_loggprobs, raw_rewards, is_next_state_terminals = self.samples.get_as_tensors(device)
+        raw_rewards = np.array(raw_rewards)
+        self.running_stats.update(raw_rewards)
+        raw_rewards = np.clip(raw_rewards / self.running_stats.std, -10 , 10) # TODO temporal experiment
+        advantages, rewards = GenerelizedAdvantageEstimate(self.hp['GAE'], old_policy_values, raw_rewards, is_next_state_terminals, self.hp['discount'], device)
+        advantages = (advantages - advantages.mean()) / np.maximum(advantages.std(), 1e-6)
 
-        rewards = monte_carlo_reward(raw_rewards, is_terminals, self.hp['discount'], device)
-        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
-        advantages = GenerelizedAdvantageEstimate(self.hp['GAE'], old_values, raw_rewards, is_terminals, self.hp['discount'], device).detach()
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
-
-        debug_actor_loss = []
-        debug_critic_loss = []
-        debug_entropy_loss = []
-        debug_total_loss= []
         # Optimize policy for K epochs:
+        dataset = NonSequentialDataset(states, old_policy_values, old_policy_actions, old_policy_loggprobs,  rewards, advantages)
+        dataloader = DataLoader(dataset, batch_size=self.hp['minibatch_size'], shuffle=True)
         for _ in range(self.hp['epochs']):
-            # Evaluating old actions and values with the target policy:
-            dists, values = self.policy(old_states)
+            for (states_batch, old_policy_values_batch, old_policy_actions_batch, old_policy_loggprobs_batch, rewards_batch, advantages_batch) in dataloader:
+                # Evaluating old actions and values with the target policy:
+                dists, values = self.policy(states_batch)
+                values = values.view(-1)
+                exploration_loss = -self.hp['entropy_weight'] * dists.entropy()
+                value_loss = 0.5 * (values - rewards_batch).pow(2)
+                if self.hp['value_clip'] is not None:
+                    clipped_values = old_policy_values_batch + (values - old_policy_values_batch).clamp(-self.hp['value_clip'], -self.hp['value_clip'])
+                    clipepd_value_loss = 0.5*(clipped_values - rewards_batch).pow(2)
+                    critic_loss = torch.max(value_loss, clipepd_value_loss).mean()
+                else:
+                    critic_loss = value_loss
 
-            exploration_loss = -self.hp['entropy_weight'] * dists.entropy()
+                # Finding the ratio (pi_theta / pi_theta_old):
+                logprobs = dists.log_prob(old_policy_actions_batch)
+                ratios = torch.exp(logprobs.view(-1) - old_policy_loggprobs_batch)
+                # Finding Surrogate actor Loss:
+                ratios = torch.clamp(ratios,0,10) # TODO temporal experiment
+                surr1 = advantages_batch* ratios
+                surr2 = advantages_batch* torch.clamp(ratios, 1 - self.hp['epsilon_clip'], 1 + self.hp['epsilon_clip'])
+                actor_loss = -torch.min(surr1, surr2)
 
-            values = values.view(-1)
-            value_loss = 0.5 * (values - rewards).pow(2)
-            if self.hp['value_clip'] is not None:
-                clipped_values = old_values + (values - old_values).clamp(-self.hp['value_clip'], -self.hp['value_clip'])
-                clipepd_value_loss = 0.5*(clipped_values - rewards).pow(2)
-                critic_loss = torch.min(value_loss, clipepd_value_loss).mean()
-            else:
-                critic_loss = value_loss
+                loss = actor_loss.mean() + critic_loss.mean() + exploration_loss.mean()
+                loss.backward()
+                # loss = actor_loss + critic_loss + exploration_loss
+                # loss.mean().backward()
+                if self.hp['grad_clip'] is not None:
+                    torch.nn.utils.clip_grad_norm_(self.policy.parameters(), self.hp['grad_clip'])
+                self.optimizer.step()
+                self.optimizer.zero_grad()
 
-            # Finding the ratio (pi_theta / pi_theta__old):
-            logprobs = dists.log_prob(old_actions)
-            ratios = torch.exp(logprobs - old_logprobs.detach())
-            # Finding Surrogate actor Loss:
-            surr1 = ratios * advantages
-            surr2 = torch.clamp(ratios, 1 - self.hp['epsilon_clip'], 1 + self.hp['epsilon_clip']) * advantages
-            actor_loss = -torch.min(surr1, surr2)
-
-            loss = actor_loss + critic_loss + exploration_loss
-            self.optimizer.zero_grad()
-            loss.mean().backward()
-            if self.hp['grad_clip'] is not None:
-                torch.nn.utils.clip_grad_norm_(self.policy.parameters(), self.hp['grad_clip'])
-            self.optimizer.step()
-            debug_actor_loss += [actor_loss.mean().item()]
-            debug_critic_loss += [critic_loss.mean().item()]
-            debug_entropy_loss += [exploration_loss.mean().item()]
-            debug_total_loss += [loss.mean().item()]
-
-        self.reporter.update_agent_stats("actor_loss", self.num_actions, np.mean(debug_actor_loss))
-        self.reporter.update_agent_stats("critic_loss", self.num_actions, np.mean(debug_critic_loss))
-        self.reporter.update_agent_stats("dist_entropy", self.num_actions, -np.mean(debug_entropy_loss))
-        self.reporter.update_agent_stats("total_loss", self.num_actions, np.mean(debug_total_loss))
+                self.reporter.update_agent_stats("actor_loss", None, actor_loss.mean().item())
+                self.reporter.update_agent_stats("critic_loss", None, critic_loss.mean().item())
+                self.reporter.update_agent_stats("dist_entropy", None, -exploration_loss.mean().item())
+                self.reporter.update_agent_stats("ratios", None, ratios.mean().item())
+                self.reporter.update_agent_stats("values", None, values.mean().item())
+                self.reporter.add_histogram("actions", old_policy_actions_batch.cpu().numpy().reshape(-1))
 
     def load_state(self, path):
         if os.path.exists(path):
-            # self.policy_old.load_state_dict(torch.load(path))
             # if trained on gpu but test on cpu use:
             self.policy.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage))
 

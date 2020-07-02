@@ -15,11 +15,15 @@ class train_stats(object):
         self.ys = [y]
 
     def add(self, x, y):
+        if x is None:
+            x = len(self.ys)
         self.xs += [x]
         self.ys += [y]
 
-    def plot(self, path):
-        plt.plot(self.xs, self.ys, label=self.name)
+    def plot(self, path, k=100):
+        plt.plot(self.xs, self.ys, label=self.name, )
+        avg = np.convolve(np.array(self.ys), np.ones(k)/float(k))
+        plt.plot(np.arange(len(avg)), avg, label='%d-avg'%k)
         plt.legend()
         plt.savefig(path)
         plt.clf()
@@ -36,15 +40,22 @@ class logger(object):
         self.done_episodes = 0
         self.last_time = self.train_start
         self.agent_train_stats = {}
+        self.agent_histograms = {}
 
     def get_last_k_episodes_mean(self):
         return np.mean(self.all_episodes_total_rewards[-self.k:])
 
     def update_agent_stats(self, name, x, y):
         if name in self.agent_train_stats:
-            self.agent_train_stats[name].add(x,y)
+            self.agent_train_stats[name].add(x, y)
         else:
             self.agent_train_stats[name] = train_stats(name, x, y)
+
+    def add_histogram(self, name, values):
+        if name not in self.agent_histograms:
+            self.agent_histograms[name] = list(values)
+        else:
+            self.agent_histograms[name] += list(values)
 
     def update_train_episode(self, episode_rewards):
         self.all_episodes_total_rewards += [np.sum(episode_rewards)]
@@ -132,6 +143,11 @@ class plt_logger(logger):
         for train_stats in self.agent_train_stats:
             self.agent_train_stats[train_stats].plot(os.path.join(self.logdir, train_stats+".png"))
 
+        for hist_name in self.agent_histograms:
+            plt.hist(self.agent_histograms[hist_name], bins='auto', label="Action histogram")
+            plt.legend()
+            plt.savefig(os.path.join(self.logdir, hist_name+".png"))
+            plt.clf()
 
     def log_test(self, score):
         super(plt_logger, self).log_test(score)

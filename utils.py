@@ -3,14 +3,54 @@ import torch
 from time import time
 import random
 
+from torch.utils.data import Dataset
+
+class NonSequentialDataset(Dataset):
+    def __init__(self, *arrays):
+        super().__init__()
+        # self.arrays = [array.reshape(-1, *array.shape[2:]) for array in arrays]
+        self.arrays = [array for array in arrays]
+
+    def __getitem__(self, index):
+        return [array[index] for array in self.arrays]
+
+    def __len__(self):
+        return len(self.arrays[0])
+
+
+class RunningStats(object):
+    # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
+    # https://github.com/openai/baselines/blob/master/baselines/common/running_mean_std.py
+    def __init__(self, epsilon=1e-4, shape=()):
+        self.mean = np.zeros(shape, 'float64')
+        self.var = np.ones(shape, 'float64')
+        self.std = np.ones(shape, 'float64')
+        self.count = epsilon
+
+    def update(self, x):
+        batch_mean = np.mean(x, axis=0)
+        batch_var = np.var(x, axis=0)
+        batch_count = x.shape[0]
+        self.update_from_moments(batch_mean, batch_var, batch_count)
+
+    def update_from_moments(self, batch_mean, batch_var, batch_count):
+        delta = batch_mean - self.mean
+        new_mean = self.mean + delta * batch_count / (self.count + batch_count)
+        m_a = self.var * self.count
+        m_b = batch_var * batch_count
+        M2 = m_a + m_b + np.square(delta) * self.count * batch_count / (self.count + batch_count)
+        new_var = M2 / (self.count + batch_count)
+
+        self.mean = new_mean
+        self.var = new_var
+        self.std = np.maximum(np.sqrt(self.var), 1e-6)
+        self.count = batch_count + self.count
 
 def monte_carlo_reward(rewards, is_terminals, discount, device):
     res = []
     discounted_reward = 0
     for reward, is_terminal in zip(reversed(rewards), reversed(is_terminals)):
-        if is_terminal:
-            discounted_reward = 0
-        discounted_reward = reward + discount * discounted_reward
+        discounted_reward = reward + discount * discounted_reward*(1-is_terminal)
         res.insert(0, discounted_reward)
 
     # Normalizing the rewards:
@@ -20,21 +60,24 @@ def monte_carlo_reward(rewards, is_terminals, discount, device):
 
 def GenerelizedAdvantageEstimate(gae_param, values, rewards, is_terminals, discount, device):
     assert(is_terminals[-1])
-    res = []
+    advantages = []
+    cumulative_reward = []
     rewards = torch.tensor(rewards).to(device)
     is_terminals = torch.tensor(is_terminals).to(device).float()
     deltas = -values + rewards
     deltas[:-1] += (1-is_terminals[:-1])*discount*values[1:]
-    running_sum = 0
-    for delta, is_terminal in zip(reversed(deltas), reversed(is_terminals)):
-        if is_terminal:
-            running_sum = 0
-        running_sum = delta + discount*gae_param * running_sum
-        res.insert(0, running_sum)
+    running_advantage = 0
+    running_reward = 0
+    for reward, delta, is_terminal in zip(reversed(rewards), reversed(deltas), reversed(is_terminals)):
+        running_advantage = delta + discount*gae_param * running_advantage * (1-is_terminal)
+        running_reward = reward + discount * running_reward * (1-is_terminal)
+        advantages.insert(0, running_advantage)
+        cumulative_reward.insert(0, running_reward)
 
     # Normalizing the rewards:
-    res = torch.tensor(res).to(device)
-    return res
+    advantages = torch.tensor(advantages).to(device)
+    cumulative_reward = torch.tensor(cumulative_reward).to(device)
+    return advantages, cumulative_reward
 
 class ListMemory:
     # Credit to Adrien Lucas Ecoffet

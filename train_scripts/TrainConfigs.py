@@ -8,7 +8,8 @@ def solve_cart_pole(agent_name):
         "DQN": {'lr':0.001, "min_playback":0, "max_playback":1000000, "update_freq": 100, 'hiden_layer_size':32, 'epsilon_decay':500},
         "VanilaPG": {'lr':0.001, 'batch_episodes':1},
         "A2C": {'lr':0.001, 'batch_episodes':1, 'GAE': 0.98},
-        "PPO": {'lr': 0.001, 'batch_episodes': 1, 'epochs': 4, 'GAE': 1.0, 'value_clip': 0.3, 'grad_clip': None},
+        # "PPO": {'lr': 0.001, 'batch_episodes': 1, 'epochs': 4, 'GAE': 1.0, 'value_clip': 0.3, 'grad_clip': None},
+        "PPO": {'lr': 0.001, 'batch_episodes': 10, 'epochs': 10,'minibatch_size':32, 'GAE': 1.0, 'epsilon_clio':0.1, 'value_clip': None, 'grad_clip': None},
         "PPO_ICM": {'lr': 0.0025, 'epsilon_clip': 0.3, 'batch_episodes': 4, 'epochs': 8, 'GAE': 0.95, 'value_clip': None,
               'grad_clip': None, 'use_extrinsic_reward': True, 'intrinsic_reward_scale': 1.0, 'lr_decay': 1.0}
     }
@@ -50,9 +51,9 @@ def solve_pendulum(agent_name):
     env, solved_score = get_env_settings(env_name)
     agent_configs = {
         "VanilaPG": {'lr': 0.0001, 'batch_episodes': 32, 'hidden_layers': [400, 300]},
-        "A2C": {'lr':0.0001, 'lr_decay':0.99, 'batch_episodes':64, 'GAE':0.95, 'hidden_layers':[400,400]},
-        "PPO": {'lr': 0.001, 'batch_episodes': 4, 'epochs': 10, 'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': 0.1,
-              'grad_clip': None, 'entropy_weight': 0.01, 'hidden_layers':[512]},
+        "A2C": {'lr':0.0004, 'lr_decay':0.99, 'batch_episodes':64, 'GAE':0.95, 'hidden_layers':[400,400]},
+        "PPO": {'lr': 0.0004, "discount":0.99, 'lr_decay':0.9, 'batch_episodes': 10, 'epochs': 10, 'minibatch_size':1000, 'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': 0.1,
+                'grad_clip': None, 'entropy_weight': 0.01, 'hidden_layers':[400,400]},
         "PPO_ICM": {'lr': 0.001, 'batch_episodes': 8, 'epochs': 10, 'GAE': 0.95, 'epsilon_clip': 0.3, 'value_clip': 0.5,
               'grad_clip': 0.5, 'entropy_weight': 0.01, 'hidden_layers': [512]},
         "DDPG": {'actor_lr':0.0001, 'critic_lr':0.001, 'batch_size':64, 'min_playback':1000, 'layer_dims':[400,300],
@@ -65,7 +66,7 @@ def solve_pendulum(agent_name):
 
 
 def solve_lunar_lander(agent_name):
-    env_name = "LunarLander-v2";
+    env_name = "LunarLander-v2"
     env, solved_score = get_env_settings(env_name)
     agent_configs = {
         "DQN": {'lr':0.0007, "min_playback":1000, "max_playback":1000000, "update_freq": 500, 'hiden_layer_size':256, 'epsilon_decay':10000},

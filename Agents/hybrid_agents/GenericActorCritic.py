@@ -96,14 +96,14 @@ class ActorCritic(GenericAgent):
                     param_group['lr'] *= self.hp['lr_decay']
 
     def _learn(self):
-        state_values, logprobs, raw_rewards, is_terminals = self.samples.get_as_tensors(device)
+        state_values, logprobs, raw_rewards, is_ns_terminals = self.samples.get_as_tensors(device)
 
-        rewards = monte_carlo_reward(raw_rewards, is_terminals, self.hp['discount'], device)
-        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
-        advantage = GenerelizedAdvantageEstimate(self.hp['GAE'], state_values, raw_rewards, is_terminals, self.hp['discount'], device).detach()
-        advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-5)
+        raw_rewards = np.array(raw_rewards)
+        raw_rewards = raw_rewards / raw_rewards.std()
+        advantages, rewards = GenerelizedAdvantageEstimate(self.hp['GAE'], state_values, raw_rewards, is_ns_terminals, self.hp['discount'], device)
+        advantages = (advantages - advantages.mean()) / np.maximum(advantages.std(), 1e-6)
 
-        actor_loss = -logprobs*advantage
+        actor_loss = -logprobs*advantages
         critic_loss = 0.5*(state_values - rewards).pow(2)
         loss = (actor_loss + critic_loss).mean()
         # take gradient step

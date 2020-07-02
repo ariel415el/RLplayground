@@ -89,7 +89,6 @@ class ConvNetFeatureExtracor(nn.Module):
 class DiscreteActor(nn.Module):
     def __init__(self, feature_extractor, action_dim, hidden_layers):
         super(DiscreteActor, self).__init__()
-        # action mean range -1 to 1
         self.features = feature_extractor
 
         layers = []
@@ -114,22 +113,20 @@ class DiscreteActor(nn.Module):
 class CountinousActor(nn.Module):
     def __init__(self, feature_extractor, action_dim, hidden_layers):
         super(CountinousActor, self).__init__()
-        # action mean range -1 to 1
         self.action_dim = action_dim
         self.features = feature_extractor
         layers = []
         last_features_space = self.features.features_space
         for layer_size in hidden_layers:
-            layers += [nn.Linear(last_features_space, layer_size), nn.Tanh()]
+            layers += [nn.Linear(last_features_space, layer_size), nn.ReLU()]
             last_features_space = layer_size
-        layers += [nn.Linear(last_features_space, 2*action_dim)]
+        layers += [nn.Linear(last_features_space, action_dim), nn.Tanh()]
+        self.log_sigma = nn.Parameter(torch.zeros(1, action_dim), requires_grad=True)
         self.head = nn.Sequential(*layers)
 
     def get_dist(self, features):
-        mu_sigma = self.head(features)
-        mu = torch.tanh(mu_sigma[:, self.action_dim:])
-        sigma = torch.nn.functional.softplus(mu_sigma[:, :self.action_dim])
-        dist = D.multivariate_normal.MultivariateNormal(mu, torch.diag_embed(sigma))
+        mu = self.head(features)
+        dist = D.Normal(mu, self.log_sigma.exp())
         return dist
 
     def forward(self, x):
@@ -145,7 +142,7 @@ class Critic(nn.Module):
         layers = []
         last_features_space = self.features.features_space
         for layer_size in hidden_layers:
-            layers += [nn.Linear(last_features_space, layer_size), nn.Tanh()]
+            layers += [nn.Linear(last_features_space, layer_size), nn.ReLU()]
             last_features_space = layer_size
         layers += [nn.Linear(last_features_space, 1)]
         self.head = nn.Sequential(*layers)

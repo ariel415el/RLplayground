@@ -18,7 +18,7 @@ if  __name__ == '__main__':
     # env_name, env, agent, solved_score = solve_cart_pole("PPO")
     # env_name, env, agent, solved_score = solve_acrobot("DQN")
     # env_name, env, agent, solved_score = solve_mountain_car("PPO_ICM")
-    # env_name, env, agent, solved_score = solve_pendulum("PPO")
+    env_name, env, agent, solved_score = solve_pendulum("PPO")
     # env_name, env, agent, solved_score = solve_lunar_lander()
     # env_name, env, agent, solved_score = solve_continous_lunar_lander("A2C")
     # env_name, env, agent, solved_score = solve_bipedal_walker("TD3")
@@ -28,7 +28,7 @@ if  __name__ == '__main__':
     # env_name, env, agent, solved_score = solve_ant("PPO")
     # env_name, env, agent, solved_score = solve_humanoid()
     # env_name, env, agent, solved_score = solve_half_cheetah()
-    env_name, env, agent, solved_score = solve_super_mario("PPO")
+    # env_name, env, agent, solved_score = solve_super_mario("PPO")
 
     env.seed(SEED)
 
@@ -38,11 +38,11 @@ if  __name__ == '__main__':
     assert(os.path.exists(train_dir))
 
     logger = loggers.plt_logger(k=SCORE_SCOPE, log_frequency=LOG_FREQUENCY, logdir=train_dir)
-    # logger = train_logger.TB_logger(k=score_scope, log_frequency=10, logdir=train_dir)
-    # logger = train_logger.logger(score_scope, log_frequency=10)
+    # logger = loggers.TB_logger(k=SCORE_SCOPE, log_frequency=10, logdir=train_dir)
+    # logger = loggers.logger(k=SCORE_SCOPE, log_frequency=10, logdir=train_dir)
 
     agent.set_reporter(logger)
-    train.train_agent(env, agent, train_dir, logger, solved_score=solved_score, test_frequency=100,
+    train.train_agent(env, agent, train_dir, logger, solved_score=solved_score, test_frequency=250,
                       train_episodes=10000, test_episodes=1, save_videos=True, checkpoint_steps=0.2)
 
     # # Test

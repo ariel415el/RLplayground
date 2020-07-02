@@ -75,7 +75,9 @@ def test(env,  actor, test_episodes=1, render=False, delay=0.0):
             action = actor.process_new_state(state)
             state, reward, done, info = env.step(action)
             all_rewards += [reward]
-
+        if render:
+            env.render()
+            from time import sleep; sleep(0.1)
         episodes_total_rewards += [np.sum(all_rewards)]
     score = np.mean(episodes_total_rewards)
     actor.train=True
