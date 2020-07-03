@@ -27,7 +27,7 @@ class ICM_module(nn.Module):
                                             )
 
 class ICM(object):
-    def __init__(self, state_dim, action_dim, hidden_dim, lr, intrinsic_reward_scale=1.0, beta=0.2):
+    def __init__(self, state_dim, action_dim, hidden_dim=128, lr=0.001, intrinsic_reward_scale=1.0, beta=0.2):
         super(ICM, self).__init__()
         self.action_dim = action_dim
         self._beta = beta
@@ -49,7 +49,7 @@ class ICM(object):
         features_dists = (0.5*(ns_featues - estimated_ns_features).pow(2)).mean(1)
         loss_f = features_dists.mean()
 
-        intrisic_rewards = self._intrinsic_reward_scale*features_dists.detach()
+        intrisic_rewards = self._intrinsic_reward_scale*features_dists
         curiosity_loss = (1-self._beta)*loss_i + self._beta*loss_f
 
         self.curiosity_optimizer.zero_grad()
@@ -58,7 +58,7 @@ class ICM(object):
 
         self.debug_loss = curiosity_loss.item()
 
-        return intrisic_rewards
+        return intrisic_rewards.detach().cpu().numpy()
 
     def get_last_debug_loss(self):
         return self.debug_loss

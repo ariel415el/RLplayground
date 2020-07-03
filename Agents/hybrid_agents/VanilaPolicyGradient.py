@@ -88,10 +88,10 @@ class VanilaPolicyGradient(GenericAgent):
 
     def _learn(self):
         logprobs, raw_rewards, is_terminals = self.samples.get_as_tensors(device)
-
+        raw_rewards = np.array(raw_rewards)
+        raw_rewards = (raw_rewards - raw_rewards.mean()) / (raw_rewards.std() + 1e-5)
         # Monte Carlo estimate of rewards:
         rewards = monte_carlo_reward(raw_rewards, is_terminals, self.hp['discount'], device)
-        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
         actor_loss = (-logprobs*rewards).mean()
 
         # take gradient step

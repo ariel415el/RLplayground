@@ -5,6 +5,7 @@ import os
 from Agents.dnn_models import *
 from utils import *
 from Agents.GenericAgent import GenericAgent
+from Agents.ICM import ICM
 from torch.utils.data import DataLoader
 from utils import NonSequentialDataset
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -48,9 +49,8 @@ class Memory:
 
 
 class HybridPPO(GenericAgent):
-    def __init__(self, state_dim, action_dim, hp, train=True):
+    def __init__(self, state_dim, action_dim, hp, curiosity=None, train=True):
         super(HybridPPO, self).__init__(train)
-        self.name = 'PPO'
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.train= train
@@ -66,7 +66,8 @@ class HybridPPO(GenericAgent):
             'hidden_layers':[128,128],
             'entropy_weight':0.01,
             'grad_clip':0.5,
-            'GAE': 1 # 1 for MC, 0 for TD
+            'GAE': 1, # 1 for MC, 0 for TD,
+            'curiosity_hp': None
 
         }
         self.hp.update(hp)
@@ -89,8 +90,14 @@ class HybridPPO(GenericAgent):
         self.episodes_in_cur_batch = 0
         self.running_stats = RunningStats()
 
-
-        self.name += "_lr[%.4f]_b[%d]_GAE[%.2f]_ec[%.1f]_l-%s"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'], self.hp['epsilon_clip'],self.hp['hidden_layers'])
+        if self.hp['curiosity_hp'] is None:
+            self.curiosity = None
+        else:
+            self.curiosity = ICM(self.state_dim[0], self.action_dim, **self.hp['curiosity_hp'])
+        self.name = 'PPO'
+        if self.hp['curiosity_hp'] is not None:
+            self.name += "-ICM"
+        self.name += "_lr[%.5f]_b[%d]_GAE[%.2f]_ec[%.1f]_l-%s"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'], self.hp['epsilon_clip'],self.hp['hidden_layers'])
         if self.hp['value_clip'] is not None:
             self.name += "_vc[%.1f]"%self.hp['value_clip']
         if  self.hp['grad_clip'] is not None:
@@ -107,7 +114,7 @@ class HybridPPO(GenericAgent):
         self.last_value = value[0,0].item() # no need gradient
         if type(self.action_dim) == list:
             action = action.detach().cpu().numpy() # Using only this is problematic for super mario since it returns a 0-size np array in discrete action space
-            output_action = action = np.clip(action, self.action_dim[0], self.action_dim[1])
+            output_action = np.clip(action, self.action_dim[0], self.action_dim[1])
         else:
             action = output_action = action.item()
         self.last_action = action
@@ -133,6 +140,15 @@ class HybridPPO(GenericAgent):
     def _learn(self):
         states, old_policy_values, old_policy_actions, old_policy_loggprobs, raw_rewards, is_next_state_terminals = self.samples.get_as_tensors(device)
         raw_rewards = np.array(raw_rewards)
+
+        if self.curiosity is not None:
+            raw_rewards = 0
+            intrinsic_reward = self.curiosity.get_intrinsic_loss(states[:-1], states[1:], old_policy_actions[:-1])
+            self.reporter.update_agent_stats("extrinsic_reward", self.num_actions, raw_rewards.mean())
+            raw_rewards[:-1] += intrinsic_reward
+            self.reporter.update_agent_stats("curiosity_loss", self.num_actions, self.curiosity.get_last_debug_loss())
+            self.reporter.update_agent_stats("intrinsic_reward", self.num_actions, intrinsic_reward.mean())
+
         self.running_stats.update(raw_rewards)
         raw_rewards = np.clip(raw_rewards / self.running_stats.std, -10 , 10) # TODO temporal experiment
         advantages, rewards = GenerelizedAdvantageEstimate(self.hp['GAE'], old_policy_values, raw_rewards, is_next_state_terminals, self.hp['discount'], device)

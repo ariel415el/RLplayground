@@ -22,7 +22,7 @@ class train_stats(object):
 
     def plot(self, path, k=100):
         plt.plot(self.xs, self.ys, label=self.name, )
-        avg = np.convolve(np.array(self.ys), np.ones(k)/float(k))
+        avg = np.convolve(np.array(self.ys), np.ones(k)/float(k), 'valid')
         plt.plot(np.arange(len(avg)), avg, label='%d-avg'%k)
         plt.legend()
         plt.savefig(path)

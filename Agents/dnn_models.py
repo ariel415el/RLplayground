@@ -126,7 +126,9 @@ class CountinousActor(nn.Module):
 
     def get_dist(self, features):
         mu = self.head(features)
-        dist = D.Normal(mu, self.log_sigma.exp())
+        # dist_old = D.Normal(mu, self.log_sigma.exp())
+        dist = D.multivariate_normal.MultivariateNormal(mu, torch.diag_embed(self.log_sigma.exp()))
+
         return dist
 
     def forward(self, x):

@@ -38,10 +38,12 @@ def solve_mountain_car(agent_name):
     agent_configs = {
         "DQN": {'lr':0.0005, "min_playback":0, "max_playback":1000000, "update_freq": 100, 'hiden_layer_size':64,
                 'epsilon_decay':500, 'batch_size':128, 'lr_decay':0.9999},
-        "PPO_ICM": {'lr': 0.001, 'lr_decay': 0.9999, 'batch_episodes': 1, 'epochs': 3, 'GAE': 0.95, 'epsilon_clip': 0.2, 'value_clip': 0.2,
-              'grad_clip': 0.5, 'hidden_layers': [64], 'intrinsic_reward_scale': 200.0, 'use_extrinsic_reward': False,
-              'curiosity_hidden_dim': 32, 'entropy_weight': 0.01, 'curiosity_lr':0.00001}
+        "PPO": {'lr': 0.0001, "discount": 0.99, 'lr_decay': 0.9, 'batch_episodes': 10, 'epochs': 10, 'hidden_layers': [64, 64],
+                'minibatch_size': 128, 'GAE': 0.15, 'epsilon_clip': 0.1, 'value_clip': None, 'grad_clip': None, 'entropy_weight': 0.01,
+                'curiosity_hp': {'intrinsic_reward_scale': 200.0, 'hidden_dim': 128, 'lr': 0.001}
+                }
     }
+
     agent = build_agent(agent_name, env, agent_configs[agent_name])
     return env_name, env, agent, solved_score
 
@@ -52,7 +54,7 @@ def solve_pendulum(agent_name):
     agent_configs = {
         "VanilaPG": {'lr': 0.0001, 'batch_episodes': 32, 'hidden_layers': [400, 300]},
         "A2C": {'lr':0.0004, 'lr_decay':0.99, 'batch_episodes':64, 'GAE':0.95, 'hidden_layers':[400,400]},
-        "PPO": {'lr': 0.0001, "discount":0.95, 'lr_decay':0.99, 'batch_episodes': 10, 'epochs': 10, 'minibatch_size':32, 'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None,
+        "PPO": {'lr': 1e-3, "discount":0.95, 'lr_decay':0.6, 'batch_episodes': 10, 'epochs': 10, 'minibatch_size':128, 'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None,
                 'grad_clip': None, 'entropy_weight': 0.01, 'hidden_layers':[64,64]},
         "PPO_ICM": {'lr': 0.001, 'batch_episodes': 8, 'epochs': 10, 'GAE': 0.95, 'epsilon_clip': 0.3, 'value_clip': 0.5,
               'grad_clip': 0.5, 'entropy_weight': 0.01, 'hidden_layers': [512]},
@@ -86,8 +88,8 @@ def solve_continous_lunar_lander(agent_name):
     agent_configs = {
         "VanilaPG": {'lr': 0.001, 'batch_episodes': 32, 'hidden_layers': [64, 64, 128]},
         "A2C": {'lr': 0.005, 'lr_decay': 0.99, 'batch_episodes': 8, 'GAE': 0.96, 'hidden_layers': [400,200]},
-        "PPO": {'lr': 0.00025, 'batch_episodes': 8, 'epochs': 3, 'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None,
-                'grad_clip': 0.5, 'entropy_weight': 0.01, 'hidden_layers': [400,200]},
+        "PPO": {'lr':0.00025,'lr_decay': 0.99, 'batch_episodes':8, 'epochs':16, 'GAE':0.95, 'epsilon_clip': 0.1, 'value_clip':None,
+              'grad_clip':None, 'entropy_weight':0.01, 'hidden_layers':[128,64]},
         "PPO_ICM": {'lr': 0.0005, 'lr_decay': 0.99, 'batch_episodes': 32, 'epochs': 10, 'GAE': 0.95,'epsilon_clip': 0.25,
                     'value_clip': None, 'grad_clip': None, 'entropy_weight': 0.01, 'hidden_dims': [400, 200, 200], 'curiosity_hidden_dim': 128},
         "DDPG": {'actor_lr': 0.0001, 'critic_lr': 0.001, 'batch_size': 100, 'min_playback': 0,
@@ -105,8 +107,8 @@ def solve_bipedal_walker(agent_name):
     agent_configs = {
         "VanilaPG":{'lr': 0.001, 'batch_episodes': 32, 'hidden_layers': [64, 64, 128]},
         "A2C":  {'lr': 0.005, 'batch_episodes': 8, 'GAE': 0.96, 'hidden_layers':[32,16]},
-        "PPO": {'lr': 0.001, 'batch_episodes': 45, 'epochs': 10, 'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': 0.1,
-              'grad_clip': None, 'entropy_weight': 0.01, 'hidden_layers': 512},
+        "PPO": {'lr': 0.0001,'lr_decay':0.999, 'batch_episodes': 8, 'epochs': 16,'minibatch_size':512, 'GAE': 0.95, 'epsilon_clip': 0.2, 'value_clip': None,
+              'grad_clip': 0.5, 'entropy_weight': 0.01, 'hidden_layers': [256, 128]},
         "PPO_ICM": {'lr': 0.0005, 'lr_decay': 0.99, 'batch_episodes': 32, 'epochs': 10, 'GAE': 0.95, 'epsilon_clip': 0.25,
               'value_clip': None, 'grad_clip': None, 'entropy_weight': 0.01, 'hidden_dims': [400, 200, 200], 'curiosity_hidden_dim': 128},
         "DDPG":{'actor_lr':0.0001, 'critic_lr':0.001, 'batch_size':100, 'min_playback':0, 'layer_dims':[400,200], 'tau':0.001, "update_freq":1, 'learn_freq':1},
@@ -142,6 +144,7 @@ def solve_breakout(agent_name):
               'grad_clip': None, 'entropy_weight': 0.01, 'hidden_dims': [400, 200]},
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
+    return env_name, env, agent, solved_score
 
 
 def solve_half_cheetah(agent_name):
