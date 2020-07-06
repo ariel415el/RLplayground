@@ -6,7 +6,7 @@ from Agents.continous_agents import *
 from Agents.hybrid_agents import *
 
 env_goals = {"CartPole-v1":195, "Acrobot-v1":-80, "MountainCar-v0":-110, "Pendulum-v0":-200, "LunarLander-v2":200,
-             "LunarLanderContinuous-v2": 200, "BipedalWalker-v3":500, "BipedalWalkerHardcore-v3":500,
+             "LunarLanderContinuous-v2": 200, "BipedalWalker-v3":300, "BipedalWalkerHardcore-v3":300,
              "PongNoFrameskip-v4":20, "BreakoutNoFrameskip-v4":200,
              'AntPyBulletEnv-v0':6000, "Walker2DMuJoCoEnv-v0":6000, 'HumanoidMuJoCoEnv-v0':6000, 'HalfCheetahMuJoCoEnv-v0':6000,
              'SuperMarioBros-1':5000, 'SuperMarioBros-v2':5000, 'SuperMarioBros-v3':5000,

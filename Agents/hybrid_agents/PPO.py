@@ -194,7 +194,7 @@ class HybridPPO(GenericAgent):
                 self.reporter.update_agent_stats("dist_entropy", None, -exploration_loss.mean().item())
                 self.reporter.update_agent_stats("ratios", None, ratios.mean().item())
                 self.reporter.update_agent_stats("values", None, values.mean().item())
-                self.reporter.add_histogram("actions", old_policy_actions_batch.cpu().numpy().reshape(-1))
+                # self.reporter.add_histogram("actions", old_policy_actions_batch.cpu().numpy().reshape(-1))
 
     def load_state(self, path):
         if os.path.exists(path):

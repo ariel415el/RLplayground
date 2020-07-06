@@ -94,7 +94,7 @@ class DiscreteActor(nn.Module):
         layers = []
         last_features_space = self.features.features_space
         for layer_size in hidden_layers:
-            layers += [nn.Linear(last_features_space, layer_size), nn.Tanh()]
+            layers += [nn.Linear(last_features_space, layer_size), nn.ReLU()]
             last_features_space = layer_size
         layers += [nn.Linear(last_features_space, action_dim), nn.Softmax(dim=1)]
         self.head = nn.Sequential(*layers)

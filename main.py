@@ -20,8 +20,8 @@ if  __name__ == '__main__':
     # env_name, env, agent, solved_score = solve_mountain_car("PPO")
     # env_name, env, agent, solved_score = solve_pendulum("PPO")
     # env_name, env, agent, solved_score = solve_lunar_lander()
-    # env_name, env, agent, solved_score = solve_continous_lunar_lander("PPO")
-    env_name, env, agent, solved_score = solve_bipedal_walker("PPO")
+    env_name, env, agent, solved_score = solve_continous_lunar_lander("PPO")
+    # env_name, env, agent, solved_score = solve_bipedal_walker("PPO")
     # env_name, env, agent, solved_score = solve_pong('DQN')
     # env_name, env, agent, solved_score = solve_breakout("DQN")
     # env_name, env, agent, solved_score = solve_2d_walker("PPO")
@@ -38,8 +38,8 @@ if  __name__ == '__main__':
     assert(os.path.exists(train_dir))
 
     logger = loggers.plt_logger(k=SCORE_SCOPE, log_frequency=LOG_FREQUENCY, logdir=train_dir)
-    # logger = loggers.TB_logger(k=SCORE_SCOPE, log_frequency=10, logdir=train_dir)
-    # logger = loggers.logger(k=SCORE_SCOPE, log_frequency=10, logdir=train_dir)
+    # logger = loggers.TB_logger(k=SCORE_SCOPE, log_frequency=LOG_FREQUENCY, logdir=train_dir)
+    # logger = loggers.logger(k=SCORE_SCOPE, log_frequency=LOG_FREQUENCY, logdir=train_dir)
 
     agent.set_reporter(logger)
     train.train_agent(env, agent, train_dir, logger, solved_score=solved_score, test_frequency=250,

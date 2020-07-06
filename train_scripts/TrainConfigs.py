@@ -88,8 +88,8 @@ def solve_continous_lunar_lander(agent_name):
     agent_configs = {
         "VanilaPG": {'lr': 0.001, 'batch_episodes': 32, 'hidden_layers': [64, 64, 128]},
         "A2C": {'lr': 0.005, 'lr_decay': 0.99, 'batch_episodes': 8, 'GAE': 0.96, 'hidden_layers': [400,200]},
-        "PPO": {'lr':0.00025,'lr_decay': 0.99, 'batch_episodes':8, 'epochs':16, 'GAE':0.95, 'epsilon_clip': 0.1, 'value_clip':None,
-              'grad_clip':None, 'entropy_weight':0.01, 'hidden_layers':[128,64]},
+        "PPO": {'lr':0.001, 'lr_decay':0.9, 'batch_episodes':16, 'epochs':8, 'GAE':0.95, 'epsilon_clip': 0.2, 'value_clip':None,
+              'grad_clip':0.5, 'entropy_weight':0.01, 'hidden_layers':[512,512]},
         "PPO_ICM": {'lr': 0.0005, 'lr_decay': 0.99, 'batch_episodes': 32, 'epochs': 10, 'GAE': 0.95,'epsilon_clip': 0.25,
                     'value_clip': None, 'grad_clip': None, 'entropy_weight': 0.01, 'hidden_dims': [400, 200, 200], 'curiosity_hidden_dim': 128},
         "DDPG": {'actor_lr': 0.0001, 'critic_lr': 0.001, 'batch_size': 100, 'min_playback': 0,
@@ -140,8 +140,8 @@ def solve_breakout(agent_name):
     agent_configs = {
         "DQN":{'lr': 0.00001, "min_playback": 50000, "max_playback": 1000000, "update_freq": 10000, 'learn_freq': 4,
               "normalize_state": True, 'epsilon_decay': 5000000},
-        "PPO": {'lr': 0.00005, 'batch_episodes': 16, 'epochs': 8, 'GAE': 0.98, 'epsilon_clip': 0.1, 'value_clip': 0.1,
-              'grad_clip': None, 'entropy_weight': 0.01, 'hidden_dims': [400, 200]},
+        "PPO": {'lr': 0.00025, 'batch_episodes': 16, 'epochs': 3, 'minibatch_size':32, 'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None,
+              'grad_clip': 0.5, 'entropy_weight': 0.01, 'hidden_dims': [512, 512]},
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
     return env_name, env, agent, solved_score
