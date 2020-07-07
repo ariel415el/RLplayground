@@ -140,7 +140,7 @@ def solve_breakout(agent_name):
     agent_configs = {
         "DQN":{'lr': 0.00001, "min_playback": 50000, "max_playback": 1000000, "update_freq": 10000, 'learn_freq': 4,
               "normalize_state": True, 'epsilon_decay': 5000000},
-        "PPO": {'lr': 0.00025, 'batch_episodes': 16, 'epochs': 3, 'minibatch_size':32, 'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None,
+        "PPO": {'lr': 0.00025, 'lr_decay':0.9999, 'batch_episodes': 16, 'epochs': 3, 'minibatch_size':32, 'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None,
               'grad_clip': 0.5, 'entropy_weight': 0.01, 'hidden_dims': [512, 512]},
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])

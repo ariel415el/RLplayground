@@ -48,7 +48,7 @@ def get_env_settings(env_name):
     if env_name == "PongNoFrameskip-v4":
         return get_atari_env(env_name, frame_stack=1), env_goals[env_name]
     elif env_name == "BreakoutNoFrameskip-v4":
-        return get_atari_env(env_name, frame_stack=2), env_goals[env_name]
+        return get_atari_env(env_name, frame_stack=4, episode_life=True, no_op_reset=False, disable_noop=True), env_goals[env_name]
     elif "SuperMarioBros" in env_name:
         env = get_super_mario_env(env_name)
         return env, env_goals[env_name]

@@ -40,6 +40,19 @@ class NoopResetEnv(gym.Wrapper):
         return self.env.step(ac)
 
 
+class DisableNoOpAction(gym.Wrapper):
+    def __init__(self, env):
+        """Disalbe to possiblity to play the NOOP action in atari games"""
+        gym.Wrapper.__init__(self, env)
+
+        self.offset = 0
+        if "NOOP" == env.unwrapped.get_action_meanings()[0]:
+            self.offset = 1
+        self.action_space = spaces.Discrete(self.action_space.n - 1)
+
+    def step(self, ac):
+        return self.env.step(ac + 1)
+
 class FireResetEnv(gym.Wrapper):
     def __init__(self, env):
         """Take action on reset for environments that are fixed until firing."""
@@ -217,24 +230,8 @@ class LazyFrames(object):
         return np.concatenate(self._frames, axis=0)
 
 
-def wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=False, scale=False):
-    """Configure environment for DeepMind-style Atari.
-    """
-    if episode_life:
-        env = EpisodicLifeEnv(env)
-    if 'FIRE' in env.unwrapped.get_action_meanings():
-        env = FireResetEnv(env)
-    env = WarpFrame(env)
-    if scale:
-        env = ScaledFloatFrame(env) # Disables memory optimization
-    if clip_rewards:
-        env = ClipRewardEnv(env)
-    if frame_stack:
-        env = FrameStack(env, 4)
-    return env
-
-
-def get_atari_env(env_name, episode_life=True, clip_rewards=True, frame_stack=1, scale=False, no_op_reset=True):
+def get_atari_env(env_name, episode_life=True, clip_rewards=True, frame_stack=1, scale=False, no_op_reset=True, disable_noop=False):
+    """Stack all the wrappers relavant for Atari games in the  right order"""
     env = gym.make(env_name)
     if no_op_reset:
         env = NoopResetEnv(env, noop_max=30)
@@ -255,6 +252,8 @@ def get_atari_env(env_name, episode_life=True, clip_rewards=True, frame_stack=1,
         env = ClipRewardEnv(env)
     if frame_stack:
         env = FrameStack(env, frame_stack)
+    if disable_noop:
+        env = DisableNoOpAction(env)
     return env
 
 def get_super_mario_env(env_name,simple_actions=True):
