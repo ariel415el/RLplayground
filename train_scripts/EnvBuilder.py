@@ -12,6 +12,35 @@ env_goals = {"CartPole-v1":195, "Acrobot-v1":-80, "MountainCar-v0":-110, "Pendul
              'SuperMarioBros-1':5000, 'SuperMarioBros-v2':5000, 'SuperMarioBros-v3':5000,
              "MiniGrid-FourRooms-v0":10}
 
+class env_builder(object):
+    def __init__(self,constructor, args):
+        self.constructor = constructor
+        self.args = args
+    def __call__(self):
+        return self.constructor(**self.args)
+
+class MultiEnviroment(object):
+    def __init__(self,env_builder, num_envs=1):
+        self.num_envs = num_envs
+        self.envs = [env_builder() for _ in range(num_envs)]
+
+    def reset(self):
+        return [env.reset() for env in self.envs]
+
+    def step(self, actions):
+        states = []
+        rewards = []
+        dones = []
+        infos = []
+        for i in range(self.num_envs):
+            state, reward, done, info = self.envs[i].step(actions[i])
+            states += [state]
+            rewards += [reward]
+            dones += [done]
+            infos += [info]
+        return np.array(states), np.array(rewards), np.array(dones), np.array(infos)
+
+
 
 def build_agent(agent_name, env,  hp):
     state_dim, action_dim = get_state_and_action_dim(env)
@@ -24,8 +53,6 @@ def build_agent(agent_name, env,  hp):
         agent = GenericActorCritic.ActorCritic(state_dim, action_dim, hp)
     elif agent_name == "PPO":
         agent = PPO.HybridPPO(state_dim, action_dim, hp)
-    elif agent_name == "PPO_ICM":
-        agent = PPO_ICM.HybridPPO_ICM(state_dim, action_dim, hp)
     elif agent_name == "DDPG":
         agent = DDPG.DDPG(state_dim, action_dim, hp)
     elif agent_name == "TD3":
@@ -44,16 +71,17 @@ def get_state_and_action_dim(env):
     return state_dim, action_dim
 
 
-def get_env_settings(env_name):
+def get_env_builder(env_name):
     if env_name == "PongNoFrameskip-v4":
-        return get_atari_env(env_name, frame_stack=1), env_goals[env_name]
+        return env_builder(get_atari_env, {'env_name':env_name, 'frame_stack':1})
     elif env_name == "BreakoutNoFrameskip-v4":
-        return get_atari_env(env_name, frame_stack=4, episode_life=True, no_op_reset=False, disable_noop=True), env_goals[env_name]
+        return env_builder(get_atari_env, {'env_name':env_name,'frame_stack':4, 'episode_life':True, 'no_op_reset':False, 'disable_noop':True})
     elif "SuperMarioBros" in env_name:
-        env = get_super_mario_env(env_name)
-        return env, env_goals[env_name]
+        return env_builder(get_super_mario_env, {'env_name':env_name})
     elif "MiniGrid" in env_name:
-        env = get_grid_maze_env(env_name)
-        return env, env_goals[env_name]
+        return env_builder(get_grid_maze_env, {'env_name':env_name})
     else:
-        return gym.make(env_name), env_goals[env_name]
+        return env_builder(gym.make, {'id':env_name})
+
+def get_env_goal(env_name):
+    return env_goals[env_name]

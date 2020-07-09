@@ -4,6 +4,9 @@ import torch.nn.functional as F
 import numpy as np
 import torch.distributions as D
 
+class Swish(nn.Module):
+    def forward(self, x):
+        return x * nn.Sigmoid()(x)
 
 class NoisyLinear(nn.Module):
     # implements https://arxiv.org/abs/1706.10295
@@ -58,43 +61,53 @@ class NoisyLinear(nn.Module):
 
 
 class LinearFeatureExtracor(nn.Module):
-    def __init__(self, num_inputs, num_outputs, activation=torch.relu):
+    def __init__(self, num_inputs, hidden_layers, batch_normalization=False, activation=nn.ReLU()):
         super(LinearFeatureExtracor, self).__init__()
-        self.linear = nn.Linear(num_inputs, num_outputs)
-        self.features_space = num_outputs
-        self.activation = activation
+
+        layers = []
+        self.features_space = num_inputs
+        for layer_size in hidden_layers:
+            if batch_normalization:
+                layers += [nn.Linear(self.features_space, layer_size), nn.BatchNorm1d(layer_size), activation]
+            else:
+                layers += [nn.Linear(self.features_space, layer_size), activation]
+            self.features_space = layer_size
+        self.layers = nn.Sequential(*layers)
 
     def forward(self, x):
-        x = self.activation(self.linear(x))
-        return x
+
+        return self.layers(x)
 
 
 class ConvNetFeatureExtracor(nn.Module):
     ## Assumes input is input_channelsx84x84
-    def __init__(self, input_channels):
+    def __init__(self, input_channels, linear_layer=512):
         super(ConvNetFeatureExtracor, self).__init__()
         self.conv1 = nn.Conv2d(input_channels, 32, kernel_size=8, stride=4)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
         self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
-        self.features_space = 64*7*7
+        self.cnn_out = 64*7*7
+        self.linear = nn.Linear(64*7*7, linear_layer)
+        self.features_space = linear_layer
 
     def forward(self, x):
         x = nn.functional.relu(self.conv1(x))
         x = nn.functional.relu(self.conv2(x))
         x = nn.functional.relu(self.conv3(x))
-        x = x.view(-1, self.features_space)
+        x = x.view(-1, self.cnn_out)
+        x = nn.functional.relu(self.linear(x))
         return x
 
 
 class DiscreteActor(nn.Module):
-    def __init__(self, feature_extractor, action_dim, hidden_layers):
+    def __init__(self, feature_extractor, action_dim, hidden_layers, activation=nn.ReLU()):
         super(DiscreteActor, self).__init__()
         self.features = feature_extractor
 
         layers = []
         last_features_space = self.features.features_space
         for layer_size in hidden_layers:
-            layers += [nn.Linear(last_features_space, layer_size), nn.ReLU()]
+            layers += [nn.Linear(last_features_space, layer_size), activation]
             last_features_space = layer_size
         layers += [nn.Linear(last_features_space, action_dim), nn.Softmax(dim=1)]
         self.head = nn.Sequential(*layers)
@@ -111,14 +124,14 @@ class DiscreteActor(nn.Module):
 
 
 class CountinousActor(nn.Module):
-    def __init__(self, feature_extractor, action_dim, hidden_layers):
+    def __init__(self, feature_extractor, action_dim, hidden_layers, activation=nn.ReLU()):
         super(CountinousActor, self).__init__()
         self.action_dim = action_dim
         self.features = feature_extractor
         layers = []
         last_features_space = self.features.features_space
         for layer_size in hidden_layers:
-            layers += [nn.Linear(last_features_space, layer_size), nn.ReLU()]
+            layers += [nn.Linear(last_features_space, layer_size), activation]
             last_features_space = layer_size
         layers += [nn.Linear(last_features_space, action_dim), nn.Tanh()]
         self.log_sigma = nn.Parameter(torch.zeros(1, action_dim), requires_grad=True)
@@ -138,13 +151,13 @@ class CountinousActor(nn.Module):
 
 
 class Critic(nn.Module):
-    def __init__(self, feature_extractor, hidden_layers):
+    def __init__(self, feature_extractor, hidden_layers, activation=nn.ReLU()):
         super(Critic, self).__init__()
         self.features = feature_extractor
         layers = []
         last_features_space = self.features.features_space
         for layer_size in hidden_layers:
-            layers += [nn.Linear(last_features_space, layer_size), nn.ReLU()]
+            layers += [nn.Linear(last_features_space, layer_size), activation]
             last_features_space = layer_size
         layers += [nn.Linear(last_features_space, 1)]
         self.head = nn.Sequential(*layers)
@@ -158,15 +171,15 @@ class Critic(nn.Module):
         return value
 
 class ActorCriticModel(nn.Module):
-    def __init__(self, feature_extractor, action_dim, hidden_layers, discrete=True):
+    def __init__(self, feature_extractor, action_dim, hidden_layers, discrete=True, activation=nn.ReLU()):
         super(ActorCriticModel, self).__init__()
         # action mean range -1 to 1
         self.features = feature_extractor
         if discrete:
-            self.actor = DiscreteActor(self.features, action_dim, hidden_layers)
+            self.actor = DiscreteActor(self.features, action_dim, hidden_layers, activation)
         else:
-            self.actor = CountinousActor(self.features, action_dim, hidden_layers)
-        self.critic = Critic(self.features, hidden_layers)
+            self.actor = CountinousActor(self.features, action_dim, hidden_layers, activation)
+        self.critic = Critic(self.features, hidden_layers, activation)
 
     def get_action_dist(self, x):
         return self.actor(x)

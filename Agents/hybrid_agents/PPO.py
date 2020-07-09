@@ -56,6 +56,7 @@ class HybridPPO(GenericAgent):
         self.train= train
         self.hp = {
             'batch_episodes':3,
+            'horizon':128,
             'epochs': 4,
             'minibatch_size':32,
             'discount':0.99,
@@ -63,7 +64,9 @@ class HybridPPO(GenericAgent):
             'lr_decay':0.95,
             'epsilon_clip':0.2,
             'value_clip':0.5,
-            'hidden_layers':[128,128],
+            'features_layers':[64],
+            'features_bn':False
+            'model_layers':[64],
             'entropy_weight':0.01,
             'grad_clip':0.5,
             'GAE': 1, # 1 for MC, 0 for TD,
@@ -72,16 +75,15 @@ class HybridPPO(GenericAgent):
         }
         self.hp.update(hp)
         self.samples = Memory()
-
         if len(self.state_dim) > 1:
             feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
         else:
-            feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['hidden_layers'][0], activation=nn.ReLU())
+            feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['features_layers'], batch_normalization=self.hp['features_bn'],  activation=nn.ReLU())
 
         if type(self.action_dim) == list:
-            self.policy = ActorCriticModel(feature_extractor, len(self.action_dim[0]), self.hp['hidden_layers'], discrete=False).to(device)
+            self.policy = ActorCriticModel(feature_extractor, len(self.action_dim[0]), self.hp['model_layers'], discrete=False, activation=nn.ReLU()).to(device)
         else:
-            self.policy = ActorCriticModel(feature_extractor, self.action_dim, self.hp['hidden_layers'][1:], discrete=True).to(device)
+            self.policy = ActorCriticModel(feature_extractor, self.action_dim, self.hp['model_layers'], discrete=True, activation=nn.ReLU()).to(device)
 
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.hp['lr'])
         self.optimizer.zero_grad()
@@ -97,7 +99,7 @@ class HybridPPO(GenericAgent):
         self.name = 'PPO'
         if self.hp['curiosity_hp'] is not None:
             self.name += "-ICM"
-        self.name += "_lr[%.5f]_b[%d]_GAE[%.2f]_ec[%.1f]_l-%s"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'], self.hp['epsilon_clip'],self.hp['hidden_layers'])
+        self.name += "_lr[%.5f]_b[%d]_GAE[%.2f]_ec[%.1f]"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'], self.hp['epsilon_clip'])
         if self.hp['value_clip'] is not None:
             self.name += "_vc[%.1f]"%self.hp['value_clip']
         if  self.hp['grad_clip'] is not None:
@@ -106,6 +108,7 @@ class HybridPPO(GenericAgent):
     def process_new_state(self, state):
         state = torch.from_numpy(np.array(state)).to(device).float()
         dist, value = self.policy(state.unsqueeze(0))
+        # dist, value = self.policy(torch.cat([state.unsqueeze(0), state.unsqueeze(0)],axis=0))
 
         action = dist.sample()[0]
 
@@ -143,15 +146,15 @@ class HybridPPO(GenericAgent):
 
         if self.curiosity is not None:
             raw_rewards = 0
-            intrinsic_reward = self.curiosity.get_intrinsic_loss(states[:-1], states[1:], old_policy_actions[:-1])
+            intrinsic_reward = self.curiosity.get_intrinsic_reward(states[:-1], states[1:], old_policy_actions[:-1])
             self.reporter.update_agent_stats("extrinsic_reward", self.num_actions, raw_rewards.mean())
             raw_rewards[:-1] += intrinsic_reward
             self.reporter.update_agent_stats("curiosity_loss", self.num_actions, self.curiosity.get_last_debug_loss())
             self.reporter.update_agent_stats("intrinsic_reward", self.num_actions, intrinsic_reward.mean())
 
         self.running_stats.update(raw_rewards)
-        raw_rewards = np.clip(raw_rewards / self.running_stats.std, -10 , 10) # TODO temporal experiment
-        advantages, rewards = GenerelizedAdvantageEstimate(self.hp['GAE'], old_policy_values, raw_rewards, is_next_state_terminals, self.hp['discount'], device)
+        # raw_rewards = np.clip(raw_rewards / self.running_stats.std, -10 , 10) # TODO temporal experiment
+        advantages, rewards = GenerelizedAdvantageEstimate(self.hp['GAE'], old_policy_values, raw_rewards, is_next_state_terminals, self.hp['discount'], device, horizon=self.hp['horizon'])
         advantages = (advantages - advantages.mean()) / max(advantages.std(), 1e-6)
 
         # Optimize policy for K epochs:
@@ -203,9 +206,3 @@ class HybridPPO(GenericAgent):
 
     def save_state(self, path):
         torch.save(self.policy.state_dict(), path)
-
-    def get_stats(self):
-        return "Gs: %d; LR: %.5f"%(self.learn_steps, self.optimizer.param_groups[0]['lr'])
-
-
-

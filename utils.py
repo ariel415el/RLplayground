@@ -58,7 +58,9 @@ def monte_carlo_reward(rewards, is_terminals, discount, device):
 
     return res
 
-def GenerelizedAdvantageEstimate(gae_param, values, rewards, is_terminals, discount, device):
+def GenerelizedAdvantageEstimate(gae_param, values, rewards, is_terminals, discount, device, horizon=None):
+    if horizon is None:
+        horizon = len(rewards)
     assert(is_terminals[-1])
     advantages = []
     cumulative_reward = []
@@ -68,7 +70,10 @@ def GenerelizedAdvantageEstimate(gae_param, values, rewards, is_terminals, disco
     deltas[:-1] += (1-is_terminals[:-1])*discount*values[1:]
     running_advantage = 0
     running_reward = 0
-    for reward, delta, is_terminal in zip(reversed(rewards), reversed(deltas), reversed(is_terminals)):
+    for i, (reward, delta, is_terminal) in enumerate(zip(reversed(rewards), reversed(deltas), reversed(is_terminals))):
+        if i % horizon == 0:
+            running_advantage = 0
+            running_reward = 0
         running_advantage = delta + discount*gae_param * running_advantage * (1-is_terminal)
         running_reward = reward + discount * running_reward * (1-is_terminal)
         advantages.insert(0, running_advantage)

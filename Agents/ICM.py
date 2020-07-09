@@ -36,7 +36,7 @@ class ICM(object):
         self.module = ICM_module(state_dim, action_dim, hidden_dim)
         self.curiosity_optimizer = torch.optim.Adam(self.module.parameters(), lr=lr)
 
-    def get_intrinsic_loss(self, states, next_states, actions):
+    def get_intrinsic_reward(self, states, next_states, actions):
         s_featues = self.module.state_feature_extractor(states)
         ns_featues = self.module.state_feature_extractor(next_states)
         action_1hot_vecs = torch.zeros((actions.shape[0], self.action_dim)).to(actions.device)

@@ -6,17 +6,10 @@ def run_episode(env, agent):
     episode_rewards = []
     done = False
     state = env.reset()
-    # lives = env.unwrapped.ale.lives()
     while not done:
         action = agent.process_new_state(state)
         state, reward, done, info = env.step(action)
         is_terminal = done
-        # cur_life = env.unwrapped.ale.lives()
-        # if cur_life < lives:
-        #     is_terminal = True
-        #     lives = cur_life
-        # if hasattr(env, '_max_episode_steps'):
-        #     is_terminal = done and len(episode_rewards) < env._max_episode_steps
         agent.process_output(state, reward, is_terminal)
         episode_rewards += [reward]
     return episode_rewards
