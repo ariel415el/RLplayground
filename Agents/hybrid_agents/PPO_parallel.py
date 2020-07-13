@@ -1,26 +1,23 @@
-##############################################
-### Credits to nikhilbarhate99/PPO-PyTorch ###
-##############################################
 import os
 from Agents.dnn_models import *
 from utils import *
 from Agents.GenericAgent import GenericAgent
 from Agents.ICM import ICM
 from torch.utils.data import DataLoader
-from utils import NonSequentialDataset
+from utils import NonSequentialDataset, safe_update_dict
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-
-class HybridPPOParallel(GenericAgent):
-    def __init__(self, state_dim, action_dim, hp, curiosity=None, train=True):
-        super(HybridPPOParallel, self).__init__(train)
+class PPOParallel(GenericAgent):
+    def __init__(self, state_dim, action_dim, hp, train=True):
+        super(PPOParallel, self).__init__(train)
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.train= train
         self.hp = {
-            'batch_episodes':3,
+            'concurrent_epsiodes':8,
             'horizon':128,
-            'epochs': 4,
+            'epochs': 3,
             'minibatch_size':32,
             'discount':0.99,
             'lr':0.01,
@@ -35,7 +32,7 @@ class HybridPPOParallel(GenericAgent):
             'curiosity_hp': None
 
         }
-        self.hp.update(hp)
+        safe_update_dict(self.hp, hp)
 
         if len(self.state_dim) > 1:
             feature_extractor = ConvNetFeatureExtracor(self.state_dim[0], self.hp['features_layers'][0])
@@ -43,8 +40,10 @@ class HybridPPOParallel(GenericAgent):
             feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['features_layers'], batch_normalization=False,  activation=nn.ReLU())
 
         if type(self.action_dim) == list:
-            self.policy = ActorCriticModel(feature_extractor, len(self.action_dim[0]), self.hp['model_layers'], discrete=False, activation=nn.ReLU()).to(device)
+            self.num_outputs = len(self.action_dim[0])
+            self.policy = ActorCriticModel(feature_extractor, self.num_outputs, self.hp['model_layers'], discrete=False, activation=nn.ReLU()).to(device)
         else:
+            self.num_outputs=1
             self.policy = ActorCriticModel(feature_extractor, self.action_dim, self.hp['model_layers'], discrete=True, activation=nn.ReLU()).to(device)
 
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.hp['lr'])
@@ -57,25 +56,19 @@ class HybridPPOParallel(GenericAgent):
         self.name = 'PPO-Parallel'
         if self.hp['curiosity_hp'] is not None:
             self.name += "-ICM"
-        self.name += "_lr[%.5f]_b[%d]_GAE[%.2f]_ec[%.1f]"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'], self.hp['epsilon_clip'])
+        self.name += "_lr[%.5f]_b[%d]_GAE[%.2f]_ec[%.1f]"%(self.hp['lr'], self.hp['concurrent_epsiodes'], self.hp['GAE'], self.hp['epsilon_clip'])
         if self.hp['value_clip'] is not None:
             self.name += "_vc[%.1f]"%self.hp['value_clip']
         if  self.hp['grad_clip'] is not None:
             self.name += "_gc[%.1f]"%self.hp['grad_clip']
 
-    def process_single_state(self, state):
-        state = torch.from_numpy(np.array(state)).to(device).float()
-        dist, _ = self.policy(state.unsqueeze(0))
-
-        action = dist.sample()[0]
-
-        if type(self.action_dim) == list:
-            action = action.detach().cpu().numpy() # Using only this is problematic for super mario since it returns a 0-size np array in discrete action space
-            output_action = np.clip(action, self.action_dim[0], self.action_dim[1])
-        else:
-            output_action = action.item()
-
-        return output_action
+        self.num_steps = 0
+        self.states_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon']) + self.state_dim).to(device)
+        self.actions_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon'], self.num_outputs)).to(device)
+        self.values_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon'] + 1, 1)).to(device)
+        self.logprobs_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon'], 1)).to(device)
+        self.rewards_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon'], 1)).to(device)
+        self.is_terminals_memory = torch.full((self.hp['concurrent_epsiodes'], self.hp['horizon'], 1), False).to(device)
 
     def load_state(self, path):
         if os.path.exists(path):
@@ -85,83 +78,109 @@ class HybridPPOParallel(GenericAgent):
     def save_state(self, path):
         torch.save(self.policy.state_dict(), path)
 
+    def evaluate_policy_on_state(self, state):
+        torch_states = torch.from_numpy(state).to(device).float()
+        torch_states = torch_states.unsqueeze(0)
+        dists, _ = self.policy(torch_states)
+        actions = dists.sample().detach()
+        ourput_action = self._get_output_actions(actions)
+        return ourput_action
 
-    def train_agent(self, env_builder, parallel=8, num_steps=128, epochs=3, batch_size=32):
-        from train_scripts.EnvBuilder import MultiEnviroment
-        multi_env = MultiEnviroment(env_builder, parallel)
-        batch_states = np.zeros((parallel, num_steps + 1) + self.state_dim)
-        batch_actions = np.zeros((parallel, num_steps) + self.action_dim)
-        batch_values = np.zeros((parallel, num_steps, 1))
-        batch_logprobs = np.zeros((parallel, num_steps, 1))
-        batch_rewards = np.zeros((parallel, num_steps, 1))
-        batch_dones = np.full((parallel, num_steps, 1), False)
+    def process_states(self, states):
+        torch_states = torch.from_numpy(states).to(device).float()
+        dists, values = self.policy(torch_states)
+        if self.num_steps == self.hp['horizon']:
+            self.values_memory[:, self.num_steps] = values.detach()
 
-        batch_states[:,0] = multi_env.reset()
+            self._learn()
 
-        while True:
-            for step in range(num_steps):
-                dists, values = self.policy(torch.from_numpy(batch_states[:,step]).to(device).float())
-                actions = dists.sample()
-                batch_logprobs[:, step] = dists.log_prob(actions).detach().numpy()
-                batch_actions[:, step] = actions.detach().numpy()
-                batch_values[:, step] = values.detach().numpy()
-                batch_states[:, step + 1], batch_rewards[:, step], batch_dones[:, step], _ = multi_env.step(batch_actions[:,step])
+            if (self.num_steps+1) % 10*self.hp['horizon'] == 0:
+                for param_group in self.optimizer.param_groups:
+                    param_group['lr'] *= self.hp['lr_decay']
+                self.reporter.update_agent_stats("lr", self.learn_steps, self.optimizer.param_groups[0]['lr'])
+
+            self.num_steps = 0
+
+        actions = dists.sample().detach()
+        self.states_memory[:,self.num_steps] = torch_states
+        self.actions_memory[:, self.num_steps] = actions.view(-1,1)
+        self.values_memory[:, self.num_steps] = values.detach()
+        self.logprobs_memory[:, self.num_steps] = dists.log_prob(actions).detach().view(-1,1)
+
+        return self._get_output_actions(actions)
+
+    def update_step_results(self, next_states, rewards, is_next_state_terminals):
+        self.rewards_memory[:, self.num_steps] = torch.from_numpy(rewards).to(device).view(-1, 1)
+        self.is_terminals_memory[:, self.num_steps] = torch.from_numpy(is_next_state_terminals).to(device).view(-1, 1)
+        self.num_steps += 1
 
 
-            _, next_values = self.policy(torch.from_numpy(batch_states[:, num_steps]).to(device).float()) # Todo: avoid runing twice
+    def _get_output_actions(self, actions):
+        output_actions = actions.detach().cpu().numpy() # Using only this is problematic for super mario since it returns a 0-size np array in discrete action space
+        if type(self.action_dim) == list:
+            output_actions = np.clip(output_actions, self.action_dim[0], self.action_dim[1])
 
-            batch_values_flatten = batch_values.reshape(-1, 1)
-            batch_next_values_flatten  = np.concatenate((batch_values_flatten[1:], next_values), axis=0)
-            batch_dones_flatten = batch_dones.reshape(-1, 1)
-            batch_rewards_flatten = batch_rewards.reshape(-1, 1)
-            batch_states_flatten = batch_states.reshape(-1, batch_states.shape[2])
-            batch_actions_flatten = batch_actions.reshape(-1, batch_actions.shape[2])
-            batch_log_probs_flatten = batch_logprobs.reshape(-1, 1)
+        return output_actions
 
-            deltas = batch_rewards_flatten + self.hp['discount'] * batch_next_values_flatten * (1 - batch_dones_flatten) - batch_values_flatten
-            advantages = monte_carlo_reward(deltas, batch_dones_flatten, self.hp['horizon'] * self.hp['discount'], device)
-            rewards = advantages + batch_values_flatten
-            advantages = (advantages - advantages.mean()) / max(advantages.std(), 1e-6)
+    def _create_lerning_data(self):
+        cur_values = self.values_memory[:,:-1]
+        next_values = self.values_memory[:,1:]
+        deltas = self.rewards_memory + self.hp['discount'] * next_values * (1 - self.is_terminals_memory) - cur_values
+        rewards = monte_carlo_reward_batch(self.rewards_memory, self.is_terminals_memory, self.hp['discount'], device)
+        advantages = rewards - cur_values
+        # advantages = monte_carlo_reward_batch(deltas, self.is_terminals_memory, self.hp['GAE'] * self.hp['discount'], device)
+        # rewards = advantages + cur_values
+        advantages = (advantages - advantages.mean()) / max(advantages.std(), 1e-6)
 
-            # Optimize policy for K epochs:
-            dataset = NonSequentialDataset(batch_states_flatten, batch_values_flatten, batch_actions_flatten, batch_log_probs_flatten, rewards, advantages)
-            dataloader = DataLoader(dataset, batch_size=self.hp['minibatch_size'], shuffle=True)
-            for _ in range(self.hp['epochs']):
-                for (states_batch, old_policy_values_batch, old_policy_actions_batch, old_policy_loggprobs_batch,
-                     rewards_batch, advantages_batch) in dataloader:
-                    # Evaluating old actions and values with the target policy:
-                    dists, values = self.policy(states_batch)
-                    values = values.view(-1)
-                    exploration_loss = -self.hp['entropy_weight'] * dists.entropy()
-                    value_loss = 0.5 * (values - rewards_batch).pow(2)
-                    if self.hp['value_clip'] is not None:
-                        clipped_values = old_policy_values_batch + (values - old_policy_values_batch).clamp(
-                            -self.hp['value_clip'], -self.hp['value_clip'])
-                        clipepd_value_loss = 0.5 * (clipped_values - rewards_batch).pow(2)
-                        critic_loss = torch.max(value_loss, clipepd_value_loss).mean()
-                    else:
-                        critic_loss = value_loss
+        # Create a dataset from flatten data
+        dataset = NonSequentialDataset(self.states_memory.view(-1, *self.states_memory.shape[2:]),
+                                       cur_values.reshape(-1, *cur_values.shape[2:]), # view not working here (reshape copeies)
+                                       self.actions_memory.view(-1, *self.actions_memory.shape[2:]),
+                                       self.logprobs_memory.view(-1, *self.logprobs_memory.shape[2:]),
+                                       rewards.view(-1, *rewards.shape[2:]),
+                                       advantages.view(-1, *advantages.shape[2:]))
+        dataloader = DataLoader(dataset, batch_size=self.hp['minibatch_size'], shuffle=True)
 
-                    # Finding the ratio (pi_theta / pi_theta_old):
-                    logprobs = dists.log_prob(old_policy_actions_batch)
-                    ratios = torch.exp(logprobs.view(-1) - old_policy_loggprobs_batch)
-                    # Finding Surrogate actor Loss:
-                    ratios = torch.clamp(ratios, 0, 10)  # TODO temporal experiment
-                    surr1 = advantages_batch * ratios
-                    surr2 = advantages_batch * torch.clamp(ratios, 1 - self.hp['epsilon_clip'],
-                                                           1 + self.hp['epsilon_clip'])
-                    actor_loss = -torch.min(surr1, surr2)
+        return dataloader
 
-                    loss = actor_loss.mean() + critic_loss.mean() + exploration_loss.mean()
-                    loss.backward()
+    def _learn(self):
+        dataloader = self._create_lerning_data()
 
-                    if self.hp['grad_clip'] is not None:
-                        torch.nn.utils.clip_grad_norm_(self.policy.parameters(), self.hp['grad_clip'])
-                    self.optimizer.step()
-                    self.optimizer.zero_grad()
+        for _ in range(self.hp['epochs']):
+            for (states_batch, old_policy_values_batch, old_policy_actions_batch, old_policy_loggprobs_batch, rewards_batch, advantages_batch) in dataloader:
+                # Evaluating old actions and values with the target policy:
+                dists, values = self.policy(states_batch)
+                exploration_loss = -self.hp['entropy_weight'] * dists.entropy()
+                value_loss = 0.5 * (values - rewards_batch).pow(2)
+                if self.hp['value_clip'] is not None:
+                    clipped_values = old_policy_values_batch + (values - old_policy_values_batch).clamp(
+                        -self.hp['value_clip'], -self.hp['value_clip'])
+                    clipepd_value_loss = 0.5 * (clipped_values - rewards_batch).pow(2)
+                    critic_loss = torch.max(value_loss, clipepd_value_loss).mean()
+                else:
+                    critic_loss = value_loss
 
-                    self.reporter.update_agent_stats("actor_loss", None, actor_loss.mean().item())
-                    self.reporter.update_agent_stats("critic_loss", None, critic_loss.mean().item())
-                    self.reporter.update_agent_stats("dist_entropy", None, -exploration_loss.mean().item())
-                    self.reporter.update_agent_stats("ratios", None, ratios.mean().item())
-                    self.reporter.update_agent_stats("values", None, values.mean().item())
+                # Finding the ratio (pi_theta / pi_theta_old):
+                logprobs = dists.log_prob(old_policy_actions_batch.view(-1))
+                ratios = torch.exp(logprobs.view(-1,1) - old_policy_loggprobs_batch)
+                # Finding Surrogate actor Loss:
+                ratios = torch.clamp(ratios, 0, 10)  # TODO temporal experiment
+                surr1 = advantages_batch * ratios
+                surr2 = advantages_batch * torch.clamp(ratios, 1 - self.hp['epsilon_clip'],
+                                                       1 + self.hp['epsilon_clip'])
+                actor_loss = -torch.min(surr1, surr2)
+
+                loss = actor_loss.mean() + critic_loss.mean() + exploration_loss.mean()
+                loss.backward()
+
+                if self.hp['grad_clip'] is not None:
+                    torch.nn.utils.clip_grad_norm_(self.policy.parameters(), self.hp['grad_clip'])
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+
+                self.reporter.add_costume_log("actor_loss", None, actor_loss.mean().item())
+                self.reporter.add_costume_log("critic_loss", None, critic_loss.mean().item())
+                self.reporter.add_costume_log("dist_entropy", None, -exploration_loss.mean().item())
+                self.reporter.add_costume_log("ratios", None, ratios.mean().item())
+                self.reporter.add_costume_log("values", None, values.mean().item())
+

@@ -5,6 +5,13 @@ import random
 
 from torch.utils.data import Dataset
 
+def safe_update_dict(old_dict, new_dict):
+    for k in new_dict:
+        if k in old_dict:
+            old_dict[k] = new_dict[k]
+        else:
+            raise Exception("Update dict have unknown keys: ",k)
+
 class NonSequentialDataset(Dataset):
     def __init__(self, *arrays):
         super().__init__()
@@ -46,10 +53,18 @@ class RunningStats(object):
         self.std = np.maximum(np.sqrt(self.var), 1e-6)
         self.count = batch_count + self.count
 
-def monte_carlo_reward(rewards, is_terminals, discount, device):
+
+def discount_horizon(rewards, is_terminals, discount, device, horizon):
     res = []
     discounted_reward = 0
+    horizon_counter = 0
     for reward, is_terminal in zip(reversed(rewards), reversed(is_terminals)):
+        if horizon_counter % horizon == 0:
+            discounted_reward = 0
+            horizon_counter = 0
+        horizon_counter += 1
+        if is_terminal == 1:
+            horizon_counter = 0
         discounted_reward = reward + discount * discounted_reward*(1-is_terminal)
         res.insert(0, discounted_reward)
 
@@ -58,26 +73,49 @@ def monte_carlo_reward(rewards, is_terminals, discount, device):
 
     return res
 
+def monte_carlo_reward_batch(rewards, is_terminals, discount, device):
+    res = np.zeros_like(rewards)
+    discounted_reward = 0
+    for i in range(rewards.shape[1] - 1, -1, -1):
+        discounted_reward = rewards[:, i] + discount * discounted_reward*(1-is_terminals[:, i])
+        res[:,i] = discounted_reward
+
+    return torch.from_numpy(res).to(device)
+
+def monte_carlo_reward(rewards, is_terminals, discount, device):
+    res = []
+    discounted_reward = 0
+    for i, (reward, is_terminal) in enumerate(zip(reversed(rewards), reversed(is_terminals))):
+        discounted_reward = reward + discount * discounted_reward*(1-is_terminal)
+        res.insert(0, discounted_reward)
+
+    res = torch.tensor(res).to(device)
+
+    return res
+
 def GenerelizedAdvantageEstimate(gae_param, values, rewards, is_terminals, discount, device, horizon=None):
+    assert(is_terminals[-1])
     if horizon is None:
         horizon = len(rewards)
-    assert(is_terminals[-1])
     advantages = []
     cumulative_reward = []
     rewards = torch.tensor(rewards).to(device)
-    is_terminals = torch.tensor(is_terminals).to(device).float()
+    is_terminals_tensor = torch.tensor(is_terminals).to(device).float()
     deltas = -values + rewards
-    deltas[:-1] += (1-is_terminals[:-1])*discount*values[1:]
+    deltas[:-1] += (1-is_terminals_tensor[:-1])*discount*values[1:]
     running_advantage = 0
     running_reward = 0
+    horizon_counter = 0
     for i, (reward, delta, is_terminal) in enumerate(zip(reversed(rewards), reversed(deltas), reversed(is_terminals))):
-        if i % horizon == 0:
+        if is_terminal or horizon_counter % horizon == 0:
+            horizon_counter = 0
             running_advantage = 0
             running_reward = 0
-        running_advantage = delta + discount*gae_param * running_advantage * (1-is_terminal)
-        running_reward = reward + discount * running_reward * (1-is_terminal)
+        running_advantage = delta + discount*gae_param * running_advantage # * (1-is_terminal)
+        running_reward = reward + discount * running_reward # * (1-is_terminal)
         advantages.insert(0, running_advantage)
         cumulative_reward.insert(0, running_reward)
+        horizon_counter += 1
 
     # Normalizing the rewards:
     advantages = torch.tensor(advantages).to(device)

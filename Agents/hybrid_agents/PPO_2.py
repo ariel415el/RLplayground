@@ -37,7 +37,8 @@ class Memory:
         values = torch.tensor(self.state_values).to(device)
         actions = torch.tensor(self.actions).to(device)
         logprobs = torch.tensor(self.logprobs).to(device)
-        return states, values, actions, logprobs, self.rewards, self.is_ns_terminals
+        is_ns_terminals = torch.tensor(self.is_ns_terminals).to(device).float()
+        return states, values, actions, logprobs, self.rewards, is_ns_terminals
 
     def clear_memory(self):
         self.states = []
@@ -48,15 +49,14 @@ class Memory:
         self.is_ns_terminals = []
 
 
-class PPO(GenericAgent):
+class PPO_2(GenericAgent):
     def __init__(self, state_dim, action_dim, hp, curiosity=None, train=True):
-        super(PPO, self).__init__(train)
+        super(PPO_2, self).__init__(train)
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.train= train
         self.hp = {
-            'batch_episodes':3,
-            'horizon':128,
+            'horizon':500,
             'epochs': 4,
             'minibatch_size':32,
             'discount':0.99,
@@ -88,9 +88,8 @@ class PPO(GenericAgent):
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.hp['lr'])
         self.optimizer.zero_grad()
         self.learn_steps = 0
-        self.num_actions = 0
+        self.num_steps = 0
         self.episodes_in_cur_batch = 0
-        self.running_stats = RunningStats()
 
         if self.hp['curiosity_hp'] is None:
             self.curiosity = None
@@ -99,7 +98,7 @@ class PPO(GenericAgent):
         self.name = 'PPO'
         if self.hp['curiosity_hp'] is not None:
             self.name += "-ICM"
-        self.name += "_lr[%.5f]_b[%d]_GAE[%.2f]_ec[%.1f]"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'], self.hp['epsilon_clip'])
+        self.name += "_lr[%.5f]_b[%d]_GAE[%.2f]_ec[%.1f]"%(self.hp['lr'], self.hp['horizon'], self.hp['GAE'], self.hp['epsilon_clip'])
         if self.hp['value_clip'] is not None:
             self.name += "_vc[%.1f]"%self.hp['value_clip']
         if  self.hp['grad_clip'] is not None:
@@ -108,10 +107,16 @@ class PPO(GenericAgent):
     def process_new_state(self, state):
         state = torch.from_numpy(np.array(state)).to(device).float()
         dist, value = self.policy(state.unsqueeze(0))
-        # dist, value = self.policy(torch.cat([state.unsqueeze(0), state.unsqueeze(0)],axis=0))
+        if self.num_steps > 0 and self.num_steps % self.hp['horizon'] == 0:
+            self.samples.state_values += [value[0,0].item()]
+            self._learn()
+            self.learn_steps += 1
+            if (self.learn_steps+1) % 10 == 0:
+                for param_group in self.optimizer.param_groups:
+                    param_group['lr'] *= self.hp['lr_decay']
+                self.reporter.add_costume_log("lr", self.learn_steps, self.optimizer.param_groups[0]['lr'])
 
         action = dist.sample()[0]
-
         self.last_action_log_prob = dist.log_prob(action)[0].item()
         self.last_state = state
         self.last_value = value[0,0].item() # no need gradient
@@ -122,43 +127,39 @@ class PPO(GenericAgent):
             action = output_action = action.item()
         self.last_action = action
 
-        self.num_actions += 1
         return output_action
 
-    def process_output(self, unused_new_state, reward, is_finale_state):
+    def process_output(self, next_state, reward, is_finale_state):
         self.samples.add_sample(self.last_state, self.last_value, self.last_action, self.last_action_log_prob, reward, is_finale_state)
-        if is_finale_state:
-            self.episodes_in_cur_batch += 1
-        if self.episodes_in_cur_batch == self.hp['batch_episodes']:
-            self._learn()
-            self.samples.clear_memory()
-            self.learn_steps += 1
-            self.episodes_in_cur_batch = 0
+        self.num_steps += 1
 
-            if (self.learn_steps+1) % 10 == 0:
-                for param_group in self.optimizer.param_groups:
-                    param_group['lr'] *= self.hp['lr_decay']
-                self.reporter.add_costume_log("lr", self.learn_steps, self.optimizer.param_groups[0]['lr'])
-
-    def _learn(self):
+    def _get_dataloader(self):
         states, old_policy_values, old_policy_actions, old_policy_loggprobs, raw_rewards, is_next_state_terminals = self.samples.get_as_tensors(device)
-        raw_rewards = np.array(raw_rewards)
+        self.samples.clear_memory()
+        raw_rewards = torch.tensor(raw_rewards)
 
         if self.curiosity is not None:
             raw_rewards = 0
             intrinsic_reward = self.curiosity.get_intrinsic_reward(states[:-1], states[1:], old_policy_actions[:-1])
-            self.reporter.add_costume_log("extrinsic_reward", self.num_actions, raw_rewards.mean())
+            self.reporter.add_costume_log("extrinsic_reward", self.num_steps, raw_rewards.mean())
             raw_rewards[:-1] += intrinsic_reward
-            self.reporter.add_costume_log("curiosity_loss", self.num_actions, self.curiosity.get_last_debug_loss())
-            self.reporter.add_costume_log("intrinsic_reward", self.num_actions, intrinsic_reward.mean())
+            self.reporter.add_costume_log("curiosity_loss", self.num_steps, self.curiosity.get_last_debug_loss())
+            self.reporter.add_costume_log("intrinsic_reward", self.num_steps, intrinsic_reward.mean())
 
-        self.running_stats.update(raw_rewards)
-        advantages, rewards = GenerelizedAdvantageEstimate(self.hp['GAE'], old_policy_values, raw_rewards, is_next_state_terminals, self.hp['discount'], device, horizon=self.hp['horizon'])
+        deltas = raw_rewards + old_policy_values[1:] * (1 - is_next_state_terminals) - old_policy_values[:-1]
+        advantages = monte_carlo_reward(deltas, is_next_state_terminals, self.hp['discount'] * self.hp['GAE'], device)
+        rewards = raw_rewards + advantages
         advantages = (advantages - advantages.mean()) / max(advantages.std(), 1e-6)
 
         # Optimize policy for K epochs:
-        dataset = NonSequentialDataset(states, old_policy_values, old_policy_actions, old_policy_loggprobs,  rewards, advantages)
+        dataset = NonSequentialDataset(states, old_policy_values[:-1], old_policy_actions, old_policy_loggprobs, rewards,
+                                       advantages)
         dataloader = DataLoader(dataset, batch_size=self.hp['minibatch_size'], shuffle=True)
+
+        return dataloader
+
+    def _learn(self):
+        dataloader = self._get_dataloader()
         for _ in range(self.hp['epochs']):
             for (states_batch, old_policy_values_batch, old_policy_actions_batch, old_policy_loggprobs_batch, rewards_batch, advantages_batch) in dataloader:
                 # Evaluating old actions and values with the target policy:

@@ -1,4 +1,5 @@
-from train_scripts.EnvBuilder import get_env_goal, get_env_builder, build_agent
+from train_scripts.EnvBuilder import get_env_goal, get_env_builder, MultiEnviroment
+from train_scripts.AgentBuilder import build_agent
 
 
 def solve_cart_pole(agent_name):
@@ -10,13 +11,15 @@ def solve_cart_pole(agent_name):
         "DQN": {'lr':0.001, "min_playback":0, "max_playback":1000000, "update_freq": 100, 'hiden_layer_size':32, 'epsilon_decay':500},
         "VanilaPG": {'lr':0.001, 'batch_episodes':1},
         "A2C": {'lr':0.001, 'batch_episodes':1, 'GAE': 0.98},
-        # "PPO": {'lr': 0.001, 'batch_episodes': 1, 'epochs': 4, 'GAE': 1.0, 'value_clip': 0.3, 'grad_clip': None},
-        "PPO": {'lr': 0.001, 'batch_episodes': 10, 'epochs': 10,'minibatch_size':32, 'GAE': 1.0, 'epsilon_clio':0.1, 'value_clip': None, 'grad_clip': None},
+        "PPO": {'lr': 0.001, 'batch_episodes': 10, 'epochs': 8,'minibatch_size':32, 'GAE': 1.0, 'epsilon_clip':0.2, 'value_clip': None, 'grad_clip': None, 'horizon':None},
+        "PPO_2": {'lr': 0.001, 'horizon': 500, 'epochs': 8,'minibatch_size':32, 'GAE': 1.0, 'epsilon_clip':0.2, 'value_clip': None, 'grad_clip': None},
+        "PPOParallel": {'lr': 0.001, 'concurrent_epsiodes': 8, 'horizon':128, 'epochs': 5,'minibatch_size':32, 'GAE': 0.95, 'epsilon_clip':0.2, 'value_clip': None, 'grad_clip': 0.5},
         "PPO_ICM": {'lr': 0.0025, 'epsilon_clip': 0.3, 'batch_episodes': 4, 'epochs': 8, 'GAE': 0.95, 'value_clip': None,
               'grad_clip': None, 'use_extrinsic_reward': True, 'intrinsic_reward_scale': 1.0, 'lr_decay': 1.0}
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
-    return env_name, env, agent, solved_score
+
+    return env_name, env_builder, agent, solved_score
 
 
 def solve_acrobot(agent_name):
@@ -37,7 +40,7 @@ def solve_acrobot(agent_name):
 
 
 def solve_mountain_car(agent_name):
-    env_name = "MountainCar-v0";
+    env_name = "MountainCar-v0"
     env_builder = get_env_builder(env_name)
     env = env_builder()
     solved_score = get_env_goal(env_name)
@@ -62,8 +65,8 @@ def solve_pendulum(agent_name):
     agent_configs = {
         "VanilaPG": {'lr': 0.0001, 'batch_episodes': 32, 'hidden_layers': [400, 300]},
         "A2C": {'lr':0.0004, 'lr_decay':0.99, 'batch_episodes':64, 'GAE':0.95, 'hidden_layers':[400,400]},
-        "PPO": {'lr': 1e-3, "discount":0.95, 'lr_decay':0.6, 'batch_episodes': 10, 'epochs': 10, 'minibatch_size':128, 'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None,
-                'grad_clip': None, 'entropy_weight': 0.01, 'hidden_layers':[64,64]},
+        "PPO_2": {'lr': 1e-3, "discount":0.95, 'lr_decay':0.6, 'horizon': 2000, 'epochs': 3, 'minibatch_size':32, 'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None,
+                'grad_clip': 0.5, 'entropy_weight': 0.01, 'features_layers':[64], 'model_layers':[64]},
         "PPO_ICM": {'lr': 0.001, 'batch_episodes': 8, 'epochs': 10, 'GAE': 0.95, 'epsilon_clip': 0.3, 'value_clip': 0.5,
               'grad_clip': 0.5, 'entropy_weight': 0.01, 'hidden_layers': [512]},
         "DDPG": {'actor_lr':0.0001, 'critic_lr':0.001, 'batch_size':64, 'min_playback':1000, 'layer_dims':[400,300],
@@ -72,7 +75,7 @@ def solve_pendulum(agent_name):
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
 
-    return env_name, env, agent, solved_score
+    return env_name, env_builder, agent, solved_score
 
 
 def solve_lunar_lander(agent_name):
@@ -100,8 +103,8 @@ def solve_continous_lunar_lander(agent_name):
     agent_configs = {
         "VanilaPG": {'lr': 0.001, 'batch_episodes': 32, 'hidden_layers': [64, 64, 128]},
         "A2C": {'lr': 0.005, 'lr_decay': 0.99, 'batch_episodes': 8, 'GAE': 0.96, 'hidden_layers': [400,200]},
-        "PPO": {'lr':0.001, 'lr_decay':0.9, 'batch_episodes':16, 'epochs':8, 'GAE':0.95, 'epsilon_clip': 0.2, 'value_clip':None,
-              'grad_clip':0.5, 'entropy_weight':0.01, 'hidden_layers':[512,512]},
+        "PPO": {'lr':0.001, 'lr_decay':0.9, 'batch_episodes':8, 'epochs':3, 'minibatch_size':128, 'GAE':0.95, 'epsilon_clip': 0.1, 'value_clip':None,
+              'grad_clip':0.5, 'entropy_weight':0.01,'features_layers':[32, 32],  'model_layers':[32,32], 'horizon':None},
         "PPO_ICM": {'lr': 0.0005, 'lr_decay': 0.99, 'batch_episodes': 32, 'epochs': 10, 'GAE': 0.95,'epsilon_clip': 0.25,
                     'value_clip': None, 'grad_clip': None, 'entropy_weight': 0.01, 'hidden_dims': [400, 200, 200], 'curiosity_hidden_dim': 128},
         "DDPG": {'actor_lr': 0.0001, 'critic_lr': 0.001, 'batch_size': 100, 'min_playback': 0,

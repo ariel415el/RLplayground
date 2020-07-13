@@ -30,22 +30,20 @@ class train_stats(object):
 
 
 class logger(object):
-    def __init__(self, k, log_frequency, logdir):
-        self.k = k
+    def __init__(self, log_frequency, logdir):
         self.logdir = logdir
         self.log_frequency = log_frequency
-        self.all_episodes_total_rewards = []
+        self.episodes_scores = []
+        self.score_scope_scores = []
+        self.episodes_lengths = []
         self.train_start = time()
         self.total_steps = 0
-        self.done_episodes = 0
         self.last_time = self.train_start
         self.agent_train_stats = {}
         self.agent_histograms = {}
+        self.done_episodes = 0
 
-    def get_last_k_episodes_mean(self):
-        return np.mean(self.all_episodes_total_rewards[-self.k:])
-
-    def update_agent_stats(self, name, x, y):
+    def add_costume_log(self, name, x, y):
         if name in self.agent_train_stats:
             self.agent_train_stats[name].add(x, y)
         else:
@@ -57,17 +55,19 @@ class logger(object):
         else:
             self.agent_histograms[name] += list(values)
 
-    def update_train_episode(self, episode_rewards):
-        self.all_episodes_total_rewards += [np.sum(episode_rewards)]
-        self.total_steps += len(episode_rewards)
+    def log_episode(self, episode_score, score_scope_score,  episode_length):
+        self.episodes_scores += [episode_score]
+        self.score_scope_scores += [score_scope_score]
+        self.episodes_lengths += [episode_length]
+        self.total_steps += episode_length
         self.done_episodes += 1
-        if self.done_episodes % self.log_frequency == 0 :
+        if self.done_episodes % self.log_frequency == 0:
             self.output_stats()
 
     def output_stats(self):
         time_passed = time() - self.train_start
         print('Episodes done: ', self.done_episodes)
-        print("\t# Steps %d, time %d mins; avg-%d %.2f:" % (self.total_steps, time_passed / 60, self.k, self.get_last_k_episodes_mean()))
+        print("\t# Steps %d, time %d mins; score-scope %.2f:" % (self.total_steps, time_passed / 60, self.score_scope_scores[-1]))
         print("\t# steps/sec avg: %.3f " % (self.total_steps / time_passed))
         print("\t# Agent stats:", "; ".join([name+":%.5f"%self.agent_train_stats[name].ys[-1] for name in self.agent_train_stats]))
         self.last_time = time_passed
@@ -77,7 +77,7 @@ class logger(object):
 
     def pickle_episode_scores(self):
         f = open(os.path.join(self.logdir, "episode_scores.pkl"), 'wb')
-        pickle.dump(self.all_episodes_total_rewards, f)
+        pickle.dump(self.episodes_scores, f)
 
 class TB_logger(logger):
     def __init__(self, k, log_frequency, logdir):
@@ -88,52 +88,36 @@ class TB_logger(logger):
     def update_agent_stats(self, name, x, y):
         self.tb_writer.add_scalar(name, torch.tensor(y), global_step=x)
 
-    def update_train_episode(self, episode_rewards):
-        self.done_episodes += 1
-        if self.done_episodes % self.log_frequency ==0:
-            self.output_stats()
-        self.total_steps += len(episode_rewards)
-        episode_total_score = np.sum(episode_rewards)
-        self.all_episodes_total_rewards += [np.sum(episode_rewards)]
-        self.tb_writer.add_scalars('Episode_score',{"Score": torch.tensor(episode_total_score),
-                                                   'Last-%d episode'%self.k: torch.tensor(self.get_last_k_episodes_mean())},
+    def log_episode(self, episode_score, score_scope_score,  episode_length):
+        super(TB_logger, self).log_episode(episode_score, score_scope_score,  episode_length)
+
+        self.tb_writer.add_scalars('Episode_score',{"Score": torch.tensor(episode_score),
+                                                   'score-scope-avg': torch.tensor(score_scope_score)},
                                   global_step=self.done_episodes)
 
-        self.tb_writer.add_scalar('Episode-Length', torch.tensor(len(episode_rewards)),
+        self.tb_writer.add_scalar('Episode-Length', torch.tensor(episode_length),
                                   global_step=self.done_episodes)
 
 class plt_logger(logger):
-    def __init__(self, k, log_frequency, logdir):
-        super(plt_logger, self).__init__(k, log_frequency, logdir)
+    def __init__(self, log_frequency, logdir):
+        super(plt_logger, self).__init__(log_frequency, logdir)
         os.makedirs(logdir, exist_ok=True)
-        self.all_episode_lengths = []
-        self.all_avg_last_k = []
-        self.test_scores = []
-
-    def update_train_episode(self, episode_rewards):
-        self.all_episodes_total_rewards += [np.sum(episode_rewards)]
-        self.all_episode_lengths += [len(episode_rewards)]
-        self.all_avg_last_k += [self.get_last_k_episodes_mean()]
-        self.total_steps += len(episode_rewards)
-        self.done_episodes += 1
-        if self.done_episodes % self.log_frequency == 0:
-            self.output_stats()
 
     def output_stats(self, actor_stats=None, by_step=False):
         super(plt_logger, self).output_stats()
-        xs = np.arange(1, len(self.all_episode_lengths) + 1)
+        xs = np.arange(1, len(self.episodes_scores) + 1)
         x_label = 'Episode #'
         if by_step:
-            xs = np.cumsum(self.all_episode_lengths)
+            xs = np.cumsum(self.episodes_lengths)
             x_label = 'Step #'
-        plt.plot(xs, self.all_episode_lengths)
+        plt.plot(xs, self.episodes_lengths)
         plt.ylabel('Length')
         plt.xlabel(x_label)
         plt.savefig(os.path.join(self.logdir, "Episode-lengths.png"))
         plt.clf()
 
-        plt.plot(xs, self.all_episodes_total_rewards, label='Episode-score')
-        plt.plot(xs, self.all_avg_last_k, label='Score-last %d' % self.k)
+        plt.plot(xs, self.episodes_scores, label='Episode-score')
+        plt.plot(xs, self.score_scope_scores, label='score-scope-avg')
         plt.ylabel('Score')
         plt.xlabel(x_label)
         plt.legend()
@@ -148,13 +132,4 @@ class plt_logger(logger):
             plt.legend()
             plt.savefig(os.path.join(self.logdir, hist_name+".png"))
             plt.clf()
-
-    def log_test(self, score):
-        super(plt_logger, self).log_test(score)
-        self.test_scores += [score]
-        plt.plot( np.linspace(start=1, stop=max(2,len(self.all_avg_last_k)), num=len(self.test_scores)), self.test_scores)
-        plt.ylabel('test_score-last %d'%self.k)
-        plt.xlabel('Episode #')
-        plt.savefig(os.path.join(self.logdir, "Test_scores.png"))
-        plt.clf()
 
