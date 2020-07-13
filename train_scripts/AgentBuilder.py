@@ -16,7 +16,7 @@ def build_agent(agent_name, env,  hp):
     elif agent_name == "A2C":
         agent = GenericActorCritic.ActorCritic(state_dim, action_dim, hp)
     elif agent_name == "PPO":
-        agent = PPO.PPO_2(state_dim, action_dim, hp)
+        agent = PPO.PPO(state_dim, action_dim, hp)
     elif agent_name == "PPO_2":
         agent = PPO_2.PPO_2(state_dim, action_dim, hp)
     elif agent_name == "PPOParallel":

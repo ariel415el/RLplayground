@@ -54,6 +54,7 @@ def train_agent_multi_env(env_builder, agent, progress_manager, test_frequency=2
         actions = agent.process_states(states)
         next_states, rewards, is_next_state_terminals, infos = multi_env.step(actions)
         agent.update_step_results(next_states, rewards, is_next_state_terminals)
+        states = next_states
 
         for i, (reward, done) in enumerate(zip(rewards, is_next_state_terminals)):
             total_scores[i] += reward

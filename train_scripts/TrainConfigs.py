@@ -13,7 +13,7 @@ def solve_cart_pole(agent_name):
         "A2C": {'lr':0.001, 'batch_episodes':1, 'GAE': 0.98},
         "PPO": {'lr': 0.001, 'batch_episodes': 10, 'epochs': 8,'minibatch_size':32, 'GAE': 1.0, 'epsilon_clip':0.2, 'value_clip': None, 'grad_clip': None, 'horizon':None},
         "PPO_2": {'lr': 0.001, 'horizon': 500, 'epochs': 8,'minibatch_size':32, 'GAE': 1.0, 'epsilon_clip':0.2, 'value_clip': None, 'grad_clip': None},
-        "PPOParallel": {'lr': 0.001, 'concurrent_epsiodes': 8, 'horizon':128, 'epochs': 5,'minibatch_size':32, 'GAE': 0.95, 'epsilon_clip':0.2, 'value_clip': None, 'grad_clip': 0.5},
+        "PPOParallel": {'lr': 0.001, 'concurrent_epsiodes': 4, 'horizon':500, 'epochs': 8,'minibatch_size':32, 'GAE': 1.0, 'epsilon_clip':0.2, 'value_clip': None, 'grad_clip': None},
         "PPO_ICM": {'lr': 0.0025, 'epsilon_clip': 0.3, 'batch_episodes': 4, 'epochs': 8, 'GAE': 0.95, 'value_clip': None,
               'grad_clip': None, 'use_extrinsic_reward': True, 'intrinsic_reward_scale': 1.0, 'lr_decay': 1.0}
     }
@@ -36,7 +36,7 @@ def solve_acrobot(agent_name):
               'grad_clip': None, 'use_extrinsic_reward': True, 'intrinsic_reward_scale': 1.0, 'lr_decay': 1.0}
     }
     agent = build_agent(agent_name, env_builder, agent_configs[agent_name])
-    return env_name, env, agent, solved_score
+    return env_name,  env_builder, agent, solved_score
 
 
 def solve_mountain_car(agent_name):
@@ -50,11 +50,15 @@ def solve_mountain_car(agent_name):
         "PPO": {'lr': 0.0001, "discount": 0.99, 'lr_decay': 0.999, 'batch_episodes': 1, 'epochs': 3, 'hidden_layers': [64, 64],
                 'minibatch_size': 128, 'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None, 'grad_clip': 0.5, 'entropy_weight': 0.01
                 # 'curiosity_hp': {'intrinsic_reward_scale': 200.0, 'hidden_dim': 128, 'lr': 0.001}
-                }
+
+                },
+        "PPOParallel": {'lr': 0.002, 'lr_decay': 0.9999,'concurrent_epsiodes': 16, 'horizon': 200, 'epochs': 3, 'minibatch_size': 100,
+                        'GAE': 0.95, 'epsilon_clip': 0.2, 'value_clip': 0.2, 'grad_clip': 0.5, 'fe_layers':[64,64], 'model_layers':[64]},
+
     }
 
     agent = build_agent(agent_name, env, agent_configs[agent_name])
-    return env_name, env, agent, solved_score
+    return env_name, env_builder, agent, solved_score
 
 
 def solve_pendulum(agent_name):
@@ -88,12 +92,12 @@ def solve_lunar_lander(agent_name):
         "VanilaPG": {'lr':0.001, 'batch_episodes':32, 'hidden_layers':[64,64,128]},
         "A2C": {'lr':0.005, 'batch_episodes':8, 'GAE': 0.96, 'hidden_layers':[64,32]},
         "PPO": {'lr':0.00025, 'batch_episodes':8, 'epochs':3, 'GAE':0.95, 'epsilon_clip': 0.1, 'value_clip':None,
-              'grad_clip':0.5, 'entropy_weight':0.01, 'hidden_layers':[64,32]},
-        "PPO_ICM": {'lr': 0.0005, 'lr_decay': 0.99, 'batch_episodes': 32, 'epochs': 10, 'GAE': 0.95, 'epsilon_clip': 0.25, 'value_clip': None, 'grad_clip': None,
-              'entropy_weight': 0.01, 'hidden_dims': [400, 200, 200], 'curiosity_hidden_dim': 128}
+              'grad_clip':0.5, 'entropy_weight':0.01, 'fe_layers':[64,64],'model_layers':[128]},
+        "PPOParallel": {'lr': 0.00025,'lr_decay':0.9999, 'concurrent_epsiodes': 1, 'horizon': 4000, 'epochs': 3, 'minibatch_size': 32,
+                        'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None, 'grad_clip': None, 'fe_layers':[64],'model_layers':[32]},
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
-    return env_name, env, agent, solved_score
+    return env_name,  env_builder, agent, solved_score
 
 def solve_continous_lunar_lander(agent_name):
     env_name = "LunarLanderContinuous-v2";
@@ -105,15 +109,15 @@ def solve_continous_lunar_lander(agent_name):
         "A2C": {'lr': 0.005, 'lr_decay': 0.99, 'batch_episodes': 8, 'GAE': 0.96, 'hidden_layers': [400,200]},
         "PPO": {'lr':0.001, 'lr_decay':0.9, 'batch_episodes':8, 'epochs':3, 'minibatch_size':128, 'GAE':0.95, 'epsilon_clip': 0.1, 'value_clip':None,
               'grad_clip':0.5, 'entropy_weight':0.01,'features_layers':[32, 32],  'model_layers':[32,32], 'horizon':None},
-        "PPO_ICM": {'lr': 0.0005, 'lr_decay': 0.99, 'batch_episodes': 32, 'epochs': 10, 'GAE': 0.95,'epsilon_clip': 0.25,
-                    'value_clip': None, 'grad_clip': None, 'entropy_weight': 0.01, 'hidden_dims': [400, 200, 200], 'curiosity_hidden_dim': 128},
+        "PPOParallel": {'lr': 0.00025, 'concurrent_epsiodes': 16, 'horizon': 128, 'epochs': 3, 'minibatch_size': 32,
+                        'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None, 'grad_clip': 0.5},
         "DDPG": {'actor_lr': 0.0001, 'critic_lr': 0.001, 'batch_size': 100, 'min_playback': 0,
                  'layer_dims': [400, 200],'tau': 0.001, "update_freq": 1, 'learn_freq': 1},
         "TD3": {'actor_lr': 0.0003, 'critic_lr': 0.00025, "exploration_steps": 5000,  "min_memory_for_learning": 10000, "batch_size": 128}
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
 
-    return env_name, env, agent, solved_score
+    return env_name,  env_builder, agent, solved_score
 
 
 def solve_bipedal_walker(agent_name):
@@ -133,7 +137,7 @@ def solve_bipedal_walker(agent_name):
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
 
-    return env_name, env, agent, solved_score
+    return env_name,  env_builder, agent, solved_score
 
 
 
@@ -149,7 +153,7 @@ def solve_pong(agent_name):
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
 
-    return env_name, env, agent, solved_score
+    return env_name,  env_builder, agent, solved_score
 
 
 
@@ -165,7 +169,7 @@ def solve_breakout(agent_name):
               'grad_clip': 0.5, 'entropy_weight': 0.01, 'features_layers': [512], 'model_layers': [], 'horizon':None},
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
-    return env_name, env, agent, solved_score
+    return env_name,  env_builder, agent, solved_score
 
 
 def solve_half_cheetah(agent_name):
@@ -186,7 +190,7 @@ def solve_half_cheetah(agent_name):
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
 
-    return env_name, env, agent, solved_score
+    return env_name,  env_builder, agent, solved_score
 
 def solve_humanoid(agent_name):
     env_name = 'HalfCHumanoidMuJoCoEnv-v0'
@@ -206,7 +210,7 @@ def solve_humanoid(agent_name):
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
 
-    return env_name, env, agent, solved_score
+    return env_name,  env_builder, agent, solved_score
 
 def solve_2d_walker(agent_name):
     env_name = 'Walker2DMuJoCoEnv-v0'
@@ -226,7 +230,7 @@ def solve_2d_walker(agent_name):
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
 
-    return env_name, env, agent, solved_score
+    return env_name,  env_builder, agent, solved_score
 
 def solve_ant(agent_name):
     env_name = 'AntPyBulletEnv-v0'
@@ -246,7 +250,7 @@ def solve_ant(agent_name):
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
 
-    return env_name, env, agent, solved_score
+    return env_name,  env_builder, agent, solved_score
 
 def solve_super_mario(agent_name):
     env_name = 'SuperMarioBros-v3'
@@ -259,7 +263,7 @@ def solve_super_mario(agent_name):
               'grad_clip': None, 'entropy_weight': 0.01, 'hidden_dims': [400, 200]},
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
-    return env_name, env, agent, solved_score
+    return env_name,  env_builder, agent, solved_score
 
 def solve_grid_maze(agent_name):
     env_name = "MiniGrid-FourRooms-v0"
@@ -270,4 +274,4 @@ def solve_grid_maze(agent_name):
 
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
-    return env_name, env, agent, solved_score
+    return env_name,  env_builder, agent, solved_score

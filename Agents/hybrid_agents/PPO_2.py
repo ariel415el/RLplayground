@@ -111,6 +111,7 @@ class PPO_2(GenericAgent):
             self.samples.state_values += [value[0,0].item()]
             self._learn()
             self.learn_steps += 1
+            self.reporter.add_costume_log("Ln-steps", None, self.learn_steps)
             if (self.learn_steps+1) % 10 == 0:
                 for param_group in self.optimizer.param_groups:
                     param_group['lr'] *= self.hp['lr_decay']

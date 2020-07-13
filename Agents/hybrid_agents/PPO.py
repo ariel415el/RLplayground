@@ -49,14 +49,14 @@ class Memory:
 
 
 class PPO(GenericAgent):
-    def __init__(self, state_dim, action_dim, hp, curiosity=None, train=True):
+    def __init__(self, state_dim, action_dim, hp, train=True):
         super(PPO, self).__init__(train)
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.train= train
         self.hp = {
             'batch_episodes':3,
-            'horizon':128,
+            'horizon':None,
             'epochs': 4,
             'minibatch_size':32,
             'discount':0.99,
@@ -64,7 +64,7 @@ class PPO(GenericAgent):
             'lr_decay':0.95,
             'epsilon_clip':0.2,
             'value_clip':0.5,
-            'features_layers':[64],
+            'fe_layers':[64],
             'features_bn':False,
             'model_layers':[64],
             'entropy_weight':0.01,
@@ -78,7 +78,7 @@ class PPO(GenericAgent):
         if len(self.state_dim) > 1:
             feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
         else:
-            feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['features_layers'], batch_normalization=self.hp['features_bn'],  activation=nn.ReLU())
+            feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['fe_layers'], batch_normalization=self.hp['features_bn'],  activation=nn.ReLU())
 
         if type(self.action_dim) == list:
             self.policy = ActorCriticModel(feature_extractor, len(self.action_dim[0]), self.hp['model_layers'], discrete=False, activation=nn.ReLU()).to(device)

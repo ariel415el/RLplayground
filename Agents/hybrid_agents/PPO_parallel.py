@@ -24,7 +24,7 @@ class PPOParallel(GenericAgent):
             'lr_decay':0.95,
             'epsilon_clip':0.2,
             'value_clip':0.5,
-            'features_layers':[64],
+            'fe_layers':[64],
             'model_layers':[64],
             'entropy_weight':0.01,
             'grad_clip':0.5,
@@ -35,9 +35,9 @@ class PPOParallel(GenericAgent):
         safe_update_dict(self.hp, hp)
 
         if len(self.state_dim) > 1:
-            feature_extractor = ConvNetFeatureExtracor(self.state_dim[0], self.hp['features_layers'][0])
+            feature_extractor = ConvNetFeatureExtracor(self.state_dim[0], self.hp['fe_layers'][0])
         else:
-            feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['features_layers'], batch_normalization=False,  activation=nn.ReLU())
+            feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['fe_layers'], batch_normalization=False,  activation=nn.ReLU())
 
         if type(self.action_dim) == list:
             self.num_outputs = len(self.action_dim[0])
@@ -56,13 +56,15 @@ class PPOParallel(GenericAgent):
         self.name = 'PPO-Parallel'
         if self.hp['curiosity_hp'] is not None:
             self.name += "-ICM"
-        self.name += "_lr[%.5f]_b[%d]_GAE[%.2f]_ec[%.1f]"%(self.hp['lr'], self.hp['concurrent_epsiodes'], self.hp['GAE'], self.hp['epsilon_clip'])
+        self.name += "_lr[%.5f]_b[%d]_GAE[%.2f]_ec[%.1f]_l-%s-%s"%(
+            self.hp['lr'], self.hp['concurrent_epsiodes'], self.hp['GAE'], self.hp['epsilon_clip'], str(self.hp['fe_layers']), str(self.hp['model_layers']))
         if self.hp['value_clip'] is not None:
             self.name += "_vc[%.1f]"%self.hp['value_clip']
         if  self.hp['grad_clip'] is not None:
             self.name += "_gc[%.1f]"%self.hp['grad_clip']
 
         self.num_steps = 0
+        self.learn_steps = 0
         self.states_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon']) + self.state_dim).to(device)
         self.actions_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon'], self.num_outputs)).to(device)
         self.values_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon'] + 1, 1)).to(device)
@@ -93,11 +95,12 @@ class PPOParallel(GenericAgent):
             self.values_memory[:, self.num_steps] = values.detach()
 
             self._learn()
+            self.learn_steps += 1
 
-            if (self.num_steps+1) % 10*self.hp['horizon'] == 0:
+            if (self.learn_steps+1) % 10 == 0:
                 for param_group in self.optimizer.param_groups:
                     param_group['lr'] *= self.hp['lr_decay']
-                self.reporter.update_agent_stats("lr", self.learn_steps, self.optimizer.param_groups[0]['lr'])
+                self.reporter.add_costume_log("lr", self.learn_steps, self.optimizer.param_groups[0]['lr'])
 
             self.num_steps = 0
 
@@ -126,10 +129,10 @@ class PPOParallel(GenericAgent):
         cur_values = self.values_memory[:,:-1]
         next_values = self.values_memory[:,1:]
         deltas = self.rewards_memory + self.hp['discount'] * next_values * (1 - self.is_terminals_memory) - cur_values
-        rewards = monte_carlo_reward_batch(self.rewards_memory, self.is_terminals_memory, self.hp['discount'], device)
-        advantages = rewards - cur_values
-        # advantages = monte_carlo_reward_batch(deltas, self.is_terminals_memory, self.hp['GAE'] * self.hp['discount'], device)
-        # rewards = advantages + cur_values
+        # rewards = monte_carlo_reward_batch(self.rewards_memory, self.is_terminals_memory, self.hp['discount'], device)
+        # advantages = rewards - cur_values
+        advantages = monte_carlo_reward_batch(deltas, self.is_terminals_memory, self.hp['GAE'] * self.hp['discount'], device)
+        rewards = advantages + cur_values
         advantages = (advantages - advantages.mean()) / max(advantages.std(), 1e-6)
 
         # Create a dataset from flatten data
