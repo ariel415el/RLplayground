@@ -3,7 +3,7 @@ import os
 import numpy as np
 from time import time
 from collections import deque
-from train_scripts.EnvBuilder import MultiEnviroment
+from Enviroment.MultiEnvs import MultiEnviroment, MultiEnviromentSync
 
 class train_progress_manager(object):
     def __init__(self, train_dir, solved_score, score_scope, logger, checkpoint_steps=0.2, train_episodes=1000000, temporal_frequency=60**2):
@@ -47,9 +47,10 @@ class train_progress_manager(object):
 
 def train_agent_multi_env(env_builder, agent, progress_manager, test_frequency=250, test_episodes=1, save_videos=False):
     multi_env = MultiEnviroment(env_builder, agent.hp['concurrent_epsiodes'])
+    # multi_env = MultiEnviromentSync(env_builder, agent.hp['concurrent_epsiodes'])
     total_scores = [0 for _ in range(agent.hp['concurrent_epsiodes'])]
     total_lengths = [0 for _ in range(agent.hp['concurrent_epsiodes'])]
-    states = multi_env.reset()
+    states = multi_env.get_initial_state()
     while not progress_manager.training_complete:
         actions = agent.process_states(states)
         next_states, rewards, is_next_state_terminals, infos = multi_env.step(actions)

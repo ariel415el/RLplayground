@@ -35,7 +35,7 @@ class PPOParallel(GenericAgent):
         safe_update_dict(self.hp, hp)
 
         if len(self.state_dim) > 1:
-            feature_extractor = ConvNetFeatureExtracor(self.state_dim[0], self.hp['fe_layers'][0])
+            feature_extractor = ConvNetFeatureExtracor(self.state_dim[0], self.hp['fe_layers'])
         else:
             feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['fe_layers'], batch_normalization=False,  activation=nn.ReLU())
 

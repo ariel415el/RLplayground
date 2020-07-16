@@ -3,9 +3,6 @@ from Agents.continous_agents import *
 from Agents.hybrid_agents import *
 import gym
 
-
-
-
 def build_agent(agent_name, env,  hp):
     state_dim, action_dim = get_state_and_action_dim(env)
     if agent_name == "DQN":

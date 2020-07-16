@@ -3,8 +3,8 @@ import os
 import random
 import loggers
 import torch
-from train_scripts.TrainConfigs import *
-from train_scripts import train
+from Train.TrainConfigs import *
+from Train import train
 
 if  __name__ == '__main__':
     SCORE_SCOPE=100
@@ -37,8 +37,8 @@ if  __name__ == '__main__':
     os.makedirs(train_dir, exist_ok=True)
 
     logger = loggers.plt_logger(log_frequency=LOG_FREQUENCY, logdir=train_dir)
-    # logger = loggers.TB_logger(k=SCORE_SCOPE, log_frequency=LOG_FREQUENCY, logdir=train_dir)
-    # logger = loggers.logger(k=SCORE_SCOPE, log_frequency=LOG_FREQUENCY, logdir=train_dir)
+    # logger = loggers.TB_logger(log_frequency=LOG_FREQUENCY, logdir=train_dir)
+    # logger = loggers.logger(log_frequency=LOG_FREQUENCY, logdir=train_dir)
 
     agent.set_reporter(logger)
     progress_maneger = train.train_progress_manager(train_dir, solved_score, SCORE_SCOPE, logger, checkpoint_steps=0.2, train_episodes=1000000, temporal_frequency=60**2)

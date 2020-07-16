@@ -1,5 +1,5 @@
-from train_scripts.EnvBuilder import get_env_goal, get_env_builder, MultiEnviroment
-from train_scripts.AgentBuilder import build_agent
+from Enviroment.EnvBuilder import get_env_goal, get_env_builder
+from Agents.AgentBuilder import build_agent
 
 
 def solve_cart_pole(agent_name):
@@ -159,6 +159,7 @@ def solve_pong(agent_name):
 
 def solve_breakout(agent_name):
     env_name = "BreakoutNoFrameskip-v4"
+    env_name = "BreakoutDeterministic-v4"
     env_builder = get_env_builder(env_name)
     env = env_builder()
     solved_score = get_env_goal(env_name)
@@ -167,9 +168,9 @@ def solve_breakout(agent_name):
               "normalize_state": True, 'epsilon_decay': 5000000},
         "PPO": {'lr': 0.001, 'lr_decay':0.9999, 'batch_episodes': 16, 'epochs': 3, 'minibatch_size':32, 'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None,
               'grad_clip': 0.5, 'entropy_weight': 0.01, 'fe_layers': [512], 'model_layers': [], 'horizon':None},
-        "PPOParallel": {'lr': 0.0001, 'lr_decay': 0.9999, 'concurrent_epsiodes': 16, 'epochs': 3, 'minibatch_size': 32, 'GAE': 0.95,
+        "PPOParallel": {'lr': 0.00025, 'lr_decay': 0.9999, 'concurrent_epsiodes': 16, 'epochs': 3, 'minibatch_size': 32, 'GAE': 0.95,
                 'epsilon_clip': 0.1, 'value_clip': None,
-                'grad_clip': 0.5, 'entropy_weight': 0.01, 'fe_layers': [512], 'model_layers': []}
+                'grad_clip': 0.5, 'entropy_weight': 0.01, 'fe_layers': [512,512], 'model_layers': []}
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
     return env_name,  env_builder, agent, solved_score

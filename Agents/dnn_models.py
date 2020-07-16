@@ -81,31 +81,35 @@ class LinearFeatureExtracor(nn.Module):
 
 class ConvNetFeatureExtracor(nn.Module):
     ## Assumes input is input_channelsx84x84
-    def __init__(self, input_channels, linear_layer=512):
+    def __init__(self, input_channels, additional_layers):
         super(ConvNetFeatureExtracor, self).__init__()
         self.conv1 = nn.Conv2d(input_channels, 32, kernel_size=8, stride=4)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
         self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
         self.cnn_out = 64*7*7
-        self.linear = nn.Linear(64*7*7, linear_layer)
-        self.features_space = linear_layer
+
+        layers = []
+        self.features_space = self.cnn_out
+        for layer_size in additional_layers:
+            layers += [nn.Linear(self.features_space, layer_size), nn.ReLU()]
+            self.features_space = layer_size
+        self.post_cnn = nn.Sequential(*layers)
 
     def forward(self, x):
         x = nn.functional.relu(self.conv1(x))
         x = nn.functional.relu(self.conv2(x))
         x = nn.functional.relu(self.conv3(x))
         x = x.view(-1, self.cnn_out)
-        x = nn.functional.relu(self.linear(x))
+        x = self.post_cnn(x)
         return x
 
 
 class DiscreteActor(nn.Module):
-    def __init__(self, feature_extractor, action_dim, hidden_layers, activation=nn.ReLU()):
+    def __init__(self, input_space, action_dim, hidden_layers, activation=nn.ReLU()):
         super(DiscreteActor, self).__init__()
-        self.features = feature_extractor
 
         layers = []
-        last_features_space = self.features.features_space
+        last_features_space = input_space
         for layer_size in hidden_layers:
             layers += [nn.Linear(last_features_space, layer_size), activation]
             last_features_space = layer_size
@@ -117,19 +121,12 @@ class DiscreteActor(nn.Module):
         dist = D.Categorical(probs)
         return dist
 
-    def forward(self, x):
-        features = self.features(x)
-        dist = self.get_dist(features)
-        return dist
-
-
 class CountinousActor(nn.Module):
-    def __init__(self, feature_extractor, action_dim, hidden_layers, activation=nn.ReLU()):
+    def __init__(self, input_space, action_dim, hidden_layers, activation=nn.ReLU()):
         super(CountinousActor, self).__init__()
         self.action_dim = action_dim
-        self.features = feature_extractor
         layers = []
-        last_features_space = self.features.features_space
+        last_features_space = input_space
         for layer_size in hidden_layers:
             layers += [nn.Linear(last_features_space, layer_size), activation]
             last_features_space = layer_size
@@ -139,23 +136,16 @@ class CountinousActor(nn.Module):
 
     def get_dist(self, features):
         mu = self.head(features)
-        # dist_old = D.Normal(mu, self.log_sigma.exp())
         dist = D.multivariate_normal.MultivariateNormal(mu, torch.diag_embed(self.log_sigma.exp()))
 
         return dist
 
-    def forward(self, x):
-        features = self.features(x)
-        dist = self.get_dist(features)
-        return dist
-
 
 class Critic(nn.Module):
-    def __init__(self, feature_extractor, hidden_layers, activation=nn.ReLU()):
+    def __init__(self, input_space, hidden_layers, activation=nn.ReLU()):
         super(Critic, self).__init__()
-        self.features = feature_extractor
         layers = []
-        last_features_space = self.features.features_space
+        last_features_space = input_space
         for layer_size in hidden_layers:
             layers += [nn.Linear(last_features_space, layer_size), activation]
             last_features_space = layer_size
@@ -165,24 +155,20 @@ class Critic(nn.Module):
     def get_value(self, features):
         return self.head(features)
 
-    def forward(self, x):
-        features = self.features(x)
-        value = self.get_value(features)
-        return value
-
 class ActorCriticModel(nn.Module):
     def __init__(self, feature_extractor, action_dim, hidden_layers, discrete=True, activation=nn.ReLU()):
         super(ActorCriticModel, self).__init__()
         # action mean range -1 to 1
         self.features = feature_extractor
         if discrete:
-            self.actor = DiscreteActor(self.features, action_dim, hidden_layers, activation)
+            self.actor = DiscreteActor(self.features.features_space, action_dim, hidden_layers, activation)
         else:
-            self.actor = CountinousActor(self.features, action_dim, hidden_layers, activation)
-        self.critic = Critic(self.features, hidden_layers, activation)
+            self.actor = CountinousActor(self.features.features_space, action_dim, hidden_layers, activation)
+        self.critic = Critic(self.features.features_space, hidden_layers, activation)
 
     def get_action_dist(self, x):
-        return self.actor(x)
+        features = self.features(x)
+        return self.actor(features)
 
     def forward(self, x):
         features = self.features(x)
