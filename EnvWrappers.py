@@ -177,7 +177,7 @@ class WarpFrame(gym.ObservationWrapper):
 
 
 class FrameStack(gym.Wrapper):
-    def __init__(self, env, k):
+    def __init__(self, env, k, use_lazy_frames=True):
         """Stack k last frames.
         Returns lazy array, which is much more memory efficient.
         See Also
@@ -186,6 +186,7 @@ class FrameStack(gym.Wrapper):
         """
         gym.Wrapper.__init__(self, env)
         self.k = k
+        self.use_lazy_frames = use_lazy_frames
         self.frames = deque([], maxlen=k)
         shp = env.observation_space.shape
         self.observation_space = spaces.Box(low=0, high=255, shape=(shp[0] * k, shp[1], shp[2]), dtype=np.uint8)
@@ -204,8 +205,10 @@ class FrameStack(gym.Wrapper):
     def _get_ob(self):
         assert len(self.frames) == self.k
         # return list(self.frames)
-        return LazyFrames((self.frames))
-
+        if self.use_lazy_frames:
+            return LazyFrames((self.frames))
+        else:
+            return np.concatenate(self.frames, axis=0)
 
 class ScaledFloatFrame(gym.ObservationWrapper):
     def __init__(self, env):
@@ -230,7 +233,7 @@ class LazyFrames(object):
         return np.concatenate(self._frames, axis=0)
 
 
-def get_atari_env(env_name, episode_life=True, clip_rewards=True, frame_stack=1, scale=False, no_op_reset=True, disable_noop=False):
+def get_atari_env(env_name, episode_life=True, clip_rewards=True, frame_stack=1, use_lazy_frames=True, scale=False, no_op_reset=True, disable_noop=False):
     """Stack all the wrappers relavant for Atari games in the  right order"""
     env = gym.make(env_name)
     if no_op_reset:
@@ -251,7 +254,7 @@ def get_atari_env(env_name, episode_life=True, clip_rewards=True, frame_stack=1,
     if clip_rewards:
         env = ClipRewardEnv(env)
     if frame_stack:
-        env = FrameStack(env, frame_stack)
+        env = FrameStack(env, frame_stack, use_lazy_frames)
     if disable_noop:
         env = DisableNoOpAction(env)
     return env

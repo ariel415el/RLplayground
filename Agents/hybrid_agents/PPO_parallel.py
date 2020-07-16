@@ -53,6 +53,7 @@ class PPOParallel(GenericAgent):
             self.curiosity = None
         else:
             self.curiosity = ICM(self.state_dim[0], self.action_dim, **self.hp['curiosity_hp'])
+
         self.name = 'PPO-Parallel'
         if self.hp['curiosity_hp'] is not None:
             self.name += "-ICM"
@@ -65,7 +66,10 @@ class PPOParallel(GenericAgent):
 
         self.num_steps = 0
         self.learn_steps = 0
-        self.states_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon']) + self.state_dim).to(device)
+        if self.hp['curiosity_hp'] is not None:
+            self.states_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon']+1) + self.state_dim).to(device)
+        else:
+            self.states_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon']) + self.state_dim).to(device)
         self.actions_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon'], self.num_outputs)).to(device)
         self.values_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon'] + 1, 1)).to(device)
         self.logprobs_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon'], 1)).to(device)
@@ -93,7 +97,8 @@ class PPOParallel(GenericAgent):
         dists, values = self.policy(torch_states)
         if self.num_steps == self.hp['horizon']:
             self.values_memory[:, self.num_steps] = values.detach()
-
+            if self.hp['curiosity_hp'] is not None:
+                self.states_memory[:, self.num_steps] = torch_states
             self._learn()
             self.learn_steps += 1
 
@@ -126,11 +131,20 @@ class PPOParallel(GenericAgent):
         return output_actions
 
     def _create_lerning_data(self):
+        if self.curiosity is not None:
+            cur_states = self.states_memory[:, :-1]
+            next_states = self.states_memory[:, 1:]
+            raw_rewards = 0
+            intrinsic_reward = self.curiosity.get_intrinsic_reward(cur_states, next_states, self.actions_memory)
+            self.reporter.add_costume_log("extrinsic_reward", self.num_actions, raw_rewards.mean())
+            raw_rewards[:-1] += intrinsic_reward
+            self.reporter.add_costume_log("curiosity_loss", self.num_actions, self.curiosity.get_last_debug_loss())
+            self.reporter.add_costume_log("intrinsic_reward", self.num_actions, intrinsic_reward.mean())
+
+
         cur_values = self.values_memory[:,:-1]
         next_values = self.values_memory[:,1:]
         deltas = self.rewards_memory + self.hp['discount'] * next_values * (1 - self.is_terminals_memory) - cur_values
-        # rewards = monte_carlo_reward_batch(self.rewards_memory, self.is_terminals_memory, self.hp['discount'], device)
-        # advantages = rewards - cur_values
         advantages = monte_carlo_reward_batch(deltas, self.is_terminals_memory, self.hp['GAE'] * self.hp['discount'], device)
         rewards = advantages + cur_values
         advantages = (advantages - advantages.mean()) / max(advantages.std(), 1e-6)

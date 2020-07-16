@@ -17,6 +17,8 @@ class env_builder(object):
     def __call__(self):
         return self.constructor(**self.args)
 
+# class EnvProcess(object)
+
 class MultiEnviroment(object):
     def __init__(self, env_builder_instance, num_envs=1):
         self.env_builder = env_builder_instance
@@ -53,7 +55,7 @@ def get_env_builder(env_name):
     if env_name == "PongNoFrameskip-v4":
         return env_builder(get_atari_env, {'env_name':env_name, 'frame_stack':1})
     elif env_name == "BreakoutNoFrameskip-v4":
-        return env_builder(get_atari_env, {'env_name':env_name,'frame_stack':4, 'episode_life':True, 'no_op_reset':False, 'disable_noop':True})
+        return env_builder(get_atari_env, {'env_name':env_name,'frame_stack':4, 'use_lazy_frames':False, 'episode_life':True, 'no_op_reset':False, 'disable_noop':True})
     elif "SuperMarioBros" in env_name:
         return env_builder(get_super_mario_env, {'env_name':env_name})
     elif "MiniGrid" in env_name:
