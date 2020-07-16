@@ -2,6 +2,7 @@ from torch.multiprocessing import Process, Pipe
 import numpy as np
 
 class EnvProcess(Process):
+    """Runs a gym enviroment in a process forever while communicating inputs/outputs with parent process"""
     def __init__(self, env, child_conn, idx):
         super(EnvProcess, self).__init__()
         self.env = env

@@ -1,10 +1,10 @@
 import os
 from Agents.dnn_models import *
-from utils import *
+from utils.utils import *
 from Agents.GenericAgent import GenericAgent
 from Agents.ICM import ICM
 from torch.utils.data import DataLoader
-from utils import NonSequentialDataset, safe_update_dict
+from utils.utils import BasicDataset, safe_update_dict
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -145,17 +145,19 @@ class PPOParallel(GenericAgent):
         cur_values = self.values_memory[:,:-1]
         next_values = self.values_memory[:,1:]
         deltas = self.rewards_memory + self.hp['discount'] * next_values * (1 - self.is_terminals_memory) - cur_values
-        advantages = monte_carlo_reward_batch(deltas, self.is_terminals_memory, self.hp['GAE'] * self.hp['discount'], device)
-        rewards = advantages + cur_values
+        advantages = discount_batch(deltas, self.is_terminals_memory, self.hp['GAE'] * self.hp['discount'], device)
+        # rewards = advantages + cur_values
+        rewards = discount_batch(self.rewards_memory, self.is_terminals_memory,  self.hp['discount'], device)
+        rewards = (rewards - rewards.mean()) / max(rewards.std(), 1e-6)
         advantages = (advantages - advantages.mean()) / max(advantages.std(), 1e-6)
 
         # Create a dataset from flatten data
-        dataset = NonSequentialDataset(self.states_memory.view(-1, *self.states_memory.shape[2:]),
-                                       cur_values.reshape(-1, *cur_values.shape[2:]), # view not working here (reshape copeies)
-                                       self.actions_memory.view(-1, *self.actions_memory.shape[2:]),
-                                       self.logprobs_memory.view(-1, *self.logprobs_memory.shape[2:]),
-                                       rewards.view(-1, *rewards.shape[2:]),
-                                       advantages.view(-1, *advantages.shape[2:]))
+        dataset = BasicDataset(self.states_memory.view(-1, *self.states_memory.shape[2:]),
+                               cur_values.reshape(-1, *cur_values.shape[2:]),  # view not working here (reshape copeies)
+                               self.actions_memory.view(-1, *self.actions_memory.shape[2:]),
+                               self.logprobs_memory.view(-1, *self.logprobs_memory.shape[2:]),
+                               rewards.view(-1, *rewards.shape[2:]),
+                               advantages.view(-1, *advantages.shape[2:]))
         dataloader = DataLoader(dataset, batch_size=self.hp['minibatch_size'], shuffle=True)
 
         return dataloader

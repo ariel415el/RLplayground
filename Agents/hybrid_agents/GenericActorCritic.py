@@ -1,6 +1,6 @@
 import os
 from Agents.dnn_models import *
-from utils import *
+from utils.utils import *
 from Agents.GenericAgent import GenericAgent
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 

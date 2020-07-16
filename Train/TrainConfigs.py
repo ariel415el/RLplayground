@@ -1,8 +1,12 @@
 from Enviroment.EnvBuilder import get_env_goal, get_env_builder
 from Agents.AgentBuilder import build_agent
 
+"""
+This file contain functions that returns enviroment factories and agent with according configurations
+"""
 
-def solve_cart_pole(agent_name):
+
+def prepare_cart_pole(agent_name):
     env_name = "CartPole-v1"
     env_builder = get_env_builder(env_name)
     env = env_builder()
@@ -22,7 +26,7 @@ def solve_cart_pole(agent_name):
     return env_name, env_builder, agent, solved_score
 
 
-def solve_acrobot(agent_name):
+def prepare_acrobot(agent_name):
     env_name = "Acrobot-v1"
     env_builder = get_env_builder(env_name)
     env = env_builder()
@@ -39,7 +43,7 @@ def solve_acrobot(agent_name):
     return env_name,  env_builder, agent, solved_score
 
 
-def solve_mountain_car(agent_name):
+def prepare_mountain_car(agent_name):
     env_name = "MountainCar-v0"
     env_builder = get_env_builder(env_name)
     env = env_builder()
@@ -61,7 +65,7 @@ def solve_mountain_car(agent_name):
     return env_name, env_builder, agent, solved_score
 
 
-def solve_pendulum(agent_name):
+def prepare_pendulum(agent_name):
     env_name = "Pendulum-v0"
     env_builder = get_env_builder(env_name)
     env = env_builder()
@@ -82,7 +86,7 @@ def solve_pendulum(agent_name):
     return env_name, env_builder, agent, solved_score
 
 
-def solve_lunar_lander(agent_name):
+def prepare_lunar_lander(agent_name):
     env_name = "LunarLander-v2"
     env_builder = get_env_builder(env_name)
     env = env_builder()
@@ -92,14 +96,14 @@ def solve_lunar_lander(agent_name):
         "VanilaPG": {'lr':0.001, 'batch_episodes':32, 'hidden_layers':[64,64,128]},
         "A2C": {'lr':0.005, 'batch_episodes':8, 'GAE': 0.96, 'hidden_layers':[64,32]},
         "PPO": {'lr':0.00025, 'batch_episodes':8, 'epochs':3, 'GAE':0.95, 'epsilon_clip': 0.1, 'value_clip':None,
-              'grad_clip':0.5, 'entropy_weight':0.01, 'fe_layers':[64,64],'model_layers':[128]},
-        "PPOParallel": {'lr': 0.00025,'lr_decay':0.9999, 'concurrent_epsiodes': 1, 'horizon': 4000, 'epochs': 3, 'minibatch_size': 32,
+              'grad_clip':0.5, 'entropy_weight':0.01, 'fe_layers':[64],'model_layers':[32]},
+        "PPOParallel": {'lr': 0.00025,'lr_decay':0.9999, 'concurrent_epsiodes': 16, 'horizon': 128, 'epochs': 3, 'minibatch_size': 32,
                         'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None, 'grad_clip': None, 'fe_layers':[64],'model_layers':[32]},
     }
     agent = build_agent(agent_name, env, agent_configs[agent_name])
     return env_name,  env_builder, agent, solved_score
 
-def solve_continous_lunar_lander(agent_name):
+def prepare_continous_lunar_lander(agent_name):
     env_name = "LunarLanderContinuous-v2";
     env_builder = get_env_builder(env_name)
     env = env_builder()
@@ -120,7 +124,7 @@ def solve_continous_lunar_lander(agent_name):
     return env_name,  env_builder, agent, solved_score
 
 
-def solve_bipedal_walker(agent_name):
+def prepare_bipedal_walker(agent_name):
     env_name = "BipedalWalker-v3"
     env_builder = get_env_builder(env_name)
     env = env_builder()
@@ -141,7 +145,7 @@ def solve_bipedal_walker(agent_name):
 
 
 
-def solve_pong(agent_name):
+def prepare_pong(agent_name):
     env_name = "PongNoFrameskip-v4"
     env_builder = get_env_builder(env_name)
     env = env_builder()
@@ -157,7 +161,7 @@ def solve_pong(agent_name):
 
 
 
-def solve_breakout(agent_name):
+def prepare_breakout(agent_name):
     env_name = "BreakoutNoFrameskip-v4"
     env_name = "BreakoutDeterministic-v4"
     env_builder = get_env_builder(env_name)
@@ -176,7 +180,7 @@ def solve_breakout(agent_name):
     return env_name,  env_builder, agent, solved_score
 
 
-def solve_half_cheetah(agent_name):
+def prepare_half_cheetah(agent_name):
     env_name = 'HalfCheetahMuJoCoEnv-v0'
     env_builder = get_env_builder(env_name)
     env = env_builder()
@@ -196,7 +200,7 @@ def solve_half_cheetah(agent_name):
 
     return env_name,  env_builder, agent, solved_score
 
-def solve_humanoid(agent_name):
+def prepare_humanoid(agent_name):
     env_name = 'HalfCHumanoidMuJoCoEnv-v0'
     env_builder = get_env_builder(env_name)
     env = env_builder()
@@ -216,7 +220,7 @@ def solve_humanoid(agent_name):
 
     return env_name,  env_builder, agent, solved_score
 
-def solve_2d_walker(agent_name):
+def prepare_2d_walker(agent_name):
     env_name = 'Walker2DMuJoCoEnv-v0'
     env_builder = get_env_builder(env_name)
     env = env_builder()
@@ -236,7 +240,7 @@ def solve_2d_walker(agent_name):
 
     return env_name,  env_builder, agent, solved_score
 
-def solve_ant(agent_name):
+def prepare_ant(agent_name):
     env_name = 'AntPyBulletEnv-v0'
     env_builder = get_env_builder(env_name)
     env = env_builder()
@@ -256,7 +260,7 @@ def solve_ant(agent_name):
 
     return env_name,  env_builder, agent, solved_score
 
-def solve_super_mario(agent_name):
+def prepare_super_mario(agent_name):
     env_name = 'SuperMarioBros-v3'
     env_builder = get_env_builder(env_name)
     env = env_builder()
@@ -269,7 +273,7 @@ def solve_super_mario(agent_name):
     agent = build_agent(agent_name, env, agent_configs[agent_name])
     return env_name,  env_builder, agent, solved_score
 
-def solve_grid_maze(agent_name):
+def prepare_grid_maze(agent_name):
     env_name = "MiniGrid-FourRooms-v0"
     env_builder = get_env_builder(env_name)
     env = env_builder()

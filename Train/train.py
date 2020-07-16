@@ -6,6 +6,7 @@ from collections import deque
 from Enviroment.MultiEnvs import MultiEnviroment, MultiEnviromentSync
 
 class train_progress_manager(object):
+    """This object is responsible of monitoring train progress, logging results"""
     def __init__(self, train_dir, solved_score, score_scope, logger, checkpoint_steps=0.2, train_episodes=1000000, temporal_frequency=60**2):
         self.solved_score = solved_score
         self.train_dir = train_dir
@@ -46,6 +47,7 @@ class train_progress_manager(object):
         self.logger.add_costume_log("Test-score", self.episodes_done, test_score)
 
 def train_agent_multi_env(env_builder, agent, progress_manager, test_frequency=250, test_episodes=1, save_videos=False):
+    """Train agent that can train with multiEnv objects"""
     multi_env = MultiEnviroment(env_builder, agent.hp['concurrent_epsiodes'])
     # multi_env = MultiEnviromentSync(env_builder, agent.hp['concurrent_epsiodes'])
     total_scores = [0 for _ in range(agent.hp['concurrent_epsiodes'])]
@@ -84,19 +86,8 @@ def train_agent_multi_env(env_builder, agent, progress_manager, test_frequency=2
     multi_env.close()
 
 
-def run_episode(env, agent):
-    episode_rewards = []
-    done = False
-    state = env.reset()
-    while not done:
-        action = agent.process_new_state(state)
-        state, reward, done, info = env.step(action)
-        is_terminal = done
-        agent.process_output(state, reward, is_terminal)
-        episode_rewards += [reward]
-    return episode_rewards
-
 def train_agent(env_generator, agent, progress_manager, test_frequency=250, test_episodes=1, save_videos=False):
+    """Train agent on a regular gym enviroment"""
     train_env = env_generator()
     while not progress_manager.training_complete:
         episode_rewards = run_episode(train_env, agent)
@@ -118,23 +109,26 @@ def train_agent(env_generator, agent, progress_manager, test_frequency=250, test
 
     train_env.close()
 
-def test(env,  actor, test_episodes=1, render=False, delay=0.0):
-    actor.train = False
-    episodes_total_rewards = []
-    for i in range(test_episodes):
-        done = False
-        state = env.reset()
-        all_rewards = []
-        while not done:
-            if render:
-                env.render()
-            action = actor.process_new_state(state)
-            state, reward, done, info = env.step(action)
-            all_rewards += [reward]
+
+def run_episode(env, agent, render=False):
+    """Runs a full episode of a regular gym enviroment"""
+    done = False
+    state = env.reset()
+    episode_rewards = []
+    while not done:
         if render:
             env.render()
-            from time import sleep; sleep(0.1)
-        episodes_total_rewards += [np.sum(all_rewards)]
+        action = agent.process_new_state(state)
+        state, reward, done, info = env.step(action)
+        is_terminal = done
+        agent.process_output(state, reward, is_terminal)
+        episode_rewards += [reward]
+    return episode_rewards
+
+
+def test(env,  actor, test_episodes=1, render=False):
+    episodes_total_rewards = []
+    for i in range(test_episodes):
+        episodes_total_rewards += [np.sum(run_episode(env, actor,render))]
     score = np.mean(episodes_total_rewards)
-    actor.train=True
     return score

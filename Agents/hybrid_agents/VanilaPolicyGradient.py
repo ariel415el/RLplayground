@@ -1,6 +1,6 @@
 import os
 from Agents.dnn_models import *
-from utils import *
+from utils.utils import *
 from Agents.GenericAgent import GenericAgent
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -91,7 +91,7 @@ class VanilaPolicyGradient(GenericAgent):
         raw_rewards = np.array(raw_rewards)
         raw_rewards = (raw_rewards - raw_rewards.mean()) / (raw_rewards.std() + 1e-5)
         # Monte Carlo estimate of rewards:
-        rewards = monte_carlo_reward(raw_rewards, is_terminals, self.hp['discount'], device)
+        rewards = discount(raw_rewards, is_terminals, self.hp['discount'], device)
         actor_loss = (-logprobs*rewards).mean()
 
         # take gradient step

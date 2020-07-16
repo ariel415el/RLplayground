@@ -53,6 +53,7 @@ class DisableNoOpAction(gym.Wrapper):
     def step(self, ac):
         return self.env.step(ac + 1)
 
+
 class FireResetEnv(gym.Wrapper):
     def __init__(self, env):
         """Take action on reset for environments that are fixed until firing."""
@@ -234,7 +235,9 @@ class LazyFrames(object):
 
 
 def get_atari_env(env_name, episode_life=True, clip_rewards=True, frame_stack=1, use_lazy_frames=True, scale=False, no_op_reset=True, disable_noop=False):
-    """Stack all the wrappers relavant for Atari games in the  right order"""
+    """Stack all the wrappers relavant for Atari games in the right order
+        May be problematic to chane order of wraping
+    """
     env = gym.make(env_name)
     if no_op_reset:
         env = NoopResetEnv(env, noop_max=30)

@@ -1,6 +1,7 @@
 import gym
 from Enviroment.EnvWrappers import get_atari_env, get_super_mario_env, get_grid_maze_env
 
+"""Holds the target score of each available enviroment"""
 env_goals = {"CartPole-v1":195, "Acrobot-v1":-80, "MountainCar-v0":-110, "Pendulum-v0":-200, "LunarLander-v2":200,
              "LunarLanderContinuous-v2": 200, "BipedalWalker-v3":300, "BipedalWalkerHardcore-v3":300,
              "PongNoFrameskip-v4":20, "BreakoutNoFrameskip-v4":200, 'BreakoutDeterministic-v4':200,

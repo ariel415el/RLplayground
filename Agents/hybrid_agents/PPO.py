@@ -3,11 +3,11 @@
 ##############################################
 import os
 from Agents.dnn_models import *
-from utils import *
+from utils.utils import *
 from Agents.GenericAgent import GenericAgent
 from Agents.ICM import ICM
 from torch.utils.data import DataLoader
-from utils import NonSequentialDataset
+from utils.utils import BasicDataset
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
@@ -157,7 +157,7 @@ class PPO(GenericAgent):
         advantages = (advantages - advantages.mean()) / max(advantages.std(), 1e-6)
 
         # Optimize policy for K epochs:
-        dataset = NonSequentialDataset(states, old_policy_values, old_policy_actions, old_policy_loggprobs,  rewards, advantages)
+        dataset = BasicDataset(states, old_policy_values, old_policy_actions, old_policy_loggprobs, rewards, advantages)
         dataloader = DataLoader(dataset, batch_size=self.hp['minibatch_size'], shuffle=True)
         for _ in range(self.hp['epochs']):
             for (states_batch, old_policy_values_batch, old_policy_actions_batch, old_policy_loggprobs_batch, rewards_batch, advantages_batch) in dataloader:

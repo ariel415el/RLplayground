@@ -4,7 +4,8 @@
 import os
 from Agents.dnn_models import *
 import copy
-from utils import update_net, ListMemory
+from utils.utils import update_net
+from utils.replay_memory import ListMemory
 from Agents.GenericAgent import GenericAgent
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using device: ", device)

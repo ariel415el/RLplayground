@@ -1,34 +1,30 @@
 import numpy as np
 import os
 import random
-import loggers
+from utils import loggers
 import torch
 from Train.TrainConfigs import *
 from Train import train
-
+from opt import *
 if  __name__ == '__main__':
-    SCORE_SCOPE=100
-    LOG_FREQUENCY=20
-    SEED=0
-    TRAIN_ROOT="TEST_TRAINING"
     random.seed(SEED)
     np.random.seed(SEED)
     torch.manual_seed(SEED)
 
-    # env_name, env_builder, agent, solved_score = solve_cart_pole("PPOParallel")
-    # env_name, env_builder, agent, solved_score = solve_acrobot("DQN")
-    # env_name, env_builder, agent, solved_score = solve_mountain_car("PPOParallel")
-    # env_name, env_builder, agent, solved_score = solve_pendulum("PPO_2")
-    # env_name, env_builder, agent, solved_score = solve_lunar_lander("PPO")
-    # env_name, env_builder, agent, solved_score = solve_continous_lunar_lander("PPO")
-    # env_name, env_builder, agent, solved_score = solve_bipedal_walker("PPO")
-    # env_name, env_builder, agent, solved_score = solve_pong('DQN')
-    env_name, env_builder, agent, solved_score = solve_breakout("PPOParallel")
-    # env_name, env_builder, agent, solved_score = solve_2d_walker("PPO")
-    # env_name, env_builder, agent, solved_score = solve_ant("PPO")
-    # env_name, env_builder, agent, solved_score = solve_humanoid()
-    # env_name, env_builder, agent, solved_score = solve_half_cheetah()
-    # env_name, env_builder, agent, solved_score = solve_super_mario("PPO")
+    # env_name, env_builder, agent, solved_score = prepare_cart_pole("PPOParallel")
+    # env_name, env_builder, agent, solved_score = prepare_acrobot("DQN")
+    # env_name, env_builder, agent, solved_score = prepare_mountain_car("PPOParallel")
+    # env_name, env_builder, agent, solved_score = prepare_pendulum("PPO_2")
+    env_name, env_builder, agent, solved_score = prepare_lunar_lander("PPOParallel")
+    # env_name, env_builder, agent, solved_score = prepare_continous_lunar_lander("PPO")
+    # env_name, env_builder, agent, solved_score = prepare_bipedal_walker("PPO")
+    # env_name, env_builder, agent, solved_score = prepare_pong('DQN')
+    # env_name, env_builder, agent, solved_score = prepare_breakout("PPOParallel")
+    # env_name, env_builder, agent, solved_score = prepare_2d_walker("PPO")
+    # env_name, env_builder, agent, solved_score = prepare_ant("PPO")
+    # env_name, env_builder, agent, solved_score = prepare_humanoid()
+    # env_name, env_builder, agent, solved_score = prepare_half_cheetah()
+    # env_name, env_builder, agent, solved_score = prepare_super_mario("PPO")
 
     # env.seed(SEED)
 
@@ -41,10 +37,10 @@ if  __name__ == '__main__':
     # logger = loggers.logger(log_frequency=LOG_FREQUENCY, logdir=train_dir)
 
     agent.set_reporter(logger)
-    progress_maneger = train.train_progress_manager(train_dir, solved_score, SCORE_SCOPE, logger, checkpoint_steps=0.2, train_episodes=1000000, temporal_frequency=60**2)
+    progress_maneger = train.train_progress_manager(train_dir, solved_score, SCORE_SCOPE, logger, checkpoint_steps=CKP_STEP, train_episodes=TRAIN_EPISODES, temporal_frequency=TEMPORAL_FREQ)
     #
-    train.train_agent_multi_env(env_builder, agent, progress_maneger, test_frequency=250, test_episodes=1, save_videos=True)
-    # train.train_agent(env_builder, agent, progress_maneger, test_frequency=250, test_episodes=1, save_videos=True)
+    train.train_agent_multi_env(env_builder, agent, progress_maneger, test_frequency=TEST_FREQ, test_episodes=TEST_EPISODES, save_videos=TEST_EPISODES)
+    # train.train_agent(env_builder, agent, progress_maneger, test_frequency=TEST_FREQ, test_episodes=TEST_EPISODES, save_videos=TEST_EPISODES)
 
 
     # # Test

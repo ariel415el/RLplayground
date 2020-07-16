@@ -1,9 +1,9 @@
 import torch
-from utils import ListMemory
+from utils.replay_memory import ListMemory
 import numpy as np
 import os
 from torch import nn
-from utils import update_net
+from utils.utils import update_net
 import copy
 from Agents.GenericAgent import GenericAgent
 

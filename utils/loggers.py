@@ -8,28 +8,8 @@ import torch
 import pickle
 
 
-class train_stats(object):
-    def __init__(self, name, x, y):
-        self.name = name
-        self.xs = [x]
-        self.ys = [y]
-
-    def add(self, x, y):
-        if x is None:
-            x = len(self.ys)
-        self.xs += [x]
-        self.ys += [y]
-
-    def plot(self, path, k=100):
-        plt.plot(self.xs, self.ys, label=self.name, )
-        avg = np.convolve(np.array(self.ys), np.ones(k)/float(k), 'valid')
-        plt.plot(np.arange(len(avg)), avg, label='%d-avg'%k)
-        plt.legend()
-        plt.savefig(path)
-        plt.clf()
-
-
 class logger(object):
+    """Basic logger of training progress"""
     def __init__(self, log_frequency, logdir):
         self.logdir = logdir
         self.log_frequency = log_frequency
@@ -47,7 +27,7 @@ class logger(object):
         if name in self.agent_train_stats:
             self.agent_train_stats[name].add(x, y)
         else:
-            self.agent_train_stats[name] = train_stats(name, x, y)
+            self.agent_train_stats[name] = pyplot_scalar_writer(name, x, y)
 
     def add_histogram(self, name, values):
         if name not in self.agent_histograms:
@@ -55,7 +35,7 @@ class logger(object):
         else:
             self.agent_histograms[name] += list(values)
 
-    def log_episode(self, episode_score, score_scope_score,  episode_length):
+    def log_episode(self, episode_score: int, score_scope_score: int,  episode_length: int):
         self.episodes_scores += [episode_score]
         self.score_scope_scores += [score_scope_score]
         self.episodes_lengths += [episode_length]
@@ -80,6 +60,7 @@ class logger(object):
         pickle.dump(self.episodes_scores, f)
 
 class TB_logger(logger):
+    """Outputs progress with tensorboard"""
     def __init__(self, k, log_frequency, logdir):
         super(TB_logger, self).__init__(k, log_frequency, logdir)
         from tensorboardX import SummaryWriter
@@ -99,6 +80,7 @@ class TB_logger(logger):
                                   global_step=self.done_episodes)
 
 class plt_logger(logger):
+    """Outputs progress with pyplot"""
     def __init__(self, log_frequency, logdir):
         super(plt_logger, self).__init__(log_frequency, logdir)
         os.makedirs(logdir, exist_ok=True)
@@ -133,3 +115,26 @@ class plt_logger(logger):
             plt.savefig(os.path.join(self.logdir, hist_name+".png"))
             plt.clf()
 
+
+class pyplot_scalar_writer(object):
+    """This object allows a similar functionality as tensorboard's scalar writer only with pyplot
+        it allows logging any custom scalr
+    """
+    def __init__(self, name, x, y):
+        self.name = name
+        self.xs = [x]
+        self.ys = [y]
+
+    def add(self, x, y):
+        if x is None:
+            x = len(self.ys)
+        self.xs += [x]
+        self.ys += [y]
+
+    def plot(self, path, k=100):
+        plt.plot(self.xs, self.ys, label=self.name, )
+        avg = np.convolve(np.array(self.ys), np.ones(k)/float(k), 'valid')
+        plt.plot(np.arange(len(avg)), avg, label='%d-avg'%k)
+        plt.legend()
+        plt.savefig(path)
+        plt.clf()

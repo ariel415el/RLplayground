@@ -5,7 +5,8 @@
 import random
 import os
 from Agents.dnn_models import *
-from utils import update_net, ListMemory, PrioritizedListMemory
+from utils.utils import update_net
+from utils.replay_memory import ListMemory, PrioritizedListMemory
 import copy
 from torch import nn
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

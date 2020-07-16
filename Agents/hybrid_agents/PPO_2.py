@@ -3,11 +3,11 @@
 ##############################################
 import os
 from Agents.dnn_models import *
-from utils import *
+from utils.utils import *
 from Agents.GenericAgent import GenericAgent
 from Agents.ICM import ICM
 from torch.utils.data import DataLoader
-from utils import NonSequentialDataset
+from utils.utils import BasicDataset
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
@@ -148,13 +148,13 @@ class PPO_2(GenericAgent):
             self.reporter.add_costume_log("intrinsic_reward", self.num_steps, intrinsic_reward.mean())
 
         deltas = raw_rewards + old_policy_values[1:] * (1 - is_next_state_terminals) - old_policy_values[:-1]
-        advantages = monte_carlo_reward(deltas, is_next_state_terminals, self.hp['discount'] * self.hp['GAE'], device)
+        advantages = discount(deltas, is_next_state_terminals, self.hp['discount'] * self.hp['GAE'], device)
         rewards = raw_rewards + advantages
         advantages = (advantages - advantages.mean()) / max(advantages.std(), 1e-6)
 
         # Optimize policy for K epochs:
-        dataset = NonSequentialDataset(states, old_policy_values[:-1], old_policy_actions, old_policy_loggprobs, rewards,
-                                       advantages)
+        dataset = BasicDataset(states, old_policy_values[:-1], old_policy_actions, old_policy_loggprobs, rewards,
+                               advantages)
         dataloader = DataLoader(dataset, batch_size=self.hp['minibatch_size'], shuffle=True)
 
         return dataloader
