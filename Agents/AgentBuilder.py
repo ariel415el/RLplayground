@@ -4,7 +4,7 @@ from Agents.hybrid_agents import *
 import gym
 
 def build_agent(agent_name, env,  hp):
-    state_dim, action_dim = get_state_and_action_dim(env)
+    state_dim, action_dim = get_state_and_action_dim(env) # TODO feed agents with action/space dim object
     if agent_name == "DQN":
         agent = DQN_agent.DQN_agent(state_dim, action_dim, hp, double_dqn=True, dueling_dqn=False,
                                     prioritized_memory=False, noisy_MLP=False)
@@ -14,8 +14,6 @@ def build_agent(agent_name, env,  hp):
         agent = GenericActorCritic.ActorCritic(state_dim, action_dim, hp)
     elif agent_name == "PPO":
         agent = PPO.PPO(state_dim, action_dim, hp)
-    elif agent_name == "PPO_2":
-        agent = PPO_2.PPO_2(state_dim, action_dim, hp)
     elif agent_name == "PPOParallel":
         agent = PPO_parallel.PPOParallel(state_dim, action_dim, hp)
     elif agent_name == "DDPG":

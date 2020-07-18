@@ -8,6 +8,7 @@ from Enviroment.MultiEnvs import MultiEnviroment, MultiEnviromentSync
 class train_progress_manager(object):
     """This object is responsible of monitoring train progress, logging results"""
     def __init__(self, train_dir, solved_score, score_scope, logger, checkpoint_steps=0.2, train_episodes=1000000, temporal_frequency=60**2):
+        os.makedirs(train_dir, exist_ok=True)
         self.solved_score = solved_score
         self.train_dir = train_dir
         self.checkpoint_steps = checkpoint_steps
@@ -98,6 +99,7 @@ def train_agent(env_generator, agent, progress_manager, test_frequency=250, test
 
         # Test model
         if (progress_manager.episodes_done+1) % test_frequency == 0:
+            agent.train = False
             test_env = env_generator()
             if save_videos:
                 test_env = gym.wrappers.Monitor(test_env, os.path.join(progress_manager.train_dir, "test_%d" % (progress_manager.episodes_done+1)), video_callable=lambda episode_id: True, force=True)
@@ -106,6 +108,7 @@ def train_agent(env_generator, agent, progress_manager, test_frequency=250, test
                 test_score = test(test_env, agent, test_episodes)
             progress_manager.report_test(test_score)
             test_env.close()
+            agent.train = True
 
     train_env.close()
 
@@ -129,6 +132,7 @@ def run_episode(env, agent, render=False):
 def test(env,  actor, test_episodes=1, render=False):
     episodes_total_rewards = []
     for i in range(test_episodes):
-        episodes_total_rewards += [np.sum(run_episode(env, actor,render))]
+        episode_scores = run_episode(env, actor,render)
+        episodes_total_rewards += [np.sum(episode_scores)]
     score = np.mean(episodes_total_rewards)
     return score

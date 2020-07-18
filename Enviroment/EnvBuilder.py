@@ -19,11 +19,12 @@ class env_builder(object):
 
 # class EnvProcess(object)
 
-def get_env_builder(env_name):
+def get_env_builder(env_name, is_train=True):
     if env_name == "PongNoFrameskip-v4":
-        return env_builder(get_atari_env, {'env_name':env_name, 'frame_stack':1})
+        return env_builder(get_atari_env, {'env_name':env_name, 'frame_stack':1, 'episode_life':is_train})
     elif env_name == "BreakoutNoFrameskip-v4" or env_name == "BreakoutDeterministic-v4":
-        return env_builder(get_atari_env, {'env_name':env_name,'frame_stack':4, 'use_lazy_frames':False, 'episode_life':True, 'no_op_reset':False, 'disable_noop':True})
+        return env_builder(get_atari_env, {'env_name':env_name,'frame_stack':4, 'use_lazy_frames':False, 'clip_rewards': False,
+                                           'episode_life':is_train, 'no_op_reset':False, 'disable_noop':True})
     elif "SuperMarioBros" in env_name:
         return env_builder(get_super_mario_env, {'env_name':env_name})
     elif "MiniGrid" in env_name:

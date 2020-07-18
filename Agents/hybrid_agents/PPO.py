@@ -76,7 +76,7 @@ class PPO(GenericAgent):
         safe_update_dict(self.hp, hp)
         self.samples = Memory()
         if len(self.state_dim) > 1:
-            feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
+            feature_extractor = ConvNetFeatureExtracor(self.state_dim[0], self.hp['fe_layers'])
         else:
             feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['fe_layers'], batch_normalization=self.hp['features_bn'],  activation=nn.ReLU())
 
