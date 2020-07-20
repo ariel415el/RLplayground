@@ -90,16 +90,19 @@ class PPO(GenericAgent):
         self.learn_steps = 0
         self.num_actions = 0
         self.episodes_in_cur_batch = 0
-        self.running_stats = RunningStats()
 
+        # Set agent name
         if self.hp['curiosity_hp'] is None:
             self.curiosity = None
         else:
             self.curiosity = ICM(self.state_dim[0], self.action_dim, **self.hp['curiosity_hp'])
+
+
         self.name = 'PPO'
         if self.hp['curiosity_hp'] is not None:
             self.name += "-ICM"
         self.name += "_lr[%.5f]_b[%d]_GAE[%.2f]_ec[%.1f]"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'], self.hp['epsilon_clip'])
+        self.name += "_fl-%s_ml-%s"%(str(self.hp['fe_layers']), str(self.hp['model_layers']))
         if self.hp['value_clip'] is not None:
             self.name += "_vc[%.1f]"%self.hp['value_clip']
         if  self.hp['grad_clip'] is not None:
@@ -125,12 +128,12 @@ class PPO(GenericAgent):
         self.num_actions += 1
         return output_action
 
-    def process_output(self, unused_new_state, reward, is_finale_state):
+    def process_output(self, next_state, reward, is_finale_state):
         self.samples.add_sample(self.last_state, self.last_value, self.last_action, self.last_action_log_prob, reward, is_finale_state)
         if is_finale_state:
             self.episodes_in_cur_batch += 1
         if self.episodes_in_cur_batch == self.hp['batch_episodes']:
-            self._learn()
+            self._learn(next_state)
             self.samples.clear_memory()
             self.learn_steps += 1
             self.episodes_in_cur_batch = 0
@@ -140,19 +143,20 @@ class PPO(GenericAgent):
                     param_group['lr'] *= self.hp['lr_decay']
                 self.reporter.add_costume_log("lr", self.learn_steps, self.optimizer.param_groups[0]['lr'])
 
-    def _learn(self):
+    def _learn(self, next_state):
         states, old_policy_values, old_policy_actions, old_policy_loggprobs, raw_rewards, is_next_state_terminals = self.samples.get_as_tensors(device)
         raw_rewards = np.array(raw_rewards)
 
         if self.curiosity is not None:
-            raw_rewards = 0
-            intrinsic_reward = self.curiosity.get_intrinsic_reward(states[:-1], states[1:], old_policy_actions[:-1])
+            combine_factor = 0.01
+            next_state = torch.from_numpy(next_state[None]).to(device).float()
+            next_states = torch.cat((states[1:], next_state), axis=0)
+            intrinsic_reward = self.curiosity.get_intrinsic_reward(states, next_states, old_policy_actions)
             self.reporter.add_costume_log("extrinsic_reward", self.num_actions, raw_rewards.mean())
-            raw_rewards[:-1] += intrinsic_reward
+            raw_rewards += combine_factor*(intrinsic_reward - raw_rewards)
             self.reporter.add_costume_log("curiosity_loss", self.num_actions, self.curiosity.get_last_debug_loss())
             self.reporter.add_costume_log("intrinsic_reward", self.num_actions, intrinsic_reward.mean())
 
-        self.running_stats.update(raw_rewards)
         advantages, rewards = GenerelizedAdvantageEstimate(self.hp['GAE'], old_policy_values, raw_rewards, is_next_state_terminals, self.hp['discount'], device, horizon=self.hp['horizon'])
         advantages = (advantages - advantages.mean()) / max(advantages.std(), 1e-6)
 

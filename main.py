@@ -2,7 +2,7 @@ import os
 from utils import loggers
 from Agents.AgentConfigs import *
 from Agents.AgentBuilder import build_agent
-from Enviroment.EnvBuilder import get_env_builder
+from Enviroment.EnvBuilder import get_env_builder, get_env_goal
 import train
 from opt import *
 import gym
@@ -46,7 +46,7 @@ if __name__ == '__main__':
 
         train_function = get_train_function(AGENT_NAME)
         train_function(env_builder, agent, progress_maneger, test_frequency=TEST_FREQ, test_episodes=TEST_EPISODES,
-                       save_videos=TEST_EPISODES)
+                       save_videos=SAVE_VIDEOS)
 
     else:
         # Test

@@ -30,14 +30,14 @@ class RunningStats(object):
     # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
     # https://github.com/openai/baselines/blob/master/baselines/common/running_mean_std.py
     def __init__(self, epsilon=1e-4, shape=()):
-        self.mean = np.zeros(shape, 'float64')
-        self.var = np.ones(shape, 'float64')
-        self.std = np.ones(shape, 'float64')
+        self.mean = torch.zeros(shape).float()
+        self.var = torch.ones(shape).float()
+        self.std = torch.ones(shape).float()
         self.count = epsilon
 
     def update(self, x):
-        batch_mean = np.mean(x, axis=0)
-        batch_var = np.var(x, axis=0)
+        batch_mean = torch.mean(x, dim=0)
+        batch_var = torch.var(x, dim=0)
         batch_count = x.shape[0]
         self.update_from_moments(batch_mean, batch_var, batch_count)
 
@@ -51,7 +51,7 @@ class RunningStats(object):
 
         self.mean = new_mean
         self.var = new_var
-        self.std = np.maximum(np.sqrt(self.var), 1e-6)
+        self.std = torch.clamp(torch.sqrt(self.var), 0, 1e-6)
         self.count = batch_count + self.count
 
 
