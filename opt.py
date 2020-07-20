@@ -12,4 +12,4 @@ ENV_NAME='BreakoutDeterministic-v4'
 AGENT_NAME='PPO'
 LOGGER_TYPE='plt'
 TRAIN=False
-WEIGHTS_FILE='/home/ariel/Desktop/time_ckp_70.001.pt'
+WEIGHTS_FILE=None
