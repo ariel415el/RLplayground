@@ -17,13 +17,16 @@ Agent are sorted by the the action space types they can work with: Discrete, Con
 
 # Enviroments
 ## CartPole
-- DQN
-- PG
+- All discrete agents
 ## Pendulum
 - TD3
+- PPO
 ## LunarLander
-- DQN
+- DQN: soved in ~320 epsiodes
+- PPO: soved in ~900 epsiodes
 ## LunarLanderContinuous
+- PPO: Agent can land but does'n larn to stop using throtle and get the final bonus 
+- DDPG: soved in ~900 epsiodes
 - TD3
 ## BipedalWalker: 
 - TD3: <img src=Trained_models/BipedalWalker-v3/TD3_lr%5B0.0003%5D_b%5B256%5D_tau%5B0.0050%5D_uf%5B2%5D/Episode-scores%20(1).png width="400">
@@ -34,6 +37,7 @@ Agent are sorted by the the action space types they can work with: Discrete, Con
 - DQN: <img src=Trained_models/PongNoFrameskip-v4/DobuleDQN-DuelingDqn-Dqn-lr%5B0.00008%5D_b%5B32%5D_lf%5B1%5D_uf%5B1000%5D/Episode-scores%20(3).png width="400">
 - PPO: <img src=Trained_models/PongNoFrameskip-v4/PPO_lr%5B0.0001%5D_b%5B8%5D_GAE%5B1.0%5D/Episode-scores_pong.png width="400">
 ## AtariBreakout
+- PPO: reaches currently ~150 score
 
 # Credits
 Credit to all those Github repository I aspired from. I consulted a lot of repositories in order while implementing the algorithms, defining architectures and finetuning hyperparameters
