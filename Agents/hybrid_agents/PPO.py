@@ -96,7 +96,9 @@ class PPO(GenericAgent):
             self.curiosity = None
         else:
             self.curiosity = ICM(self.state_dim[0], self.action_dim, **self.hp['curiosity_hp'])
-
+            from sklearn.preprocessing import StandardScaler
+            self.reward_scaler = RunningStats((1,), computation_module=np)
+            self.state_scaler = RunningStats(self.state_dim, computation_module=torch)
 
         self.name = 'PPO'
         if self.hp['curiosity_hp'] is not None:
@@ -149,10 +151,14 @@ class PPO(GenericAgent):
 
         if self.curiosity is not None:
             combine_factor = 0.01
+            self.reporter.add_costume_log("extrinsic_reward", self.num_actions, raw_rewards.mean())
+            self.reward_scaler.update(raw_rewards)
+            self.state_scaler.update(states)
+            raw_rewards = self.reward_scaler.scale(raw_rewards)
+            states = self.state_scaler.scale(states).float()
             next_state = torch.from_numpy(next_state[None]).to(device).float()
             next_states = torch.cat((states[1:], next_state), axis=0)
             intrinsic_reward = self.curiosity.get_intrinsic_reward(states, next_states, old_policy_actions)
-            self.reporter.add_costume_log("extrinsic_reward", self.num_actions, raw_rewards.mean())
             raw_rewards += combine_factor*(intrinsic_reward - raw_rewards)
             self.reporter.add_costume_log("curiosity_loss", self.num_actions, self.curiosity.get_last_debug_loss())
             self.reporter.add_costume_log("intrinsic_reward", self.num_actions, intrinsic_reward.mean())

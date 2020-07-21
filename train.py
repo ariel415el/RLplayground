@@ -110,6 +110,7 @@ def train_agent(env_generator, agent, progress_manager, test_frequency=250, test
             test_env.close()
             agent.train = True
 
+    agent.save_state(os.path.join(progress_manager.train_dir,"Final-weights.pth"))
     train_env.close()
 
 
