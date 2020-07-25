@@ -30,7 +30,7 @@ if __name__ == '__main__':
     # np.random.seed(SEED)
     # torch.manual_seed(SEED)
 
-    env_builder = get_env_builder(ENV_NAME, is_train=TRAIN)
+    env_builder = get_env_builder(ENV_NAME)
     hp = get_agent_configs(AGENT_NAME, ENV_NAME)
     agent = build_agent(AGENT_NAME, env_builder(), hp)
     if WEIGHTS_FILE:
@@ -50,7 +50,7 @@ if __name__ == '__main__':
 
     else:
         # Test
-        env = env_builder()
+        env = env_builder(test_config=True)
         env = gym.wrappers.Monitor(env, os.path.join(train_dir, "test"),
                             video_callable=lambda episode_id: True, force=True)
         score = train.test(env, agent, TEST_EPISODES, render=True)

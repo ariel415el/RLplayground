@@ -9,7 +9,6 @@ TEST_FREQ=500
 TEST_EPISODES=1
 SAVE_VIDEOS=True
 ENV_NAME="BreakoutNoFrameskip-v4"
-ENV_NAME="CartPole-v1"
 # AGENT_NAME='PPOParallel'
 AGENT_NAME='PPO'
 LOGGER_TYPE='tensorboard'

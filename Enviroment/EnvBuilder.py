@@ -11,20 +11,27 @@ env_goals = {"CartPole-v1":195, "Acrobot-v1":-80, "MountainCar-v0":-110, "Pendul
 
 class env_builder(object):
     """Make a factory from the function and arguments that creates an enviroment"""
-    def __init__(self,constructor, args):
+    def __init__(self,constructor, train_args, test_args=None):
         self.constructor = constructor
-        self.args = args
-    def __call__(self):
-        return self.constructor(**self.args)
+        self.train_args = train_args
+        self.test_args = train_args if test_args is None else test_args
+    def __call__(self, test_config=True):
+        if test_config:
+            return self.constructor(**self.test_args)
+        else:
+            return self.constructor(**self.train_args)
 
 # class EnvProcess(object)
 
-def get_env_builder(env_name, is_train=True):
+def get_env_builder(env_name):
     if env_name == "PongNoFrameskip-v4":
-        return env_builder(get_atari_env, {'env_name':env_name, 'frame_stack':1, 'episode_life':is_train})
+        return env_builder(get_atari_env, {'env_name':env_name, 'frame_stack':1})
     elif env_name == "BreakoutNoFrameskip-v4" or env_name == "BreakoutDeterministic-v4":
-        return env_builder(get_atari_env, {'env_name':env_name,'frame_stack':4, 'use_lazy_frames':False, 'clip_rewards': False,
-                                           'episode_life':is_train, 'no_op_reset':False, 'disable_noop':True})
+        train_args = {'env_name':env_name,'frame_stack':4, 'use_lazy_frames':False, 'clip_rewards': False,
+                                           'episode_life':True, 'no_op_reset':False, 'disable_noop':True}
+        test_args = train_args.copy()
+        test_args['episode_life'] = False
+        return env_builder(get_atari_env, train_args, test_args)
     elif "SuperMarioBros" in env_name:
         return env_builder(get_super_mario_env, {'env_name':env_name})
     elif "MiniGrid" in env_name:

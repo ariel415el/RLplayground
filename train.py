@@ -99,7 +99,7 @@ def train_agent(env_generator, agent, progress_manager, test_frequency=250, test
 
         # Test model
         if (progress_manager.episodes_done+1) % test_frequency == 0:
-            test_env = env_generator()
+            test_env = env_generator(test_config=True)
             if save_videos:
                 test_env = gym.wrappers.Monitor(test_env, os.path.join(progress_manager.train_dir, "test_%d" % (progress_manager.episodes_done+1)), video_callable=lambda episode_id: True, force=True)
                 test_score = test(test_env, agent, test_episodes)
