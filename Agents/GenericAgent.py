@@ -19,11 +19,5 @@ class GenericAgent(object):
     def get_stats(self):
         raise NotImplementedError
 
-    def train(self):
-        self.train = True
-
-    def eval(self):
-        self.train = False
-
     def set_reporter(self, reporter):
          self.reporter = reporter

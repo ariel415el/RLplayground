@@ -45,6 +45,11 @@ class RunningStats(object):
         batch_count = x.shape[0]
         self.update_from_moments(batch_mean, batch_var, batch_count)
 
+        if self.computation_module == np:
+            self.std = np.maximum(np.sqrt(self.var), 1e-6)
+        else:
+            self.std = torch.clamp(torch.sqrt(self.var), 1e-6, np.inf)
+
     def update_from_moments(self, batch_mean, batch_var, batch_count):
         delta = batch_mean - self.mean
         new_mean = self.mean + delta * batch_count / (self.count + batch_count)
@@ -55,10 +60,6 @@ class RunningStats(object):
 
         self.mean = new_mean
         self.var = new_var
-        if self.computation_module == np:
-            self.std = np.maximum(np.sqrt(self.var), 1e-6)
-        else:
-            self.std = torch.clamp(torch.sqrt(self.var), 0, 1e-6)
         self.count = batch_count + self.count
 
 

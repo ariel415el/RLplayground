@@ -36,26 +36,21 @@ class Inverse_module(nn.Module):
         return self.layers(input)
 
 class ICM_module(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_dim, activation=nn.ReLU(inplace=True)):
+    def __init__(self, state_encoder, action_dim, activation=nn.ReLU(inplace=True)):
         super(ICM_module, self).__init__()
-        self.state_feature_extractor = nn.Sequential(nn.Linear(state_dim, hidden_dim),
-                                                     activation,
-                                                     nn.Linear(hidden_dim, hidden_dim),
-                                                     activation,
-                                                     nn.Linear(hidden_dim, hidden_dim)
-                                                     )
-        self.inverse_module = Inverse_module(action_dim, hidden_dim, activation)
-        self.forward_module = Forward_module(action_dim, hidden_dim, activation)
+        self.state_feature_extractor = state_encoder
+        self.inverse_module = Inverse_module(action_dim, state_encoder.features_space, activation)
+        self.forward_module = Forward_module(action_dim, state_encoder.features_space, activation)
 
 
 class ICM(object):
-    def __init__(self, state_dim, action_dim, hidden_dim=128, lr=0.001, intrinsic_reward_scale=1.0, beta=0.2):
+    def __init__(self, state_encoder, action_dim, lr=0.001, intrinsic_reward_scale=1.0, beta=0.2):
         super(ICM, self).__init__()
         self.action_dim = action_dim
         self._beta = beta
         self._intrinsic_reward_scale = intrinsic_reward_scale
         self.cross_entropy_loss = nn.CrossEntropyLoss()
-        self.module = ICM_module(state_dim, action_dim, hidden_dim, activation=nn.ReLU())
+        self.module = ICM_module(state_encoder, action_dim, activation=nn.ReLU())
         self.curiosity_optimizer = torch.optim.Adam(self.module.parameters(), lr=lr)
 
     def get_intrinsic_reward(self, states, next_states, actions):

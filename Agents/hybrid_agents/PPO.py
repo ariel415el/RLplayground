@@ -53,7 +53,6 @@ class PPO(GenericAgent):
         super(PPO, self).__init__(train)
         self.state_dim = state_dim
         self.action_dim = action_dim
-        self.train= train
         self.hp = {
             'batch_episodes':3,
             'horizon':None,
@@ -95,7 +94,14 @@ class PPO(GenericAgent):
         if self.hp['curiosity_hp'] is None:
             self.curiosity = None
         else:
-            self.curiosity = ICM(self.state_dim[0], self.action_dim, **self.hp['curiosity_hp'])
+            fe_layers = self.hp['curiosity_hp'].pop('fe_layers')
+            if len(self.state_dim) > 1:
+                feature_extractor = ConvNetFeatureExtracor(self.state_dim[0], fe_layers)
+            else:
+                feature_extractor = LinearFeatureExtracor(self.state_dim[0], fe_layers,
+                                                          batch_normalization=False,
+                                                          activation=nn.ReLU())
+            self.curiosity = ICM(feature_extractor, self.action_dim, **self.hp['curiosity_hp'])
             from sklearn.preprocessing import StandardScaler
             self.reward_scaler = RunningStats((1,), computation_module=np)
             self.state_scaler = RunningStats(self.state_dim, computation_module=torch)
@@ -131,35 +137,40 @@ class PPO(GenericAgent):
         return output_action
 
     def process_output(self, next_state, reward, is_finale_state):
-        self.samples.add_sample(self.last_state, self.last_value, self.last_action, self.last_action_log_prob, reward, is_finale_state)
-        if is_finale_state:
-            self.episodes_in_cur_batch += 1
-        if self.episodes_in_cur_batch == self.hp['batch_episodes']:
-            self._learn(next_state)
-            self.samples.clear_memory()
-            self.learn_steps += 1
-            self.episodes_in_cur_batch = 0
+        if self.train:
+            self.samples.add_sample(self.last_state, self.last_value, self.last_action, self.last_action_log_prob, reward, is_finale_state)
+            if is_finale_state:
+                self.episodes_in_cur_batch += 1
+            if self.episodes_in_cur_batch == self.hp['batch_episodes']:
+                self._learn(next_state)
+                self.samples.clear_memory()
+                self.learn_steps += 1
+                self.episodes_in_cur_batch = 0
 
-            if (self.learn_steps+1) % 10 == 0:
-                for param_group in self.optimizer.param_groups:
-                    param_group['lr'] *= self.hp['lr_decay']
-                self.reporter.add_costume_log("lr", self.learn_steps, self.optimizer.param_groups[0]['lr'])
+                if (self.learn_steps+1) % 10 == 0:
+                    for param_group in self.optimizer.param_groups:
+                        param_group['lr'] *= self.hp['lr_decay']
+                    self.reporter.add_costume_log("lr", self.learn_steps, self.optimizer.param_groups[0]['lr'])
 
     def _learn(self, next_state):
         states, old_policy_values, old_policy_actions, old_policy_loggprobs, raw_rewards, is_next_state_terminals = self.samples.get_as_tensors(device)
         raw_rewards = np.array(raw_rewards)
 
         if self.curiosity is not None:
-            combine_factor = 0.01
             self.reporter.add_costume_log("extrinsic_reward", self.num_actions, raw_rewards.mean())
+            combine_factor = 1.0
             self.reward_scaler.update(raw_rewards)
             self.state_scaler.update(states)
             raw_rewards = self.reward_scaler.scale(raw_rewards)
             states = self.state_scaler.scale(states).float()
+            # raw_rewards = (raw_rewards - raw_rewards.mean()) / max(raw_rewards.std(), 1e-6)
+            # states = (states - states.mean(0)) / torch.clamp(states.std(0), 1e-6, np.inf)
+
             next_state = torch.from_numpy(next_state[None]).to(device).float()
             next_states = torch.cat((states[1:], next_state), axis=0)
             intrinsic_reward = self.curiosity.get_intrinsic_reward(states, next_states, old_policy_actions)
             raw_rewards += combine_factor*(intrinsic_reward - raw_rewards)
+            self.reporter.add_costume_log("combined_reward", self.num_actions, raw_rewards.mean())
             self.reporter.add_costume_log("curiosity_loss", self.num_actions, self.curiosity.get_last_debug_loss())
             self.reporter.add_costume_log("intrinsic_reward", self.num_actions, intrinsic_reward.mean())
 
@@ -203,7 +214,7 @@ class PPO(GenericAgent):
 
                 self.reporter.add_costume_log("actor_loss", None, actor_loss.mean().item())
                 self.reporter.add_costume_log("critic_loss", None, critic_loss.mean().item())
-                self.reporter.add_costume_log("dist_entropy", None, -exploration_loss.mean().item())
+                self.reporter.add_costume_log("dist_entropy", None, dists.entropy().mean().item())
                 self.reporter.add_costume_log("ratios", None, ratios.mean().item())
                 self.reporter.add_costume_log("values", None, values.mean().item())
                 # self.reporter.add_histogram("actions", old_policy_actions_batch.cpu().numpy().reshape(-1))

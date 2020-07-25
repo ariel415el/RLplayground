@@ -53,5 +53,5 @@ if __name__ == '__main__':
         env = env_builder()
         env = gym.wrappers.Monitor(env, os.path.join(train_dir, "test"),
                             video_callable=lambda episode_id: True, force=True)
-        score = train.test(env, agent, 3, render=True)
-        print("Avg reward over %d episodes: %f"%(3, score))
+        score = train.test(env, agent, TEST_EPISODES, render=True)
+        print("Avg reward over %d episodes: %f"%(TEST_EPISODES, score))

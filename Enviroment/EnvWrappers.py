@@ -63,16 +63,32 @@ class FireResetEnv(gym.Wrapper):
 
     def reset(self, **kwargs):
         self.env.reset(**kwargs)
-        obs, _, done, _ = self.env.step(1)
-        if done:
-            self.env.reset(**kwargs)
-        obs, _, done, _ = self.env.step(2)
-        if done:
-            self.env.reset(**kwargs)
+        obs, _, _, _ = self.env.step(1)
         return obs
 
     def step(self, ac):
         return self.env.step(ac)
+
+class FireAtLostLife(gym.Wrapper):
+    """This wrapper ensures fire it the first action after each lost of life which is necessary to play the game
+        This is crucial when the training was done in episodic life with fire reset but test is on full game
+    """
+    def __init__(self, env):
+        self.lives = 0
+        gym.Wrapper.__init__(self, env)
+
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        lives = self.env.unwrapped.ale.lives()
+        if lives < self.lives:
+            obs, reward, done, info = self.env.step(1) # hit Fire
+        self.lives = lives
+        return obs, reward, done, info
+
+    def reset(self, **kwargs):
+        obs = self.env.reset(**kwargs)
+        self.lives = self.env.unwrapped.ale.lives()
+        return obs
 
 
 class EpisodicLifeEnv(gym.Wrapper):
@@ -107,17 +123,12 @@ class EpisodicLifeEnv(gym.Wrapper):
         This way all states are still reachable even though lives are episodic,
         and the learner need not know about any of this behind-the-scenes.
         """
-        if self.is_atari:
-            self.lives = self.env.unwrapped.ale.lives()
+        self.lives = self.env.unwrapped.ale.lives()
         if self.was_real_done:
             obs = self.env.reset(**kwargs)
-            if not self.is_atari: # For mariobros
-                self.lives = 3 # this is for mariobros
         else:
             # no-op step to advance from terminal/lost life state
             obs, _, _, info = self.env.step(0)
-            if not self.is_atari: # For mariobros
-                self.lives = info['life']
         return obs
 
 
@@ -163,11 +174,11 @@ class ClipRewardEnv(gym.RewardWrapper):
 
 
 class WarpFrame(gym.ObservationWrapper):
-    def __init__(self, env):
+    def __init__(self, env, width=84, height=84):
         """Warp frames to 84x84 as done in the Nature paper and later work."""
         gym.ObservationWrapper.__init__(self, env)
-        self.width = 84
-        self.height = 84
+        self.width = width
+        self.height = height
         self.observation_space = spaces.Box(low=0, high=255,
                                             shape=(1, self.height, self.width), dtype=np.uint8)
 
@@ -249,8 +260,12 @@ def get_atari_env(env_name, episode_life=False, clip_rewards=False, frame_stack=
         raise Exception("Atari Enviroment should be deterministic")
     if episode_life:
         env = EpisodicLifeEnv(env)
-    if 'FIRE' in env.unwrapped.get_action_meanings():
-        env = FireResetEnv(env)
+        if 'FIRE' in env.unwrapped.get_action_meanings():
+            env = FireResetEnv(env)
+    else:
+        if 'FIRE' in env.unwrapped.get_action_meanings():
+            env = FireAtLostLife(env)
+
     env = WarpFrame(env)
     if scale:
         env = ScaledFloatFrame(env)  # Disables memory optimization

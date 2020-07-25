@@ -49,8 +49,8 @@ class train_progress_manager(object):
 
 def train_agent_multi_env(env_builder, agent, progress_manager, test_frequency=250, test_episodes=1, save_videos=False):
     """Train agent that can train with multiEnv objects"""
-    multi_env = MultiEnviroment(env_builder, agent.hp['concurrent_epsiodes'])
-    # multi_env = MultiEnviromentSync(env_builder, agent.hp['concurrent_epsiodes'])
+    # multi_env = MultiEnviroment(env_builder, agent.hp['concurrent_epsiodes'])
+    multi_env = MultiEnviromentSync(env_builder, agent.hp['concurrent_epsiodes'])
     total_scores = [0 for _ in range(agent.hp['concurrent_epsiodes'])]
     total_lengths = [0 for _ in range(agent.hp['concurrent_epsiodes'])]
     states = multi_env.get_initial_state()
@@ -99,7 +99,6 @@ def train_agent(env_generator, agent, progress_manager, test_frequency=250, test
 
         # Test model
         if (progress_manager.episodes_done+1) % test_frequency == 0:
-            agent.train = False
             test_env = env_generator()
             if save_videos:
                 test_env = gym.wrappers.Monitor(test_env, os.path.join(progress_manager.train_dir, "test_%d" % (progress_manager.episodes_done+1)), video_callable=lambda episode_id: True, force=True)
@@ -108,7 +107,6 @@ def train_agent(env_generator, agent, progress_manager, test_frequency=250, test
                 test_score = test(test_env, agent, test_episodes)
             progress_manager.report_test(test_score)
             test_env.close()
-            agent.train = True
 
     agent.save_state(os.path.join(progress_manager.train_dir,"Final-weights.pth"))
     train_env.close()
@@ -131,9 +129,11 @@ def run_episode(env, agent, render=False):
 
 
 def test(env,  actor, test_episodes=1, render=False):
+    actor.train = False
     episodes_total_rewards = []
     for i in range(test_episodes):
         episode_scores = run_episode(env, actor,render)
         episodes_total_rewards += [np.sum(episode_scores)]
     score = np.mean(episodes_total_rewards)
+    actor.train = True
     return score

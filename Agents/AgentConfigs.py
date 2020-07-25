@@ -34,17 +34,18 @@ def get_agent_configs(agent_name, env_name):
             "DQN": {'lr': 0.0005, "min_playback": 0, "max_playback": 1000000, "update_freq": 100,
                     'hiden_layer_size': 64,
                     'epsilon_decay': 500, 'batch_size': 128, 'lr_decay': 0.9999},
-            "PPO": {'lr': 0.0001, "discount": 0.99, 'lr_decay': 0.999, 'batch_episodes': 1, 'epochs': 3,
-                    'fe_layers': [64, 64], 'model_layers':[32,32],
-                    'minibatch_size': 128, 'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None, 'grad_clip': 0.5,
+            "PPO": {'lr': 0.0001, "discount": 0.99, 'lr_decay': 0.999, 'batch_episodes': 5, 'epochs': 3,
+                    'fe_layers': [64, 64], 'model_layers':[],
+                    'minibatch_size': 128, 'GAE': 0.95, 'epsilon_clip': 0.2, 'value_clip': 0.2, 'grad_clip': 0.5,
                     'entropy_weight': 0.01,
-                    'curiosity_hp': {'intrinsic_reward_scale': 0.01, 'hidden_dim': 128, 'lr': 0.001}
-
+                    'curiosity_hp': {'intrinsic_reward_scale': 0.01, 'lr': 0.001, 'fe_layers': [128, 128, 128]}
                     },
-            "PPOParallel": {'lr': 0.002, 'lr_decay': 0.9999, 'concurrent_epsiodes': 16, 'horizon': 200, 'epochs': 3,
-                            'minibatch_size': 100,
+            "PPOParallel": {'lr': 0.002, 'lr_decay': 0.9999, 'concurrent_epsiodes': 16, 'horizon': 256, 'epochs': 3,
+                            'minibatch_size': 32,
                             'GAE': 0.95, 'epsilon_clip': 0.2, 'value_clip': 0.2, 'grad_clip': 0.5,
-                            'fe_layers': [64, 64], 'model_layers': [64]},
+                            'fe_layers': [64, 64], 'model_layers': [],
+                            'curiosity_hp': {'intrinsic_reward_scale': 0.01, 'hidden_dim': 128, 'lr': 0.001}
+                            }
         }
     elif env_name == "Pendulum-v0":
         agent_configs = {
@@ -119,7 +120,7 @@ def get_agent_configs(agent_name, env_name):
             "DQN": {'lr': 0.00001, "min_playback": 50000, "max_playback": 1000000, "update_freq": 10000,
                     'learn_freq': 4,
                     "normalize_state": True, 'epsilon_decay': 5000000},
-            "PPO": {'lr': 0.00025, 'lr_decay': 0.9999, 'batch_episodes': 4, 'epochs': 3, 'minibatch_size': 32,
+            "PPO": {'lr': 0.00025, 'lr_decay': 0.9999, 'batch_episodes': 4, 'epochs': 3, 'minibatch_size': 512,
                     'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None,
                     'grad_clip': 0.5, 'entropy_weight': 0.01, 'fe_layers': [512, 512], 'model_layers': [],
                     'horizon': None},
@@ -146,8 +147,10 @@ def get_agent_configs(agent_name, env_name):
         agent_configs = {
             "DQN": {'lr': 0.0001, 'batch_size': 1, 'learn_freq': 9999999, "min_playback": 1000, "max_playback": 100000,
                     "update_freq": 1000, 'hiden_layer_size': 16, "normalize_state": True, 'epsilon_decay': 30000},
-            "PPO": {'lr': 0.0001, 'batch_episodes': 8, 'epochs': 4, 'GAE': 1.0, 'epsilon_clip': 0.2, 'value_clip': None,
-                    'grad_clip': None, 'entropy_weight': 0.01, 'hidden_dims': [400, 200]},
+            "PPO": {'lr': 0.00025, 'lr_decay': 0.9999, 'batch_episodes': 4, 'epochs': 3, 'minibatch_size': 1024,
+                    'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None,
+                    'grad_clip': 0.5, 'entropy_weight': 0.01, 'fe_layers': [512, 512], 'model_layers': [128],
+                    'horizon': None},
         }
 
     else:

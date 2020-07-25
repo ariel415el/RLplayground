@@ -4,7 +4,7 @@ from Enviroment.EnvWrappers import get_atari_env, get_super_mario_env, get_grid_
 """Holds the target score of each available enviroment"""
 env_goals = {"CartPole-v1":195, "Acrobot-v1":-80, "MountainCar-v0":-110, "Pendulum-v0":-200, "LunarLander-v2":200,
              "LunarLanderContinuous-v2": 200, "BipedalWalker-v3":300, "BipedalWalkerHardcore-v3":300,
-             "PongNoFrameskip-v4":20, "BreakoutNoFrameskip-v4":200, 'BreakoutDeterministic-v4':200,
+             "PongNoFrameskip-v4":20, "BreakoutNoFrameskip-v4":60, 'BreakoutDeterministic-v4':60,
              'AntPyBulletEnv-v0':6000, "Walker2DMuJoCoEnv-v0":6000, 'HumanoidMuJoCoEnv-v0':6000, 'HalfCheetahMuJoCoEnv-v0':6000,
              'SuperMarioBros-1':5000, 'SuperMarioBros-v2':5000, 'SuperMarioBros-v3':5000,
              "MiniGrid-FourRooms-v0":10}

@@ -53,6 +53,8 @@ class PPOParallel(GenericAgent):
             self.curiosity = None
         else:
             self.curiosity = ICM(self.state_dim[0], self.action_dim, **self.hp['curiosity_hp'])
+            self.reward_scaler = RunningStats((1,), computation_module=torch)
+            self.state_scaler = RunningStats(self.state_dim, computation_module=torch)
 
         self.name = 'PPO-Parallel'
         if self.hp['curiosity_hp'] is not None:
@@ -132,15 +134,19 @@ class PPOParallel(GenericAgent):
 
     def _create_lerning_data(self):
         if self.curiosity is not None:
+            combine_factor = 0.01
+            # self.reward_scaler.update(self.rewards_memory.reshape())
+            # self.state_scaler.update(self.states_memory)
+            # self.rewards_memory = self.reward_scaler.scale(self.rewards_memory)
+            # self.states_memory = self.state_scaler.scale(self.states_memory).float()
+
             cur_states = self.states_memory[:, :-1]
             next_states = self.states_memory[:, 1:]
-            raw_rewards = 0
-            intrinsic_reward = self.curiosity.get_intrinsic_reward(cur_states, next_states, self.actions_memory)
-            self.reporter.add_costume_log("extrinsic_reward", self.num_actions, raw_rewards.mean())
-            raw_rewards[:-1] += intrinsic_reward
-            self.reporter.add_costume_log("curiosity_loss", self.num_actions, self.curiosity.get_last_debug_loss())
-            self.reporter.add_costume_log("intrinsic_reward", self.num_actions, intrinsic_reward.mean())
-
+            intrinsic_reward = self.curiosity.get_intrinsic_reward(cur_states.view(-1,2), next_states.view(-1,2), self.actions_memory.view(-1,1))
+            self.rewards_memory += combine_factor*(intrinsic_reward - self.rewards_memory)
+            self.reporter.add_costume_log("curiosity_loss", self.num_steps, self.curiosity.get_last_debug_loss())
+            self.reporter.add_costume_log("intrinsic_reward", self.num_steps, intrinsic_reward.mean())
+            self.reporter.add_costume_log("extrinsic_reward", self.num_steps, self.rewards_memory.mean())
 
         cur_values = self.values_memory[:,:-1]
         next_values = self.values_memory[:,1:]

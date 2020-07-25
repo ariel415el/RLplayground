@@ -61,22 +61,28 @@ class logger(object):
 
 class TB_logger(logger):
     """Outputs progress with tensorboard"""
-    def __init__(self, k, log_frequency, logdir):
-        super(TB_logger, self).__init__(k, log_frequency, logdir)
+    def __init__(self, log_frequency, logdir):
+        super(TB_logger, self).__init__(log_frequency, logdir)
         from tensorboardX import SummaryWriter
         self.tb_writer = SummaryWriter(os.path.join(logdir,'tensorboard'))
+        self.costume_log_global_steps = {} # TODO do this in another way
 
-    def update_agent_stats(self, name, x, y):
-        self.tb_writer.add_scalar(name, torch.tensor(y), global_step=x)
+    def add_costume_log(self, name, x, y):
+        if x is None:
+            if name not in self.costume_log_global_steps:
+                self.costume_log_global_steps[name] = 0
+            x = self.costume_log_global_steps[name]
+            self.costume_log_global_steps[name] += 1
+        self.tb_writer.add_scalar(os.path.join("Agent",name), torch.tensor(y), global_step=x)
 
     def log_episode(self, episode_score, score_scope_score,  episode_length):
         super(TB_logger, self).log_episode(episode_score, score_scope_score,  episode_length)
 
-        self.tb_writer.add_scalars('Episode_score',{"Score": torch.tensor(episode_score),
+        self.tb_writer.add_scalars('Env/Episode_score',{"Score": torch.tensor(episode_score),
                                                    'score-scope-avg': torch.tensor(score_scope_score)},
                                   global_step=self.done_episodes)
 
-        self.tb_writer.add_scalar('Episode-Length', torch.tensor(episode_length),
+        self.tb_writer.add_scalar('Env/Episode-Length', torch.tensor(episode_length),
                                   global_step=self.done_episodes)
 
 class plt_logger(logger):
