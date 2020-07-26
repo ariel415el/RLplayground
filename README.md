@@ -38,7 +38,8 @@ Agent are sorted by the the action space types they can work with: Discrete, Con
 - PPO: <img src=Trained_models/PongNoFrameskip-v4/PPO_lr%5B0.0001%5D_b%5B8%5D_GAE%5B1.0%5D/Episode-scores_pong.png width="400">
 ## AtariBreakout
 
-- PPO: <img src=Trained_models/BreakoutNoFrameskip-v4/PPO_lr%5B0.00050%5D_b%5B4%5D_GAE%5B0.95%5D_ec%5B0.1%5D_fl-%5B512%2C%20512%5D_ml-%5B%5D_gc%5B0.5%5D/Episode-scores.png width="400">
+- PPO: <img src=Trained_models/BreakoutNoFrameskip-v4/PPO_lr%5B0.00050%5D_b%5B4%5D_GAE%5B0.95%5D_ec%5B0.1%5D_fl-%5B512%2C%20512%5D_ml-%5B%5D_gc%5B0.5%5D/Episode-scores.png width="400"> <img src=Trained_models/BreakoutNoFrameskip-v4/PPO_lr%5B0.00050%5D_b%5B4%5D_GAE%5B0.95%5D_ec%5B0.1%5D_fl-%5B512%2C%20512%5D_ml-%5B%5D_gc%5B0.5%5D/cherry_picked_videos/gif1gif width="200" />
+
 
 # Credits
 Credit to all those Github repository I aspired from. I consulted a lot of repositories in order while implementing the algorithms, defining architectures and finetuning hyperparameters
