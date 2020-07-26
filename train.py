@@ -4,6 +4,7 @@ import numpy as np
 from time import time
 from collections import deque
 from Enviroment.MultiEnvs import MultiEnviroment, MultiEnviromentSync
+from gym import wrappers
 
 class train_progress_manager(object):
     """This object is responsible of monitoring train progress, logging results"""

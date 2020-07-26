@@ -15,7 +15,7 @@ class env_builder(object):
         self.constructor = constructor
         self.train_args = train_args
         self.test_args = train_args if test_args is None else test_args
-    def __call__(self, test_config=True):
+    def __call__(self, test_config=False):
         if test_config:
             return self.constructor(**self.test_args)
         else:
@@ -35,7 +35,7 @@ def get_env_builder(env_name):
     elif "SuperMarioBros" in env_name:
         return env_builder(get_super_mario_env, {'env_name':env_name})
     elif "MiniGrid" in env_name:
-        return env_builder(get_grid_maze_env, {'env_name':env_name})
+        return env_builder(get_grid_maze_env, {'env_name':env_name, 'image_obs':False})
     else:
         return env_builder(gym.make, {'id':env_name})
 

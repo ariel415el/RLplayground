@@ -6,6 +6,7 @@ from Enviroment.EnvBuilder import get_env_builder, get_env_goal
 import train
 from opt import *
 import gym
+from gym import wrappers
 
 def get_train_function(agent_name):
     if agent_name == "PPOParallel":
@@ -51,7 +52,7 @@ if __name__ == '__main__':
     else:
         # Test
         env = env_builder(test_config=True)
-        env = gym.wrappers.Monitor(env, os.path.join(train_dir, "test"),
+        env = wrappers.Monitor(env, os.path.join(train_dir, "test"),
                             video_callable=lambda episode_id: True, force=True)
         score = train.test(env, agent, TEST_EPISODES, render=True)
         print("Avg reward over %d episodes: %f"%(TEST_EPISODES, score))

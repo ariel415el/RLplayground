@@ -5,7 +5,7 @@
 import random
 import os
 from Agents.dnn_models import *
-from utils.utils import update_net
+from utils.utils import update_net, safe_update_dict
 from utils.replay_memory import ListMemory, PrioritizedListMemory
 import copy
 from torch import nn
@@ -136,26 +136,26 @@ class DQN_agent(GenericAgent):
             'min_playback' : 50000,
             'epsilon': 1.0,
             'epsilon_decay' : 500,
-            'hiden_layer_size' : 512,
+            'fe_layers':[64],
+            'model_layer':64,
             'normalize_state':False
         }
-        if hp is not None:
-            self.hp.update(hp)
+        safe_update_dict(self.hp, hp)
+
 
         self.action_counter = 0
         self.gs_num=0
 
         if len(self.state_dim) > 1:
-            feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
+            feature_extractor = ConvNetFeatureExtracor(self.state_dim, self.hp['fe_layers'])
         else:
-            feature_extractor = LinearFeatureExtracor(self.state_dim[0], 64)
+            feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['fe_layers'])
         if self.dueling_dqn:
-            self.trainable_model = DuelingDQN(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
+            self.trainable_model = DuelingDQN(feature_extractor, self.action_dim, self.hp['model_layer']).to(device)
         elif self.noisy_MLP:
-            self.trainable_model = NoisyMLP(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
+            self.trainable_model = NoisyMLP(feature_extractor, self.action_dim, self.hp['model_layer']).to(device)
         else:
-            self.trainable_model = LinearClassifier(feature_extractor, self.action_dim, self.hp['hiden_layer_size']).to(device)
-            # self.trainable_model = new_DuelingDQN(self.state_dim[0]).to(device)
+            self.trainable_model = LinearClassifier(feature_extractor, self.action_dim, self.hp['model_layer']).to(device)
 
 
         if self.prioritized_memory:
@@ -184,7 +184,7 @@ class DQN_agent(GenericAgent):
 
     def _get_cur_epsilon(self):
         cur_epsilon = self.hp['min_epsilon'] + (self.hp['epsilon'] - self.hp['min_epsilon']) * np.exp(-1. * self.action_counter / self.hp['epsilon_decay'])
-        self.reporter.update_agent_stats("Epsilon", self.action_counter, cur_epsilon)
+        self.reporter.add_costume_log("Epsilon", self.action_counter, cur_epsilon)
         return cur_epsilon
 
     def process_new_state(self, state):
@@ -212,7 +212,7 @@ class DQN_agent(GenericAgent):
         if self.hp['lr_decay'] < 1 and (self.gs_num + 1) % 10 == 0:
             for param_group in self.optimizer.param_groups:
                 param_group['lr'] *= self.hp['lr_decay']
-            self.reporter.update_agent_stats("lr", self.action_counter, self.optimizer.param_groups[0]['lr'])
+            self.reporter.add_costume_log("lr", self.action_counter, self.optimizer.param_groups[0]['lr'])
 
     def _learn(self):
         if len(self.playback_memory) >= max(self.hp['min_playback'], self.hp['batch_size']) and self.action_counter % self.hp['learn_freq'] == 0:
@@ -261,7 +261,7 @@ class DQN_agent(GenericAgent):
                 self.trainable_model.reset_noise()
                 self.target_model.reset_noise()
 
-            self.reporter.update_agent_stats("Loss", self.action_counter, loss.item())
+            self.reporter.add_costume_log("Loss", self.action_counter, loss.item())
 
     def load_state(self, path):
         if os.path.exists(path):

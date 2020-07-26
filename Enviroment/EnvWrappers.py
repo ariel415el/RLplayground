@@ -293,10 +293,21 @@ def get_super_mario_env(env_name,simple_actions=True):
     return env
 
 
+class channels_first(gym.core.ObservationWrapper):
+    def __init__(self, env):
+        gym.core.ObservationWrapper.__init__(self, env)
+        shape = self.observation_space.shape
+        self.observation_space = spaces.Box(low=0, high=255, shape=(shape[2], shape[0], shape[1]), dtype=np.uint8)
+
+    def observation(self, observation):
+        return observation.transpose(2,0,1)
+
 def get_grid_maze_env(env_name, image_obs=True):
     import gym_minigrid
     env = gym.make(env_name) # state is observable 7x7
     if image_obs:
         env = gym_minigrid.wrappers.RGBImgPartialObsWrapper(env)  # Get pixel (image) observations instead of categorical 7x7
+    env = gym_minigrid.wrappers.OneHotPartialObsWrapper(env)  # Get rid of the 'mission' field
     env = gym_minigrid.wrappers.ImgObsWrapper(env)  # Get rid of the 'mission' field
+    env = channels_first(env)
     return env

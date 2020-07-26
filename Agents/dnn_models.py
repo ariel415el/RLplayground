@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import torch.distributions as D
+from math import ceil
+
 
 class Swish(nn.Module):
     def forward(self, x):
@@ -78,31 +80,42 @@ class LinearFeatureExtracor(nn.Module):
 
         return self.layers(x)
 
+def conv_out_dim(dim, k, s):
+    return ceil((dim-k+1) / s)
 
 class ConvNetFeatureExtracor(nn.Module):
+    """
+    A 2d image feature extractor from convolution layers followed by optional fc layers
+    default parameters are the ones used for Atari Breakout
+    """
     ## Assumes input is input_channelsx84x84
-    def __init__(self, input_channels, additional_layers):
+    def __init__(self, input_shape, fe_layers):
         super(ConvNetFeatureExtracor, self).__init__()
-        self.conv1 = nn.Conv2d(input_channels, 32, kernel_size=8, stride=4)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
-        self.cnn_out = 64*7*7
-
         layers = []
-        self.features_space = self.cnn_out
-        for layer_size in additional_layers:
-            layers += [nn.Linear(self.features_space, layer_size), nn.ReLU()]
-            self.features_space = layer_size
+        input_channels = input_shape[0]
+        out_shape = input_shape
+        for t in fe_layers:
+            if type(t) == tuple:
+                layers += [nn.Conv2d(input_channels, t[0], kernel_size=t[1], stride=t[2]), nn.ReLU()]
+                input_channels = t[0]
+                out_shape = (t[0], conv_out_dim(out_shape[1], t[1], t[2]), conv_out_dim(out_shape[2], t[1], t[2]))
+        self.cnn_out_dim = out_shape[0] * out_shape[1] * out_shape[2]
+        self.conv_head = nn.Sequential(*layers)
+
+        self.features_space = self.cnn_out_dim
+        layers = []
+        for t in fe_layers:
+            if type(t) == int:
+                layers += [nn.Linear(self.features_space, t), nn.ReLU()]
+                self.features_space = t
+
         self.post_cnn = nn.Sequential(*layers)
 
     def forward(self, x):
-        x = nn.functional.relu(self.conv1(x))
-        x = nn.functional.relu(self.conv2(x))
-        x = nn.functional.relu(self.conv3(x))
-        x = x.view(-1, self.cnn_out)
+        x = self.conv_head(x)
+        x = x.view(-1, self.cnn_out_dim)
         x = self.post_cnn(x)
         return x
-
 
 class DiscreteActor(nn.Module):
     def __init__(self, input_space, action_dim, hidden_layers, activation=nn.ReLU()):
