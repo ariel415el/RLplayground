@@ -22,8 +22,8 @@ Agent are sorted by the the action space types they can work with: Discrete, Con
 - TD3
 - PPO
 ## LunarLander
-- DQN: soved in ~320 epsiodes
-- PPO: soved in ~900 epsiodes
+- DQN: <img src=Trained_models/LunarLander-v2/DobuleDQN-Dqn-lr%5B0.00100%5D_b%5B32%5D_lf%5B1%5D_uf%5B500%5D/Episode-scores.png width="400">
+- PPO:  <img src=/Trained_models/LunarLander-v2/PPO_lr%5B0.0003%5D_b%5B8%5D_GAE%5B0.95%5D_ec%5B0.1%5D_l-%5B64%2C%2032%5D_gc%5B0.5%5D/Episode-scores.png width="400">
 ## LunarLanderContinuous
 - PPO: Agent can land but does'n larn to stop using throtle and get the final bonus 
 - DDPG: soved in ~900 epsiodes
@@ -37,7 +37,8 @@ Agent are sorted by the the action space types they can work with: Discrete, Con
 - DQN: <img src=Trained_models/PongNoFrameskip-v4/DobuleDQN-DuelingDqn-Dqn-lr%5B0.00008%5D_b%5B32%5D_lf%5B1%5D_uf%5B1000%5D/Episode-scores%20(3).png width="400">
 - PPO: <img src=Trained_models/PongNoFrameskip-v4/PPO_lr%5B0.0001%5D_b%5B8%5D_GAE%5B1.0%5D/Episode-scores_pong.png width="400">
 ## AtariBreakout
-- PPO: reaches currently ~150 score
+
+- PPO: <img src=Trained_models/BreakoutNoFrameskip-v4/PPO_lr%5B0.00050%5D_b%5B4%5D_GAE%5B0.95%5D_ec%5B0.1%5D_fl-%5B512%2C%20512%5D_ml-%5B%5D_gc%5B0.5%5D/Episode-scores.png width="400">
 
 # Credits
 Credit to all those Github repository I aspired from. I consulted a lot of repositories in order while implementing the algorithms, defining architectures and finetuning hyperparameters
