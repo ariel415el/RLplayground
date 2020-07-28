@@ -35,7 +35,8 @@ Agent are sorted by the the action space types they can work with: Discrete, Con
 - TD3 fine tuned from agent trained on BipedalWalker)
 ## AtariPong: 
 - DQN: <img src=Trained_models/PongNoFrameskip-v4/DobuleDQN-DuelingDqn-Dqn-lr%5B0.00008%5D_b%5B32%5D_lf%5B1%5D_uf%5B1000%5D/Episode-scores%20(3).png width="400">
-- PPO: <img src=Trained_models/PongNoFrameskip-v4/PPO_lr%5B0.0001%5D_b%5B8%5D_GAE%5B1.0%5D/Episode-scores_pong.png width="400">
+- PPO: <img src=Trained_models/PongNoFrameskip-v4/PPO_lr%5B0.0001%5D_b%5B8%5D_GAE%5B1.0%5D/Episode-scores_pong.png width="400"> <img src=Trained_models/PongNoFrameskip-v4/PPO_lr%5B0.0001%5D_b%5B8%5D_GAE%5B1.0%5D/openaigym.video.66.400.video000000.gif width="200" />
+
 ## AtariBreakout
 
 - PPO: <img src=Trained_models/BreakoutNoFrameskip-v4/PPO_lr%5B0.00050%5D_b%5B4%5D_GAE%5B0.95%5D_ec%5B0.1%5D_fl-%5B512%2C%20512%5D_ml-%5B%5D_gc%5B0.5%5D/Episode-scores.png width="400"> <img src=Trained_models/BreakoutNoFrameskip-v4/PPO_lr%5B0.00050%5D_b%5B4%5D_GAE%5B0.95%5D_ec%5B0.1%5D_fl-%5B512%2C%20512%5D_ml-%5B%5D_gc%5B0.5%5D/cherry_picked_videos/gif1gif width="200" />
