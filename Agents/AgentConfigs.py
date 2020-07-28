@@ -64,7 +64,7 @@ def get_agent_configs(agent_name, env_name):
     elif env_name == "LunarLander-v2":
         agent_configs = {
             "DQN": {'lr': 0.0007, "min_playback": 1000, "max_playback": 1000000, "update_freq": 500,
-                    'hiden_layer_size': 256, 'epsilon_decay': 10000},
+                    'fe_layers': [256], 'model_layer': 256, 'epsilon_decay': 10000},
             "VanilaPG": {'lr': 0.001, 'batch_episodes': 32, 'hidden_layers': [64, 64, 128]},
             "A2C": {'lr': 0.005, 'batch_episodes': 8, 'GAE': 0.96, 'hidden_layers': [64, 32]},
             "PPO": {'lr': 0.001, 'batch_episodes': 8, 'epochs': 3, 'GAE': 0.95, 'minibatch_size': 32,

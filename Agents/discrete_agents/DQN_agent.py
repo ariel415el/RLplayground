@@ -180,7 +180,8 @@ class DQN_agent(GenericAgent):
             self.name += "NoisyNetwork-"
         else:
             self.name += "Dqn-"
-        self.name += "lr[%.5f]_b[%d]_lf[%d]_uf[%d]"%(self.hp['lr'], self.hp['batch_size'], self.hp['learn_freq'], self.hp['update_freq'])
+        self.name += "lr[%.5f]_b[%d]_lf[%d]_uf[%d]_l[%s-%s]"%(self.hp['lr'], self.hp['batch_size'], self.hp['learn_freq'], self.hp['update_freq']
+                                                              ,self.hp['fe_layers'], self.hp['model_layer'] )
 
     def _get_cur_epsilon(self):
         cur_epsilon = self.hp['min_epsilon'] + (self.hp['epsilon'] - self.hp['min_epsilon']) * np.exp(-1. * self.action_counter / self.hp['epsilon_decay'])
@@ -203,16 +204,17 @@ class DQN_agent(GenericAgent):
         return action_index
 
     def process_output(self, new_state, reward, is_finale_state):
-        self.playback_memory.add_sample((self.last_state, self.last_action, new_state, reward, is_finale_state))
+        if self.train:
+            self.playback_memory.add_sample((self.last_state, self.last_action, new_state, reward, is_finale_state))
 
-        self._learn()
-        if self.action_counter % self.hp['update_freq'] == 0:
-            update_net(self.target_model, self.trainable_model, self.hp['tau'])
+            self._learn()
+            if self.action_counter % self.hp['update_freq'] == 0:
+                update_net(self.target_model, self.trainable_model, self.hp['tau'])
 
-        if self.hp['lr_decay'] < 1 and (self.gs_num + 1) % 10 == 0:
-            for param_group in self.optimizer.param_groups:
-                param_group['lr'] *= self.hp['lr_decay']
-            self.reporter.add_costume_log("lr", self.action_counter, self.optimizer.param_groups[0]['lr'])
+            if self.hp['lr_decay'] < 1 and (self.gs_num + 1) % 10 == 0:
+                for param_group in self.optimizer.param_groups:
+                    param_group['lr'] *= self.hp['lr_decay']
+                self.reporter.add_costume_log("lr", self.action_counter, self.optimizer.param_groups[0]['lr'])
 
     def _learn(self):
         if len(self.playback_memory) >= max(self.hp['min_playback'], self.hp['batch_size']) and self.action_counter % self.hp['learn_freq'] == 0:
