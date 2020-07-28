@@ -120,6 +120,9 @@ def get_agent_configs(agent_name, env_name):
             "DQN": {'lr': 0.00001, "min_playback": 50000, "max_playback": 1000000, "update_freq": 10000,
                     'learn_freq': 4, 'fe_layers': [(32, 8, 4), (64, 4, 2), (64, 3, 1), 256, 256], 'model_layers': 64,
                     "normalize_state": False, 'epsilon_decay': 5000000},
+            "A2C": {'lr': 0.005, 'lr_decay': 0.999, 'batch_episodes': 4, 'GAE': 0.95,
+                    'fe_layers': [(32, 8, 4), (64, 4, 2), (64, 3, 1), 512, 512], 'model_layers': []},
+
             "PPO": {'lr': 0.005, 'lr_decay': 0.999, 'batch_episodes': 4, 'epochs': 3, 'minibatch_size': 2048,
                     'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None,
                     'grad_clip': 0.5, 'entropy_weight': 0.01, 'fe_layers': [(32, 8, 4), (64, 4, 2), (64, 3, 1), 512, 512], 'model_layers': [],

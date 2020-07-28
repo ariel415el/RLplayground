@@ -45,28 +45,29 @@ class ActorCritic(GenericAgent):
             'discount':0.99,
             'lr':0.01,
             'lr_decay':0.95,
-            'hidden_layers':[128,128],
+            'fe_layers':[128,128],
+            'model_layers':[64],
             "GAE": 1
         }
         self.hp.update(hp)
         self.samples = Memory()
 
         if len(self.state_dim) > 1:
-            feature_extractor = ConvNetFeatureExtracor(self.state_dim[0])
+            feature_extractor = ConvNetFeatureExtracor(self.state_dim , self.hp['fe_layers'])
         else:
-            feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['hidden_layers'][0])
+            feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['fe_layers'])
 
         if type(self.action_dim) == list:
-            self.policy = ActorCriticModel(feature_extractor, len(self.action_dim[0]), self.hp['hidden_layers'], discrete=False).to(device)
+            self.policy = ActorCriticModel(feature_extractor, len(self.action_dim[0]), self.hp['model_layers'], discrete=False).to(device)
         else:
-            self.policy = ActorCriticModel(feature_extractor, self.action_dim[0], self.hp['hidden_layers'][1:], discrete=True).to(device)
+            self.policy = ActorCriticModel(feature_extractor, self.action_dim, self.hp['model_layers'], discrete=True).to(device)
 
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.hp['lr'])
         self.optimizer.zero_grad()
         self.learn_steps = 0
         self.episodes_in_cur_batch = 0
 
-        self.name += "_lr[%.5f]_b[%d]_GAE[%.2f]_l-%s"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'],self.hp['hidden_layers'])
+        self.name += "_lr[%.5f]_b[%d]_GAE[%.2f]_l-%s"%(self.hp['lr'], self.hp['batch_episodes'], self.hp['GAE'],self.hp['fe_layers'])
 
     def process_new_state(self, state):
         state = torch.from_numpy(np.array(state)).to(device).float()
@@ -99,7 +100,7 @@ class ActorCritic(GenericAgent):
         state_values, logprobs, raw_rewards, is_ns_terminals = self.samples.get_as_tensors(device)
 
         raw_rewards = np.array(raw_rewards)
-        raw_rewards = raw_rewards / raw_rewards.std()
+        # raw_rewards = raw_rewards / raw_rewards.std()
         advantages, rewards = GenerelizedAdvantageEstimate(self.hp['GAE'], state_values, raw_rewards, is_ns_terminals, self.hp['discount'], device)
         advantages = (advantages - advantages.mean()) / max(advantages.std(), 1e-6)
 
@@ -111,8 +112,8 @@ class ActorCritic(GenericAgent):
         loss.backward()
         self.optimizer.step()
 
-        self.reporter.update_agent_stats("actor_loss", self.learn_steps, actor_loss.mean().item())
-        self.reporter.update_agent_stats("critic_loss", self.learn_steps, critic_loss.mean().item())
+        self.reporter.add_costume_log("actor_loss", self.learn_steps, actor_loss.mean().item())
+        self.reporter.add_costume_log("critic_loss", self.learn_steps, critic_loss.mean().item())
 
     def load_state(self, path):
         if os.path.exists(path):

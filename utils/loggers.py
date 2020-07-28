@@ -11,7 +11,9 @@ import pickle
 class logger(object):
     """Basic logger of training progress"""
     def __init__(self, log_frequency, logdir):
+        # self.logdir = os.path.join(logdir, 'logs')
         self.logdir = logdir
+        os.makedirs(self.logdir, exist_ok=True)
         self.log_frequency = log_frequency
         self.episodes_scores = []
         self.score_scope_scores = []

@@ -9,9 +9,12 @@ from gym import wrappers
 class train_progress_manager(object):
     """This object is responsible of monitoring train progress, logging results"""
     def __init__(self, train_dir, solved_score, score_scope, logger, checkpoint_steps=0.2, train_episodes=1000000, temporal_frequency=60**2):
-        os.makedirs(train_dir, exist_ok=True)
-        self.solved_score = solved_score
         self.train_dir = train_dir
+        self.ckp_dir = os.path.join(train_dir, 'checkpoints')
+        self.videos_dir = os.path.join(train_dir, 'videos')
+        os.makedirs(self.ckp_dir, exist_ok=True)
+        os.makedirs(self.videos_dir, exist_ok=True)
+        self.solved_score = solved_score
         self.checkpoint_steps = checkpoint_steps
         self.temporal_frequency = temporal_frequency
         self.next_progress_checkpoint = 1
@@ -31,10 +34,10 @@ class train_progress_manager(object):
         time_passed = time() - self.start_time
         save_path = None
         if score_scope_avg > self.next_progress_checkpoint * self.checkpoint_steps * self.solved_score:
-            save_path = os.path.join(self.train_dir, "progress_ckp-_%.5f.pt" % score_scope_avg)
+            save_path = os.path.join(self.ckp_dir, "progress_ckp-_%.5f.pt" % score_scope_avg)
             self.next_progress_checkpoint += 1
         elif time_passed > self.temporal_frequency * self.next_time_checkpoint:
-            save_path =  os.path.join(self.train_dir,"time_ckp_%.3f.pt"%(time_passed/360))
+            save_path =  os.path.join(self.ckp_dir,"time_ckp_%.3f.pt"%(time_passed/360))
             self.next_time_checkpoint += 1
         self.episodes_done += 1
         if score_scope_avg >= self.solved_score:
@@ -76,7 +79,7 @@ def train_agent_multi_env(env_builder, agent, progress_manager, test_frequency=2
                     if (progress_manager.episodes_done + 1) % test_frequency == 0:
                         test_env = env_builder()
                         if save_videos:
-                            test_env = gym.wrappers.Monitor(test_env, os.path.join(progress_manager.train_dir, "test_%d" % (
+                            test_env = gym.wrappers.Monitor(test_env, os.path.join(progress_manager.videos_dir, "test_%d" % (
                                         progress_manager.episodes_done + 1)), video_callable=lambda episode_id: True,
                                                             force=True)
                             test_score = test(test_env, agent, test_episodes)
@@ -102,14 +105,14 @@ def train_agent(env_generator, agent, progress_manager, test_frequency=250, test
         if (progress_manager.episodes_done+1) % test_frequency == 0:
             test_env = env_generator(test_config=True)
             if save_videos:
-                test_env = gym.wrappers.Monitor(test_env, os.path.join(progress_manager.train_dir, "test_%d" % (progress_manager.episodes_done+1)), video_callable=lambda episode_id: True, force=True)
+                test_env = gym.wrappers.Monitor(test_env, os.path.join(progress_manager.videos_dir, "test_%d" % (progress_manager.episodes_done+1)), video_callable=lambda episode_id: True, force=True)
                 test_score = test(test_env, agent, test_episodes)
             else:
                 test_score = test(test_env, agent, test_episodes)
             progress_manager.report_test(test_score)
             test_env.close()
 
-    agent.save_state(os.path.join(progress_manager.train_dir,"Final-weights.pth"))
+    agent.save_state(os.path.join(progress_manager.train_dir, "Final-weights.pth"))
     train_env.close()
 
 
