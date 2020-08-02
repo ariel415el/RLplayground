@@ -5,7 +5,6 @@ from Agents.AgentBuilder import build_agent
 from Enviroment.EnvBuilder import get_env_builder, get_env_goal
 import train
 from opt import *
-import gym
 from gym import wrappers
 
 def get_train_function(agent_name):

@@ -53,8 +53,8 @@ class train_progress_manager(object):
 
 def train_agent_multi_env(env_builder, agent, progress_manager, test_frequency=250, test_episodes=1, save_videos=False):
     """Train agent that can train with multiEnv objects"""
-    # multi_env = MultiEnviroment(env_builder, agent.hp['concurrent_epsiodes'])
-    multi_env = MultiEnviromentSync(env_builder, agent.hp['concurrent_epsiodes'])
+    multi_env = MultiEnviroment(env_builder, agent.hp['concurrent_epsiodes'])
+    # multi_env = MultiEnviromentSync(env_builder, agent.hp['concurrent_epsiodes'])
     total_scores = [0 for _ in range(agent.hp['concurrent_epsiodes'])]
     total_lengths = [0 for _ in range(agent.hp['concurrent_epsiodes'])]
     states = multi_env.get_initial_state()

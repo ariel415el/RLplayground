@@ -21,7 +21,7 @@ class PPOParallel(GenericAgent):
             'minibatch_size':32,
             'discount':0.99,
             'lr':0.01,
-            'lr_decay':0.95,
+            'lr_decay':0.995,
             'epsilon_clip':0.2,
             'value_clip':0.5,
             'fe_layers':[64],
@@ -113,7 +113,7 @@ class PPOParallel(GenericAgent):
 
         actions = dists.sample().detach()
         self.states_memory[:,self.num_steps] = torch_states
-        self.actions_memory[:, self.num_steps] = actions.view(-1,1)
+        self.actions_memory[:, self.num_steps] = actions.view(-1, self.num_outputs)
         self.values_memory[:, self.num_steps] = values.detach()
         self.logprobs_memory[:, self.num_steps] = dists.log_prob(actions).detach().view(-1,1)
 
@@ -154,7 +154,7 @@ class PPOParallel(GenericAgent):
         advantages = discount_batch(deltas, self.is_terminals_memory, self.hp['GAE'] * self.hp['discount'], device)
         # rewards = advantages + cur_values
         rewards = discount_batch(self.rewards_memory, self.is_terminals_memory,  self.hp['discount'], device)
-        rewards = (rewards - rewards.mean()) / max(rewards.std(), 1e-6)
+        # rewards = (rewards - rewards.mean()) / max(rewards.std(), 1e-6)
         advantages = (advantages - advantages.mean()) / max(advantages.std(), 1e-6)
 
         # Create a dataset from flatten data
@@ -186,7 +186,11 @@ class PPOParallel(GenericAgent):
                     critic_loss = value_loss
 
                 # Finding the ratio (pi_theta / pi_theta_old):
-                logprobs = dists.log_prob(old_policy_actions_batch.view(-1))
+                # logprobs = dists.log_prob(old_policy_actions_batch.view(-1))
+                if self.num_outputs == 1:
+                    logprobs = dists.log_prob(old_policy_actions_batch.view(-1))
+                else:
+                    logprobs = dists.log_prob(old_policy_actions_batch)
                 ratios = torch.exp(logprobs.view(-1,1) - old_policy_loggprobs_batch)
                 # Finding Surrogate actor Loss:
                 ratios = torch.clamp(ratios, 0, 10)  # TODO temporal experiment

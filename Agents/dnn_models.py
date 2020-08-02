@@ -77,7 +77,6 @@ class LinearFeatureExtracor(nn.Module):
         self.layers = nn.Sequential(*layers)
 
     def forward(self, x):
-
         return self.layers(x)
 
 def conv_out_dim(dim, k, s):

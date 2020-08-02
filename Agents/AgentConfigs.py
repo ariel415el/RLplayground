@@ -12,7 +12,7 @@ def get_agent_configs(agent_name, env_name):
             "PPO": {'lr': 0.001, 'batch_episodes': 8, 'epochs': 3, 'GAE': 0.95, 'minibatch_size': 32,
                     'epsilon_clip': 0.1, 'value_clip': None,
                     'grad_clip': 0.5, 'entropy_weight': 0.01, 'fe_layers': [64], 'model_layers': [32, 32]},
-            "PPOParallel": {'lr': 0.001, 'lr_decay': 0.9999, 'concurrent_epsiodes': 8, 'horizon': 4000, 'epochs': 3,
+            "PPOParallel": {'lr': 0.001, 'lr_decay': 0.9999, 'concurrent_epsiodes': 8, 'horizon': 128, 'epochs': 3,
                             'minibatch_size': 32,
                             'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None, 'grad_clip': 0.5, 'fe_layers': [64],
                             'model_layers': [32, 32]},
@@ -70,7 +70,7 @@ def get_agent_configs(agent_name, env_name):
             "PPO": {'lr': 0.001, 'batch_episodes': 8, 'epochs': 3, 'GAE': 0.95, 'minibatch_size': 32,
                     'epsilon_clip': 0.1, 'value_clip': None,
                     'grad_clip': 0.5, 'entropy_weight': 0.01, 'fe_layers': [64], 'model_layers': [32, 32]},
-            "PPOParallel": {'lr': 0.001, 'lr_decay': 0.9999, 'concurrent_epsiodes': 8, 'horizon': 4000, 'epochs': 3,
+            "PPOParallel": {'lr': 0.001, 'lr_decay': 0.99, 'concurrent_epsiodes': 8, 'horizon': 128, 'epochs': 3,
                             'minibatch_size': 32,
                             'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None, 'grad_clip': 0.5, 'fe_layers': [64],
                             'model_layers': [32, 32]},
@@ -83,23 +83,25 @@ def get_agent_configs(agent_name, env_name):
             "PPO": {'lr': 0.001, 'batch_episodes': 8, 'epochs': 3, 'GAE': 0.95, 'minibatch_size': 32,
                     'epsilon_clip': 0.1, 'value_clip': None,
                     'grad_clip': 0.5, 'entropy_weight': 0.01, 'fe_layers': [64], 'model_layers': [32, 32]},
-            "PPOParallel": {'lr': 0.00025, 'concurrent_epsiodes': 16, 'horizon': 128, 'epochs': 3, 'minibatch_size': 32,
-                            'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None, 'grad_clip': 0.5},
+            "PPOParallel": {'lr': 0.005, 'concurrent_epsiodes': 16, 'horizon': 1000, 'epochs': 3, 'minibatch_size': 32,
+                            'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None, 'grad_clip': 0.5,
+                        'fe_layers': [64] ,'model_layers': [32, 32]},
             "DDPG": {'actor_lr': 0.0001, 'critic_lr': 0.001, 'batch_size': 100, 'min_playback': 0,
                      'layer_dims': [400, 200], 'tau': 0.001, "update_freq": 1, 'learn_freq': 1},
             "TD3": {'actor_lr': 0.0003, 'critic_lr': 0.00025, "exploration_steps": 5000,
                     "min_memory_for_learning": 10000, "batch_size": 128}
         }
 
-
-
     elif env_name == "BipedalWalker-v3":
         agent_configs = {
             "VanilaPG": {'lr': 0.001, 'batch_episodes': 32, 'hidden_layers': [64, 64, 128]},
             "A2C": {'lr': 0.005, 'batch_episodes': 8, 'GAE': 0.96, 'hidden_layers': [32, 16]},
-            "PPO": {'lr': 0.0005, 'lr_decay': 0.995, 'batch_episodes': 8, 'epochs': 3, 'minibatch_size': 512,
+            "PPO": {'lr': 0.0005, 'lr_decay': 0.995, 'batch_episodes': 8, 'epochs': 8, 'minibatch_size': 2048,
                     'GAE': 0.95, 'epsilon_clip': 0.2, 'value_clip': None,
-                    'grad_clip': 0.5, 'entropy_weight': 0.01, 'fe_layers': [64, 128], "model_layers":[32,32]},
+                    'grad_clip': 0.5, 'entropy_weight': 0.01, 'fe_layers': [], "model_layers":[64,32]},
+            "PPOParallel": {'lr': 0.001,'lr_decay': 0.995, 'concurrent_epsiodes': 16, 'horizon': 128, 'epochs': 3, 'minibatch_size': 32,
+                            'GAE': 0.95, 'epsilon_clip': 0.2, 'value_clip': None, 'grad_clip': 0.5,
+                            'fe_layers': [80], "model_layers":[80,80]},
             "DDPG": {'actor_lr': 0.0001, 'critic_lr': 0.001, 'batch_size': 100, 'min_playback': 0,
                      'layer_dims': [400, 200], 'tau': 0.001, "update_freq": 1, 'learn_freq': 1},
             "TD3": {'actor_lr': 0.00025, 'critic_lr': 0.00025}
