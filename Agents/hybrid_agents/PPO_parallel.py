@@ -35,7 +35,7 @@ class PPOParallel(GenericAgent):
         safe_update_dict(self.hp, hp)
 
         if len(self.state_dim) > 1:
-            feature_extractor = ConvNetFeatureExtracor(self.state_dim[0], self.hp['fe_layers'])
+            feature_extractor = ConvNetFeatureExtracor(self.state_dim, self.hp['fe_layers'])
         else:
             feature_extractor = LinearFeatureExtracor(self.state_dim[0], self.hp['fe_layers'], batch_normalization=False,  activation=nn.ReLU())
 
@@ -76,7 +76,7 @@ class PPOParallel(GenericAgent):
         self.values_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon'] + 1, 1)).to(device)
         self.logprobs_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon'], 1)).to(device)
         self.rewards_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon'], 1)).to(device)
-        self.is_terminals_memory = torch.full((self.hp['concurrent_epsiodes'], self.hp['horizon'], 1), False).to(device)
+        self.is_terminals_memory = torch.zeros((self.hp['concurrent_epsiodes'], self.hp['horizon'], 1)).to(device)
 
     def load_state(self, path):
         if os.path.exists(path):
