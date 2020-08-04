@@ -22,8 +22,8 @@ Agent are sorted by the the action space types they can work with: Discrete, Con
 - TD3
 - PPO
 ## LunarLander
-- DQN:  <img src=Trained_models/LunarLander-v2/DobuleDQN-Dqn-lr%5B0.00070%5D_b%5B32%5D_lf%5B1%5D_uf%5B500%5D_l%5B%5B256%5D-256%5D/Episode-scores.png width="400"> <img src=Trained_models/LunarLander-v2/DobuleDQN-Dqn-lr%5B0.00070%5D_b%5B32%5D_lf%5B1%5D_uf%5B500%5D_l%5B%5B256%5D-256%5D/gif.gif width="400">
-- PPO: <img src=https://github.com/ariel415el/RLplayground/blob/master/Trained_models/LunarLander-v2/PPO_lr%5B0.00100%5D_b%5B8%5D_GAE%5B0.95%5D_ec%5B0.1%5D_fl-%5B64%5D_ml-%5B32%2C%2032%5D_gc%5B0.5%5D/Episode-scores.png width="400"> <img src=https://github.com/ariel415el/RLplayground/blob/master/Trained_models/LunarLander-v2/PPO_lr%5B0.00100%5D_b%5B8%5D_GAE%5B0.95%5D_ec%5B0.1%5D_fl-%5B64%5D_ml-%5B32%2C%2032%5D_gc%5B0.5%5D/ezgif.com-video-to-gif.gif width="400">
+- DQN:  <img src=Trained_models/LunarLander-v2/DobuleDQN-Dqn-lr%5B0.00070%5D_b%5B32%5D_lf%5B1%5D_uf%5B500%5D_l%5B%5B256%5D-256%5D/Episode-scores.png width="400"> <img src=Trained_models/LunarLander-v2/DobuleDQN-Dqn-lr%5B0.00070%5D_b%5B32%5D_lf%5B1%5D_uf%5B500%5D_l%5B%5B256%5D-256%5D/gif.gif width="300">
+- PPO: <img src=Trained_models/LunarLander-v2/PPO_lr%5B0.00100%5D_b%5B8%5D_GAE%5B0.95%5D_ec%5B0.1%5D_fl-%5B64%5D_ml-%5B32%2C%2032%5D_gc%5B0.5%5D/Episode-scores.png width="400"> <img src=Trained_models/LunarLander-v2/PPO_lr%5B0.00100%5D_b%5B8%5D_GAE%5B0.95%5D_ec%5B0.1%5D_fl-%5B64%5D_ml-%5B32%2C%2032%5D_gc%5B0.5%5D/ezgif.com-video-to-gif.gif width="300">
 
 ## LunarLanderContinuous
 - PPO: Agent can land but does'n larn to stop using throtle and get the final bonus 
@@ -31,7 +31,7 @@ Agent are sorted by the the action space types they can work with: Discrete, Con
 - TD3: 
 ## BipedalWalker: 
 - TD3: <img src=Trained_models/BipedalWalker-v3/TD3_lr%5B0.0003%5D_b%5B256%5D_tau%5B0.0050%5D_uf%5B2%5D/Episode-scores%20(1).png width="400">
-- PPO
+- PPO:  <img src=Trained_models/BipedalWalker-v3/PPO-Parallel_lr%5B0.00030%5D_b%5B1%5D_GAE%5B0.95%5D_ec%5B0.2%5D_l-%5B%5D-%5B64%2C%2064%5D_gc%5B0.5%5D/Episode-scores.png width="400"> <img src=Trained_models/BipedalWalker-v3/PPO-Parallel_lr%5B0.00030%5D_b%5B1%5D_GAE%5B0.95%5D_ec%5B0.2%5D_l-%5B%5D-%5B64%2C%2064%5D_gc%5B0.5%5D/gif.gif width="300">
 ## BipedalWalkerHardcore
 - TD3 fine tuned from agent trained on BipedalWalker)
 ## AtariPong: 
