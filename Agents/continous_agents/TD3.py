@@ -131,13 +131,13 @@ class TD3(GenericAgent):
                     update_net(self.target_actor, self.trainable_actor, self.hp['tau'])
                     update_net(self.target_critics, self.trainable_critics, self.hp['tau'])
 
-                    # Decay lr
-                    for param_group in self.actor_optimizer.param_groups:
-                        param_group['lr'] *= self.hp['lr_decay']
-                    for param_group in self.critics_optimizer.param_groups:
-                        param_group['lr'] *= self.hp['lr_decay']
-                    self.reporter.add_costume_log("actor_lr", self.steps, self.actor_optimizer.param_groups[0]['lr'])
-                    self.reporter.add_costume_log("critic_lr", self.steps, self.critics_optimizer.param_groups[0]['lr'])
+                    # # Decay lr
+                    # for param_group in self.actor_optimizer.param_groups:
+                    #     param_group['lr'] *= self.hp['lr_decay']
+                    # for param_group in self.critics_optimizer.param_groups:
+                    #     param_group['lr'] *= self.hp['lr_decay']
+                    # self.reporter.add_costume_log("actor_lr", self.steps, self.actor_optimizer.param_groups[0]['lr'])
+                    # self.reporter.add_costume_log("critic_lr", self.steps, self.critics_optimizer.param_groups[0]['lr'])
 
     def _learn(self):
         if len(self.playback_memory) > self.hp['min_memory_for_learning']:
@@ -165,17 +165,16 @@ class TD3(GenericAgent):
             critic_loss = ( (q_values_1.view(-1) - target_values).pow(2) + (q_values_2.view(-1) - target_values).pow(2) ).mean()
             critic_loss.backward()
             self.critics_optimizer.step()
-            self.reporter.add_costume_log("critic_loss", self.steps, critic_loss)
+            self.reporter.add_costume_log("critic_loss", self.steps, critic_loss.item())
 
-            # update  policy only each few steps (delayed update)
+            # # update  policy only each few steps (delayed update)
             if self.steps % self.hp['policy_update_freq'] == 0:
                 # update actor
                 self.actor_optimizer.zero_grad()
                 actor_obj = -self.trainable_critics.Q1(states, self.trainable_actor(states)).mean() # paper suggest using critic_1 ?
                 actor_obj.backward()
                 self.actor_optimizer.step()
-                self.reporter.add_costume_log("actor_obj", self.steps, actor_obj)
-
+                self.reporter.add_costume_log("actor_obj", self.steps, actor_obj.item())
 
     def load_state(self, path):
         if path is not None and os.path.exists(path):

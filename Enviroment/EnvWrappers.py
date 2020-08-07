@@ -277,13 +277,13 @@ def get_atari_env(env_name, episode_life=False, clip_rewards=False, frame_stack=
         env = DisableNoOpAction(env)
     return env
 
-def get_super_mario_env(env_name,simple_actions=True):
+def get_super_mario_env(env_name, simple_actions=True):
     from nes_py.wrappers import JoypadSpace
     import gym_super_mario_bros
     from gym_super_mario_bros.actions import SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
     env = gym_super_mario_bros.make(env_name)
 
-    env = EpisodicLifeEnv(env, is_atari=False)
+    # env = EpisodicLifeEnv(env, is_atari=False)
     env = WarpFrame(env)
 
     if simple_actions:

@@ -51,13 +51,17 @@ def get_agent_configs(agent_name, env_name):
         agent_configs = {
             "VanilaPG": {'lr': 0.0001, 'batch_episodes': 32, 'hidden_layers': [400, 300]},
             "A2C": {'lr': 0.0004, 'lr_decay': 0.99, 'batch_episodes': 64, 'GAE': 0.95, 'hidden_layers': [400, 400]},
-            "PPO_ICM": {'lr': 0.001, 'batch_episodes': 8, 'epochs': 10, 'GAE': 0.95, 'epsilon_clip': 0.3,
+            "PPO": {'lr': 0.001, 'batch_episodes': 8, 'epochs': 10, 'GAE': 0.95, 'epsilon_clip': 0.3,
                         'value_clip': 0.5,
-                        'grad_clip': 0.5, 'entropy_weight': 0.01, 'hidden_layers': [512]},
+                        'grad_clip': 0.5, 'entropy_weight': 0.01, 'fe_layers': [64], "model_layers":[]},
+            "PPOParallel": {'lr': 0.001, 'lr_decay': 0.99, 'concurrent_epsiodes': 8, 'horizon': 128, 'epochs': 3,
+                            'minibatch_size': 32,
+                            'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None, 'grad_clip': 0.5, 'fe_layers': [64],
+                            'model_layers': []},
             "DDPG": {'actor_lr': 0.0001, 'critic_lr': 0.001, 'batch_size': 64, 'min_playback': 1000,
                      'layer_dims': [400, 300],
                      'tau': 0.001, "update_freq": 1, 'learn_freq': 1},
-            "TD3": {'actor_lr': 0.00005, 'critic_lr': 0.0001, "exploration_steps": 5000,
+            "TD3": {'actor_lr': 0.00005, 'critic_lr': 0.0001, "exploration_steps": 5000, 'max_playback':100000,
                     "min_memory_for_learning": 10000, "batch_size": 128}
         }
 
@@ -104,8 +108,8 @@ def get_agent_configs(agent_name, env_name):
                             'fe_layers': [], "model_layers":[64,64]},
             "DDPG": {'actor_lr': 0.0001, 'critic_lr': 0.001, 'batch_size': 100, 'min_playback': 0,
                      'layer_dims': [400, 200], 'tau': 0.001, "update_freq": 1, 'learn_freq': 1},
-            "TD3": {'actor_lr': 0.00025, 'critic_lr': 0.00025
-            , "exploration_steps":5000, "min_memory_for_learning":10000, "batch_size": 256}
+            "TD3": {'actor_lr': 0.00025, 'critic_lr': 0.00025,
+            "exploration_steps":5000, "min_memory_for_learning":10000, "batch_size": 32}
         }
 
     elif env_name == "PongNoFrameskip-v4":
@@ -117,7 +121,7 @@ def get_agent_configs(agent_name, env_name):
         }
 
 
-    elif env_name == "BreakoutNoFrameskip-v4" or env_name == "BreakoutDeterministic-v4":
+    elif env_name == "BreakoutNoFrameskip-v4" or env_name == "FreewayNoFrameskip-v4":
         agent_configs = {
             "DQN": {'lr': 0.00001, "min_playback": 50000, "max_playback": 1000000, "update_freq": 10000,
                     'learn_freq': 4, 'fe_layers': [(32, 8, 4), (64, 4, 2), (64, 3, 1), 256, 256], 'model_layers': 64,
@@ -151,10 +155,10 @@ def get_agent_configs(agent_name, env_name):
     elif "SuperMarioBros" in env_name:
         agent_configs = {
             "DQN": {'lr': 0.0001, 'batch_size': 1, 'learn_freq': 9999999, "min_playback": 1000, "max_playback": 100000,
-                    "update_freq": 1000, 'hiden_layer_size': 16, "normalize_state": True, 'epsilon_decay': 30000},
+                    "update_freq": 1000, "normalize_state": True, 'epsilon_decay': 30000,  'fe_layers': [(32, 8, 4), (64, 4, 2), (64, 3, 1), 512], 'model_layer':512},
             "PPO": {'lr': 0.00025, 'lr_decay': 0.9999, 'batch_episodes': 4, 'epochs': 3, 'minibatch_size': 1024,
                     'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None,
-                    'grad_clip': 0.5, 'entropy_weight': 0.01, 'fe_layers': [512, 512], 'model_layers': [128],
+                    'grad_clip': 0.5, 'entropy_weight': 0.01,  'fe_layers': [(32, 8, 4), (64, 4, 2), (64, 3, 1), 512, 512], 'model_layers': [],
                     'horizon': None},
         }
     elif "MiniGrid" in env_name:
