@@ -133,10 +133,10 @@ def get_agent_configs(agent_name, env_name):
                     'GAE': 0.95, 'epsilon_clip': 0.1, 'value_clip': None,
                     'grad_clip': 0.5, 'entropy_weight': 0.01, 'fe_layers': [(32, 8, 4), (64, 4, 2), (64, 3, 1), 512, 512], 'model_layers': [],
                     'horizon': None},
-            "PPOParallel": {'lr': 0.00025, 'lr_decay': 0.9999, 'concurrent_epsiodes': 16, 'epochs': 3,
-                            'minibatch_size': 32, 'GAE': 0.95,
+            "PPOParallel": {'lr': 0.00025, 'lr_decay': 0.999, 'concurrent_epsiodes': 8, 'epochs': 3,
+                            'minibatch_size': 256, 'GAE': 0.95,
                             'epsilon_clip': 0.1, 'value_clip': None,
-                            'grad_clip': 0.5, 'entropy_weight': 0.01, 'fe_layers': [512, 512], 'model_layers': []}
+                            'grad_clip': 0.5, 'entropy_weight': 0.01, 'fe_layers': [(32, 8, 4), (64, 4, 2), (64, 3, 1), 512, 512], 'model_layers': []}
         }
 
     elif env_name == "HalfCheetahMuJoCoEnv-v0":

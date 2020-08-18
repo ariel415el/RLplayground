@@ -245,7 +245,7 @@ class LazyFrames(object):
         return np.concatenate(self._frames, axis=0)
 
 
-def get_atari_env(env_name, episode_life=False, clip_rewards=False, frame_stack=1, use_lazy_frames=True, scale=False, no_op_reset=True, disable_noop=False):
+def get_atari_env(env_name, episode_life=False, clip_rewards=False, frame_stack=1, use_lazy_frames=False, scale=False, no_op_reset=False, disable_noop=False):
     """Stack all the wrappers relavant for Atari games in the right order
         May be problematic to chane order of wraping
     """

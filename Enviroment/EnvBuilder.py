@@ -26,9 +26,8 @@ class env_builder(object):
 def get_env_builder(env_name):
     if env_name == "PongNoFrameskip-v4":
         return env_builder(get_atari_env, {'env_name':env_name, 'frame_stack':1})
-    elif env_name == "BreakoutNoFrameskip-v4" or env_name == "FreewayNoFrameskip-v4":
-        train_args = {'env_name':env_name,'frame_stack':4, 'use_lazy_frames':False, 'clip_rewards': False,
-                                           'episode_life':True, 'no_op_reset':False, 'disable_noop':True}
+    elif "NoFrameskip" in env_name:
+        train_args = {'env_name':env_name,'frame_stack':4, 'episode_life':True}
         test_args = train_args.copy()
         test_args['episode_life'] = False
         return env_builder(get_atari_env, train_args, test_args)
